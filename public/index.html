@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbound Router</title>
+  <link rel="preload" href="fonts/sora-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23001639'/%3E%3Cpath d='M7 9h6l5 7h7M7 16h11M7 23h6l5-7' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='16' r='2.6' fill='%2355b1ff'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="strip" id="envStrip" role="note" aria-label="Environment"><div class="strip-in"><b>Prototype</b><span class="item">Synthetic people, real organizations (three CRM accounts are fictional)</span></div></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="6" class="mark-bg"/>
+          <path d="M7 9h6l5 7h7M7 16h11M7 23h6l5-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="25" cy="16" r="2.6" class="mark-dot"/>
+        </svg>
+        <div class="brand-text">
+          <div class="brand-name">Inbound Router</div>
+          <div class="brand-sub">A prototype for Serif Health's GTM · Matthew Eeuwes</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="mode-pill" id="modePill">
+          <span class="dot"></span><span id="modeText">Connecting…</span>
+        </span>
+        <button class="btn btn-secondary" id="replayBtn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.5v11l9-5.5-9-5.5z"/></svg>Replay a day
+        </button>
+        <button class="btn btn-primary" id="submitBtn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke-width="2" stroke-linecap="round" fill="none"/></svg>Send a test lead
+        </button>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button class="tab is-active" role="tab" data-tab="overview" aria-selected="true" aria-controls="view-overview">Overview</button>
+      <button class="tab" role="tab" data-tab="stream" aria-selected="false" aria-controls="view-stream">Lead stream</button>
+      <button class="tab" role="tab" data-tab="review" aria-selected="false" aria-controls="view-review">Needs a person <span class="tab-count" id="reviewCount">0</span></button>
+      <button class="tab" role="tab" data-tab="evals" aria-selected="false" aria-controls="view-evals">Classifier eval</button>
+      <button class="tab" role="tab" data-tab="quality" aria-selected="false" aria-controls="view-quality">Data quality</button>
+      <button class="tab" role="tab" data-tab="how" aria-selected="false" aria-controls="view-how">How it works</button>
+    </nav>
+  </header>
+
+  <main class="views">
+    <!-- OVERVIEW -->
+    <section class="view is-active" id="view-overview" role="tabpanel" aria-label="Overview">
+      <div class="wrap ov" id="overview"><div class="none">Loading…</div></div>
+    </section>
+
+    <!-- STREAM -->
+    <section class="view" id="view-stream" role="tabpanel" aria-label="Lead stream">
+      <div class="split">
+        <div class="pane pane-list">
+          <div class="list-tools">
+            <div class="chips" id="filterChips" role="group" aria-label="Filter by outcome">
+              <button class="chip is-on" data-filter="all">All</button>
+              <button class="chip" data-filter="alert">Rep alerts</button>
+              <button class="chip" data-filter="queue">Queue</button>
+              <button class="chip" data-filter="nurture">Nurture</button>
+              <button class="chip" data-filter="review">Needs a person</button>
+              <button class="chip" data-filter="other">Other</button>
+            </div>
+            <input class="search" id="search" type="search" placeholder="Search" aria-label="Search leads">
+          </div>
+          <div class="list-head">
+            <span>Received</span><span>Lead</span><span>Organization</span><span>Routed to</span><span class="num">Speed</span>
+          </div>
+          <div class="list" id="leadList" role="listbox" aria-label="Leads" tabindex="0"></div>
+        </div>
+
+        <div class="pane pane-detail" id="detail" aria-live="polite">
+          <div class="empty">
+            <div class="empty-title">Pick a lead to see its decision trail</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REVIEW -->
+    <section class="view" id="view-review" role="tabpanel" aria-label="Needs a person">
+      <div class="page">
+        <div class="page-head">
+          <h2>Needs a person</h2>
+        </div>
+        <div id="reviewList" class="review-list"></div>
+      </div>
+    </section>
+
+    <!-- EVALS -->
+    <section class="view" id="view-evals" role="tabpanel" aria-label="Classifier eval">
+      <div class="page">
+        <div class="page-head">
+          <h2>Classifier eval</h2>
+        </div>
+        <div id="evalBody"></div>
+      </div>
+    </section>
+
+    <!-- DATA QUALITY -->
+    <section class="view" id="view-quality" role="tabpanel" aria-label="Data quality">
+      <div class="page">
+        <div class="page-head">
+          <h2>Data quality</h2>
+        </div>
+        <div id="qualityBody"></div>
+      </div>
+    </section>
+
+    <!-- HOW -->
+    <section class="view" id="view-how" role="tabpanel" aria-label="How it works">
+      <div class="page">
+        <div class="page-head">
+          <h2>How it works</h2>
+        </div>
+        <figure class="diagram">
+          <svg viewBox="0 0 1180 470" role="group" aria-label="Pipeline: inbound doors to a webhook, then normalize, resolve, qualify, score and route, then out to a rep alert and, after it, HubSpot. Qualify calls a model slot: a small local model in this demo, and at Serif whichever open-weights or hosted model beats it on the eval. A request with a bad or missing signature is refused and a repeat delivery is ignored. A company the router cannot place, or a lead only the model calls spam or a vendor pitch (at any confidence) or another kind of non-buyer (under 0.8 confidence), is held for a person: RevOps decides before any rep is alerted, unless the account already has an owner, who gets it with the doubt in the alert. A failed HubSpot write is flagged on the lead; the alert has already gone out.">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrowhead"/></marker>
+              <marker id="arr-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrowhead-warn"/></marker>
+            </defs>
+            <!-- doors -->
+            <text x="20" y="28" class="d-cap">INBOUND DOORS</text>
+            <g class="d-doors" data-node="doors" tabindex="0" role="button" aria-label="Inbound doors: how it is built">
+              <rect x="20" y="42" width="170" height="30" rx="7"/><text x="34" y="62">Demo request (Calendly)</text>
+              <rect x="20" y="80" width="170" height="30" rx="7"/><text x="34" y="100">Gated guides</text>
+              <rect x="20" y="118" width="170" height="30" rx="7"/><text x="34" y="138">Try Signal sign-up</text>
+              <rect x="20" y="156" width="170" height="30" rx="7"/><text x="34" y="176">Signal Ask waitlist</text>
+              <rect x="20" y="194" width="170" height="30" rx="7"/><text x="34" y="214">Marketplace inquiry</text>
+              <rect x="20" y="232" width="170" height="30" rx="7"/><text x="34" y="252">API / MCP key</text>
+              <rect x="20" y="270" width="170" height="30" rx="7"/><text x="34" y="290">Event badge scan</text>
+              <rect x="20" y="308" width="170" height="30" rx="7"/><text x="34" y="328">Web intent (account)</text>
+            </g>
+            <path d="M190 190 H232" class="d-line" marker-end="url(#arr)"/>
+            <!-- webhook -->
+            <g class="d-box d-key" data-node="webhook" tabindex="0" role="button" aria-label="Webhook: how it is built">
+              <rect x="236" y="130" width="166" height="120" rx="10"/>
+              <text x="252" y="158" class="d-title">Webhook</text>
+              <text x="252" y="182">verify signature</text>
+              <text x="252" y="202">store once (idempotent)</text>
+              <text x="252" y="222">reply 202, work async</text>
+            </g>
+            <path d="M402 190 H418" class="d-line" marker-end="url(#arr)"/>
+            <!-- stages -->
+            <g class="d-box" data-node="normalize" tabindex="0" role="button" aria-label="Normalize: how it is built"><rect x="422" y="150" width="110" height="80" rx="10"/><text x="438" y="178" class="d-title">Normalize</text><text x="438" y="200">email, title,</text><text x="438" y="217">UTM, channel</text></g>
+            <path d="M532 190 H552" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box d-key" data-node="resolve" tabindex="0" role="button" aria-label="Resolve: how it is built"><rect x="556" y="150" width="120" height="80" rx="10"/><text x="572" y="178" class="d-title">Resolve</text><text x="572" y="200">to a stable ID,</text><text x="572" y="217">not a name</text></g>
+            <path d="M676 190 H696" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="qualify" tabindex="0" role="button" aria-label="Qualify: how it is built"><rect x="700" y="150" width="110" height="80" rx="10"/><text x="716" y="178" class="d-title">Qualify</text><text x="716" y="200">model slot</text><text x="716" y="217">+ rules guard</text></g>
+            <path d="M810 190 H830" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="score" tabindex="0" role="button" aria-label="Score: how it is built"><rect x="834" y="150" width="96" height="80" rx="10"/><text x="850" y="178" class="d-title">Score</text><text x="850" y="200">fit + intent,</text><text x="850" y="217">itemized</text></g>
+            <path d="M930 190 H950" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box d-key" data-node="route" tabindex="0" role="button" aria-label="Route: how it is built"><rect x="954" y="150" width="96" height="80" rx="10"/><text x="970" y="178" class="d-title">Route</text><text x="970" y="200">owner first,</text><text x="970" y="217">then team</text></g>
+            <!-- registries above resolve -->
+            <g class="d-reg" data-node="registries" tabindex="0" role="button" aria-label="Public registries: how it is built">
+              <rect x="470" y="34" width="292" height="72" rx="10"/>
+              <text x="486" y="58" class="d-title">Public registries</text>
+              <text x="486" y="79">5,419 CMS hospitals (CCN) · 639 AHRQ systems</text>
+              <text x="486" y="97">246 payers · 679 verified domains · NPPES live</text>
+            </g>
+            <path d="M616 106 V148" class="d-line d-dash"/>
+            <g class="d-reg" data-node="model" tabindex="0" role="button" aria-label="Model slot: how it is built">
+              <rect x="776" y="34" width="286" height="72" rx="10"/>
+              <text x="792" y="58" class="d-title">Model slot, filled by the eval</text>
+              <text x="792" y="79">demo: a small local model, the baseline</text>
+              <text x="792" y="97">Serif: open-weights or hosted, if it wins</text>
+            </g>
+            <path d="M790 106 V148" class="d-line d-dash"/>
+            <!-- outputs -->
+            <path d="M1050 190 H1072 V70 H1088" class="d-line" marker-end="url(#arr)"/>
+            <path d="M1050 190 H1088" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-out" data-node="hubspot" tabindex="0" role="button" aria-label="HubSpot: how it is built"><rect x="1092" y="44" width="82" height="52" rx="9"/><text x="1102" y="66" class="d-title">HubSpot</text><text x="1102" y="84">upserts</text></g>
+            <g class="d-flag" data-node="hubspot" tabindex="0" role="button" aria-label="HubSpot write failures: how it is built"><rect x="1092" y="102" width="82" height="52" rx="9"/><text x="1102" y="120">write fails:</text><text x="1102" y="134">flagged on</text><text x="1102" y="148">the lead</text></g>
+            <g class="d-out" data-node="alert" tabindex="0" role="button" aria-label="Alert: how it is built"><rect x="1092" y="164" width="82" height="52" rx="9"/><text x="1102" y="186" class="d-title">Alert</text><text x="1102" y="204">rep + SLA</text></g>
+            <!-- when a step cannot decide -->
+            <path d="M319 250 V272" class="d-line d-dash"/>
+            <g class="d-auto" data-node="webhook" tabindex="0" role="button" aria-label="At the door: how it is built"><rect x="236" y="276" width="166" height="72" rx="10"/><text x="252" y="298" class="d-title">At the door</text><text x="252" y="318">bad signature: 401</text><text x="252" y="336">no signing key: 503</text></g>
+            <path d="M616 230 V272" class="d-line-warn d-dash"/>
+            <g class="d-flag" data-node="review" tabindex="0" role="button" aria-label="Can't place it: how it is built"><rect x="546" y="276" width="140" height="58" rx="10"/><text x="562" y="298" class="d-title">Can't place it</text><text x="562" y="318">no match, or a tie</text></g>
+            <path d="M755 230 V272" class="d-line-warn d-dash"/>
+            <g class="d-flag" data-node="review" tabindex="0" role="button" aria-label="Not a buyer: how it is built"><rect x="700" y="276" width="150" height="76" rx="10"/><text x="716" y="298" class="d-title">Not a buyer?</text><text x="716" y="318">model only: spam or</text><text x="716" y="336">vendor, or under 0.8</text></g>
+            <path d="M616 334 V388" class="d-line-warn" marker-end="url(#arr-warn)"/>
+            <path d="M765 352 V388" class="d-line-warn" marker-end="url(#arr-warn)"/>
+            <g class="d-person" data-node="review" tabindex="0" role="button" aria-label="Needs a person: how it is built">
+              <rect x="470" y="392" width="704" height="62" rx="10"/>
+              <text x="490" y="418" class="d-title">Needs a person: RevOps decides before any rep is alerted (rule R6)</text>
+              <text x="490" y="439">The lead waits in the review queue with its candidates and the reason. Nothing is guessed silently.</text>
+            </g>
+          </svg>
+          <div class="topo-detail" id="topoDetail" aria-live="polite" hidden></div>
+        </figure>
+
+        <div class="how-card how-wide">
+          <h3>When it doesn't go cleanly</h3>
+          <ul class="decisions how-exceptions">
+            <li><b>Refused at the door.</b> A signed door answers 401 to a bad signature and 503 when its signing key isn't set, and stores nothing. A re-delivered event is a no-op.</li>
+            <li><b>Held for a person.</b> The company matches no known organization (a benefits or HR contact at an unknown company is the exception: it is resolved as a low-confidence inferred employer and routed by tier), or matches two or more about equally, or only the model calls the lead a non-buyer. For spam and vendor pitch that always holds it, at any confidence, because they would otherwise be dropped unseen. For any other non-buyer call under 0.8 confidence it holds it too (at 0.8 or above the call counts, recorded as the model's). It waits in Needs a person with its candidates and the reason, and RevOps decides before any rep is alerted. If the account already has an owner, it goes to that owner instead (R5), and the alert says the model doubted it.</li>
+            <li><b>Keeps going on the rules.</b> If the model times out (8 s), answers off-list or isn't confident, the rules decide and the reason is recorded. A registry lookup that times out (4 s) is recorded as no answer; if nothing else places the company, it goes to a person.</li>
+            <li><b>Flagged, not hidden.</b> The rep alert goes out before the HubSpot write, so a slow or failing CRM never delays it. A HubSpot write that fails is marked on the lead's trail with its status; one that throws (a network error or the 10 s timeout) is retried once, then retried again at the next boot. A step that errors stops that lead and shows as Step failed in the activity feed.</li>
+            <li><b>Never to a rep.</b> Disposable emails, competitors, job seekers, press, vendor pitches, students and non-US organizations go to marketing or are dropped by rule.</li>
+          </ul>
+        </div>
+
+        <div class="how-grid">
+          <div class="how-card">
+            <h3>Decisions that shape it</h3>
+            <ol class="decisions">
+              <li><b>IDs, not names.</b> Accounts are keyed on the AHRQ health-system ID, CMS certification number, NPI or payer, so one system is one account in the CRM.</li>
+              <li><b>Resolve before you score.</b> A lead the router can't place goes to a person with candidates. It guesses one thing, a probable self-funded employer, and labels it low confidence.</li>
+              <li><b>The model classifies; code writes the facts.</b> Alerts quote the prospect's own words and insert registry facts. Nothing generated reaches a prospect. The model can't set urgency, override a rule, write alert text or get a lead dropped on its word alone, but its use-case label can change the team for API-type leads.</li>
+              <li><b>The model alone never drops a lead.</b> A spam or vendor-pitch call the rules don't share always goes to a person. Any other disqualifier the rules don't share counts only at 0.8 confidence or above, recorded as the model's call; below that, a person decides.</li>
+              <li><b>Owner first.</b> An account that already has an owner goes to that owner, so two reps never work one account.</li>
+              <li><b>Alert first, then CRM.</b> The rep is told before HubSpot is written. Nothing in the alert depends on the CRM, so a slow or failing CRM never delays it.</li>
+              <li><b>Idempotent by design.</b> A re-delivered webhook is a no-op, a repeat contact attaches to the first lead that went to sales (a guide download that only went to nurture does not swallow the demo request after it), and repeat alerts are suppressed for 24 hours.</li>
+              <li><b>Gated by an eval.</b> The classifier is scored on a sealed set of 24 synthetic leads and fails below set floors, and each run records hashes of the set and the classifier. CI runs the rules-only gate on every push.</li>
+            </ol>
+          </div>
+          <div class="how-card">
+            <h3>On Serif's real stack</h3>
+            <ul class="stack-list">
+              <li><span>HubSpot</span>Companies upserted on a unique account-key property; contacts by email; tasks carry the SLA.</li>
+              <li><span>Calendly</span>Signed <code>invitee.created</code> webhooks, UTMs passed through to first- and last-touch fields.</li>
+              <li><span>Clay web intent</span>Account visits raise account intent and create a research task, not an alert.</li>
+              <li><span>PostHog / product</span>Try Signal sessions and searches become product-qualified signals on the account.</li>
+              <li><span>Databricks + Hightouch</span>Account scores modeled in SQL, synced to HubSpot by reverse ETL.</li>
+              <li><span>Classifier model</span>A slot behind one interface, filled by evidence. The demo's small model is the baseline; a larger open-weights model such as Qwen or GLM on Serif's hardware, or a hosted model under Serif's data terms (an Anthropic provider is in the code, off here), takes the slot only by beating it on Serif's own labelled leads.</li>
+              <li><span>Closed-won / lost</span>Outcomes feed back into the weights; conversion by tier is the check that the model is right.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- Submit drawer -->
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="drawerTitle">
+    <div class="drawer-head">
+      <h2 id="drawerTitle">Send a test lead</h2>
+      <button class="icon-btn" id="drawerClose" aria-label="Close">×</button>
+    </div>
+    <div class="presets" id="presets"></div>
+    <form id="leadForm" autocomplete="off">
+      <div class="grid2">
+        <label>Name<input name="name" required></label>
+        <label>Work email<input name="email" type="email" required></label>
+        <label>Title<input name="title"></label>
+        <label>Company<input name="company"></label>
+        <label>State<input name="state" maxlength="2"></label>
+        <label>Door
+          <select name="source">
+            <option value="calendly_demo">Demo request</option>
+            <option value="guide_download">Guide download</option>
+            <option value="signal_ask_waitlist">Signal Ask waitlist</option>
+            <option value="sample_signup">Try Signal sign-up</option>
+            <option value="marketplace">Marketplace inquiry</option>
+            <option value="api_key">API key</option>
+            <option value="event_scan">Event badge scan</option>
+          </select>
+        </label>
+      </div>
+      <label>What are they hoping to solve?<textarea name="message" rows="3"></textarea></label>
+      <label>Campaign tags
+        <select name="utmPreset">
+          <option value="none">None</option>
+          <option value="linkedin_paid">LinkedIn paid social (messy tags)</option>
+          <option value="google_brand">Google brand search</option>
+          <option value="newsletter">Newsletter</option>
+        </select>
+      </label>
+      <div class="form-foot">
+        <span class="form-msg" id="formMsg"></span>
+        <button class="btn btn-primary" type="submit">Send through the router</button>
+      </div>
+    </form>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>

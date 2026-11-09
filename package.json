@@ -1,0 +1,30 @@
+{
+  "name": "inbound-router-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inbound lead router prototype: resolve, qualify, score, route, dry-run CRM sync.",
+  "scripts": {
+    "dev": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret DEMO_ROUTES=1 tsx server.ts",
+    "replay": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret tsx scripts/replay.ts",
+    "replay:ci": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret LLM_PROVIDER=rules OFFLINE=1 HUBSPOT_LIVE=0 APP_DB=out/ci/app.sqlite OUT_DIR=out/ci TTR_P90_BUDGET_MS=150 tsx scripts/replay.ts",
+    "eval": "tsx scripts/eval.ts",
+    "eval:gate": "tsx scripts/eval.ts --gate",
+    "eval:gate:rules": "LLM_PROVIDER=rules OFFLINE=1 HUBSPOT_LIVE=0 OUT_DIR=out/ci tsx scripts/eval.ts --gate --rules-only",
+    "quality": "tsx scripts/quality.ts",
+    "hubspot:setup": "tsx scripts/hubspot-setup.ts",
+    "test": "node --import tsx --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "ci": "env HUBSPOT_LIVE=0 LLM_PROVIDER=rules OFFLINE=1 sh -c 'npm run typecheck && npm test && npm run replay:ci && npm run eval:gate:rules && npm run test:e2e'",
+    "etl": "python3 etl/build_registry.py",
+    "reverse-etl": "tsx scripts/reverse-etl.ts",
+    "gen-fixtures": "tsx scripts/gen-fixtures.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

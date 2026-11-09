@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    # Pinned: ubuntu-latest became Ubuntu 26.04 on 2026-10-19, and Playwright 1.59.1 cannot install Chromium there.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Nothing in this job can reach a CRM or a model: HubSpot is dry-run, the classifier is rules only, lookups are off. No secrets are used.
+    env:
+      HUBSPOT_LIVE: '0'
+      LLM_PROVIDER: 'rules'
+      OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and pipeline tests
+        run: npm test
+
+      - name: Replay the 40-event day, 39 leads (time-to-route budget)
+        run: npm run replay:ci
+
+      - name: Eval gate, rules only
+        run: npm run eval:gate:rules
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Cockpit test, send a lead
+        run: npm run test:e2e
+
+      - name: Upload the Playwright report and traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+      - name: Upload the replay and eval output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-output
+          path: out/ci/
+          if-no-files-found: ignore

@@ -1,0 +1,45 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after } from 'node:test';
+import inbound from '../api/inbound';
+import { createCtx, type Ctx, type FetchFn } from '../src/context';
+import { whenIdle } from '../src/pipeline';
+import { buildPayload, type PayloadSpec } from '../src/payloads';
+import type { Source } from '../src/schema';
+import { signCalendly } from '../src/sources';
+import { leadDetail } from '../src/view';
+
+export const KEY = 'test-signing-key';
+
+/** A context on the hand-made mini registry, in-memory app DB, no network, no model unless asked. */
+export function testCtx(over: Parameters<typeof createCtx>[0] = {}, fetchImpl?: FetchFn): Ctx {
+  const dir = mkdtempSync(join(tmpdir(), 'router-test-'));
+  after(() => rmSync(dir, { recursive: true, force: true }));
+  return createCtx({
+    appDb: ':memory:', registryDb: join(dir, 'no-registry.sqlite'), cacheDir: join(dir, 'cache'), outDir: join(dir, 'out'),
+    network: false, llmProvider: 'rules', calendlyKey: KEY, demoRoutes: false, anthropicKey: null,
+    // never inherit the real .env: live HubSpot and its key are opt-in per test
+    hubspotLive: false, hubspotToken: null, ...over,
+  }, fetchImpl ?? (async () => { throw new Error('network is off in tests'); }));
+}
+
+export const spec = (over: Partial<PayloadSpec> = {}): PayloadSpec => ({
+  first: 'Dana', last: 'Whitfield', email: 'dwhitfield@intermountainhealthcare.org', title: 'VP Managed Care Contracting', company: 'Intermountain Health', state: 'UT',
+  message: 'Our commercial renegotiations start in January.', ts: '2026-11-05T15:00:00.000Z', seed: 'seed-1', ...over,
+});
+
+export async function post(ctx: Ctx, source: Source, payload: unknown, opts: { sign?: boolean | 'bad'; wait?: boolean } = {}) {
+  const body = JSON.stringify(payload);
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (source === 'calendly_demo' && opts.sign !== false) headers['calendly-webhook-signature'] = opts.sign === 'bad' ? signCalendly('wrong-key', body) : signCalendly(KEY, body);
+  const res = await inbound(new Request(`http://local/api/inbound?source=${source}`, { method: 'POST', headers, body }), ctx);
+  const json: any = await res.json();
+  if (opts.wait !== false) await whenIdle(ctx);
+  return { status: res.status, json };
+}
+
+export async function submit(ctx: Ctx, source: Source, s: Partial<PayloadSpec> = {}) {
+  const r = await post(ctx, source, buildPayload(source, spec(s)));
+  return { ...r, lead: r.json.leadId ? (leadDetail(ctx, r.json.leadId) as any) : null };
+}

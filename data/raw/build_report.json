@@ -1,0 +1,2981 @@
+{
+ "payer_snapshot": "snapshot is the JS shell only (529 chars, \"Loading payers\u2026\"), no payer names",
+ "payer_domain_rejected": [
+  [
+   "avmed",
+   "avmed.com",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "blue-cross-blue-shield-of-alabama",
+   "bcbsal.org",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "blue-cross-blue-shield-of-minnesota",
+   "bluecrossmn.com",
+   "no title (status 200, None)"
+  ],
+  [
+   "carefirst-bluecross-blueshield",
+   "carefirst.com",
+   "no title (status 200, None)"
+  ],
+  [
+   "harvard-pilgrim-healthcare",
+   "harvardpilgrim.org",
+   "no title (status 200, None)"
+  ],
+  [
+   "medica",
+   "medica.com",
+   "title='Just a moment...' | GET https://medica.com/ -> https://www.medica.com/"
+  ]
+ ],
+ "payer_slugs_unseeded": [],
+ "curated_review": [
+  [
+   "mercer.com",
+   "Mercer",
+   "title does not name org (kept only if reviewed): title='Marsh | People and Investments' | GET https://mercer.com/ -> https://www.mercer.com/en-us/"
+  ],
+  [
+   "atlantaga.gov",
+   "City of Atlanta",
+   "title does not name org (kept only if reviewed): title='Access Denied' | GET https://atlantaga.gov/ -> https://www.atlantaga.gov/"
+  ],
+  [
+   "wtwco.com",
+   "WTW (Willis Towers Watson)",
+   "title does not name org (kept only if reviewed): title='Vercel Security Checkpoint' | GET https://wtwco.com/ -> https://wtwco.com/"
+  ],
+  [
+   "ajg.com",
+   "Gallagher",
+   "title does not name org (kept only if reviewed): no title (status 200, None)"
+  ],
+  [
+   "hubinternational.com",
+   "Hub International",
+   "title does not name org (kept only if reviewed): title='Attention Required! | Cloudflare' | GET https://hubinternational.com/ -> https://www.hubinternational.com/"
+  ],
+  [
+   "higginbotham.com",
+   "Higginbotham",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://higginbotham.com/ -> https://higginbotham.com/"
+  ],
+  [
+   "ebms.com",
+   "Employee Benefit Management Services (EBMS)",
+   "title does not name org (kept only if reviewed): title='EBMS' | og:site_name='EBMS' | og:title='Home' | GET https://ebms.com/ -> https://www.ebms.com/"
+  ],
+  [
+   "includedhealth.com",
+   "Included Health",
+   "title does not name org (kept only if reviewed): title='Error 403 Forbidden' | GET https://includedhealth.com/ -> https://includedhealth.com/"
+  ],
+  [
+   "ideonapi.com",
+   "Ideon (formerly Vericred)",
+   "title does not name org (kept only if reviewed): title='Ideon | Better data. Better benefits.' | og:site_name='Ideon' | GET https://ideonapi.com/ -> https://ideonapi.com/"
+  ],
+  [
+   "innovaccer.com",
+   "Innovaccer",
+   "title does not name org (kept only if reviewed): title='The Agentic Cloud for Healthcare' | GET https://innovaccer.com/ -> https://innovaccer.com/"
+  ],
+  [
+   "arcadia.io",
+   "Arcadia",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://arcadia.io/ -> https://arcadia.io/"
+  ],
+  [
+   "pfizer.com",
+   "Pfizer",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://pfizer.com/ -> https://www.pfizer.com/"
+  ],
+  [
+   "lilly.com",
+   "Eli Lilly and Company",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://lilly.com/ -> https://www.lilly.com/"
+  ],
+  [
+   "abbvie.com",
+   "AbbVie",
+   "title does not name org (kept only if reviewed): title='Attention Required! | Cloudflare' | GET https://abbvie.com/ -> https://www.abbvie.com/"
+  ],
+  [
+   "jnj.com",
+   "Johnson & Johnson",
+   "title does not name org (kept only if reviewed): title='Site Maintenance' | GET https://jnj.com/ -> https://www.jnj.com/"
+  ],
+  [
+   "regeneron.com",
+   "Regeneron",
+   "title does not name org (kept only if reviewed): title='Attention Required! | Cloudflare' | GET https://regeneron.com/ -> https://www.regeneron.com/"
+  ],
+  [
+   "vrtx.com",
+   "Vertex Pharmaceuticals",
+   "title does not name org (kept only if reviewed): title='Access Denied' | GET https://vrtx.com/ -> https://vrtx.com/"
+  ],
+  [
+   "welshcarson.com",
+   "Welsh, Carson, Anderson & Stowe",
+   "title does not name org (kept only if reviewed): no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)>)"
+  ],
+  [
+   "blackstone.com",
+   "Blackstone",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://blackstone.com/ -> https://www.blackstone.com/"
+  ],
+  [
+   "carlyle.com",
+   "The Carlyle Group",
+   "title does not name org (kept only if reviewed): title='Attention Required! | Cloudflare' | GET https://carlyle.com/ -> https://www.carlyle.com/"
+  ],
+  [
+   "warburgpincus.com",
+   "Warburg Pincus",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://warburgpincus.com/ -> https://warburgpincus.com/"
+  ],
+  [
+   "gtcr.com",
+   "GTCR",
+   "title does not name org (kept only if reviewed): title='You are being redirected...' | GET https://gtcr.com/ -> https://gtcr.com/"
+  ],
+  [
+   "generalatlantic.com",
+   "General Atlantic",
+   "title does not name org (kept only if reviewed): no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "mckinsey.com",
+   "McKinsey & Company",
+   "title does not name org (kept only if reviewed): no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "bain.com",
+   "Bain & Company",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://bain.com/ -> https://www.bain.com/"
+  ],
+  [
+   "bcg.com",
+   "Boston Consulting Group",
+   "title does not name org (kept only if reviewed): title='Access Denied' | GET https://bcg.com/ -> https://www.bcg.com/"
+  ],
+  [
+   "pwc.com",
+   "PwC",
+   "title does not name org (kept only if reviewed): title='Access Denied' | GET https://pwc.com/ -> https://www.pwc.com/"
+  ],
+  [
+   "accenture.com",
+   "Accenture",
+   "title does not name org (kept only if reviewed): no title (status 200, None)"
+  ],
+  [
+   "fiercehealthcare.com",
+   "Fierce Healthcare",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://fiercehealthcare.com/ -> https://fiercehealthcare.com/"
+  ],
+  [
+   "modernhealthcare.com",
+   "Modern Healthcare",
+   "title does not name org (kept only if reviewed): title='Access Denied' | GET https://modernhealthcare.com/ -> https://www.modernhealthcare.com:443/"
+  ],
+  [
+   "healthaffairs.org",
+   "Health Affairs",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://healthaffairs.org/ -> https://healthaffairs.org/"
+  ],
+  [
+   "axios.com",
+   "Axios",
+   "title does not name org (kept only if reviewed): title='Just a moment...' | GET https://axios.com/ -> https://www.axios.com/"
+  ],
+  [
+   "nih.gov",
+   "National Institutes of Health",
+   "title does not name org (kept only if reviewed): title='Attention Required! | Cloudflare' | GET https://nih.gov/ -> https://www.nih.gov/"
+  ]
+ ],
+ "system_seed_rejected": [
+  [
+   "HCA Healthcare",
+   "hcahealthcare.com",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Universal Health Services",
+   "uhs.com",
+   "title='Attention Required! | Cloudflare' | GET https://uhs.com/ -> https://uhs.com/"
+  ],
+  [
+   "Tenet Healthcare",
+   "tenethealth.com",
+   "title='Just a moment...' | GET https://tenethealth.com/ -> https://tenethealth.com/"
+  ],
+  [
+   "AdventHealth",
+   "adventhealth.com",
+   "title='Access Denied' | GET https://adventhealth.com/ -> https://www.adventhealth.com/"
+  ],
+  [
+   "SSM Health",
+   "ssmhealth.com",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Mayo Clinic Health System",
+   "mayoclinichealthsystem.org",
+   "title='Access Denied' | GET https://mayoclinichealthsystem.org/ -> https://www.mayoclinichealthsystem.org/"
+  ],
+  [
+   "Billings Clinic",
+   "billingsclinic.com",
+   "title='Access Denied' | GET https://billingsclinic.com/ -> https://www.billingsclinic.com/"
+  ],
+  [
+   "Franciscan Missionaries of Our Lady Health System",
+   "fmolhs.org",
+   "no title (status None, URLError: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1129)>)"
+  ],
+  [
+   "LCMC Health System",
+   "lcmchealth.org",
+   "title='Just a moment...' | GET https://lcmchealth.org/ -> https://www.lcmchealth.org/"
+  ],
+  [
+   "CentraCare",
+   "centracare.com",
+   "title='Access Denied' | GET https://centracare.com/ -> https://www.centracare.com/"
+  ],
+  [
+   "Saint Lukes",
+   "saintlukeshealth.org",
+   "no title (status 200, None)"
+  ],
+  [
+   "Bryan Health",
+   "bryanhealth.com",
+   "title='Access Denied' | GET https://bryanhealth.com/ -> https://www.bryanhealth.com/"
+  ],
+  [
+   "Adventist Healthcare",
+   "adventisthealthcare.com",
+   "title='Access Denied' | GET https://adventisthealthcare.com/ -> https://www.adventisthealthcare.com/"
+  ],
+  [
+   "Logan Health",
+   "loganhealth.org",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Forrest Health",
+   "forresthealth.org",
+   "title='Access Denied' | GET https://forresthealth.org/ -> https://www.forresthealth.org/"
+  ],
+  [
+   "Mayo Clinic Health System",
+   "mayoclinic.org",
+   "title='Access Denied' | GET https://mayoclinic.org/ -> https://www.mayoclinic.org/"
+  ]
+ ],
+ "system_seed_missing": [],
+ "wikidata": {
+  "candidates_systems": 1912,
+  "candidates_hospitals": 1181,
+  "matched": 829,
+  "verified_system": 114,
+  "verified_hospital": 333,
+  "rejected": 382,
+  "skipped_budget": 0,
+  "seconds": 0
+ },
+ "wikidata_rejected_sample": [
+  [
+   "Q110986815",
+   "Community Healthcare System",
+   "comhs.org",
+   "Community Health Systems",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q30280436",
+   "Providence Hospital",
+   "provhosp.org",
+   "Providence",
+   "title='Prov Hosp' | GET https://provhosp.org/ -> https://provhosp.org/"
+  ],
+  [
+   "Q7650160",
+   "Sutter Medical Center",
+   "suttermedicalcenter.org",
+   "Sutter Health",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q7504109",
+   "Shriners Hospitals for Children",
+   "shrinerschildrens.org",
+   "Shriners Hospitals for Children",
+   "title='Shriners Children's' | GET https://shrinerschildrens.org/ -> https://www.shrinerschildrens.org/en"
+  ],
+  [
+   "Q19880883",
+   "Integris Health",
+   "integrishealth.org",
+   "Integris Health",
+   "title='Attention Required! | Cloudflare' | GET https://integrishealth.org/ -> https://integrishealth.org/"
+  ],
+  [
+   "Q30291312",
+   "Presbyterian Medical Services",
+   "pmsnm.org",
+   "Presbyterian Healthcare Services",
+   "title='Just a moment...' | GET https://pmsnm.org/ -> https://www.pmsnm.org/"
+  ],
+  [
+   "Q139603385",
+   "Saint Francis Healthcare",
+   "saintfrancishealthsystem.com",
+   "Saint Francis Health System",
+   "title='Just a moment...' | GET https://saintfrancishealthsystem.com/ -> https://saintfrancishealthsystem.com/"
+  ],
+  [
+   "Q30282312",
+   "Methodist Healthcare",
+   "sahealth.com",
+   "Methodist Health System",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q85846824",
+   "Nuvance Health",
+   "nuvancehealth.org",
+   "Nuvance Health",
+   "title='Northwell Health' | GET https://nuvancehealth.org/ -> https://www.northwell.edu/?src=nuvance_migration"
+  ],
+  [
+   "Q5165549",
+   "Mount Sinai Health System",
+   "mountsinaihealth.org",
+   "Mount Sinai Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_INTERNAL_ERROR] tlsv1 alert internal error (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30280427",
+   "Memorial Hospital",
+   "memorialhospitaljax.com",
+   "Memorial Healthcare System",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q30280428",
+   "Memorial Regional Hospital",
+   "memorialregional.com",
+   "Memorial Healthcare System",
+   "title='Memorial Regional - Memorial Regional Healthcare and News' | og:site_name='Memorial Regional' | GET https://memorialregional.com/ -> https://memorialregional.com/"
+  ],
+  [
+   "Q7896537",
+   "University of Virginia Health System",
+   "uvahealth.com",
+   "University of Virginia Health System",
+   "title='Patient Care at UVA Health' | GET https://uvahealth.com/ -> https://www.uvahealth.com/"
+  ],
+  [
+   "Q50036849",
+   "Centra Health",
+   "centrahealth.com",
+   "Centra Health",
+   "title='Access Denied' | GET https://centrahealth.com/ -> https://www.centrahealth.com/"
+  ],
+  [
+   "Q98277868",
+   "UW Medicine",
+   "uwmedicine.org",
+   "UW Medicine",
+   "title='Access Denied' | GET https://uwmedicine.org/ -> https://www.uwmedicine.org/"
+  ],
+  [
+   "Q4975899",
+   "Broward Health",
+   "browardhealth.org",
+   "Broward Health",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30263880",
+   "Lifespan",
+   "lifespan.org",
+   "Lifespan",
+   "title='Brown University Health' | GET https://lifespan.org/ -> https://www.brownhealth.org/"
+  ],
+  [
+   "Q16995039",
+   "Health First",
+   "hf.org",
+   "Health First",
+   "title='Just a moment...' | GET https://hf.org/ -> https://www.hf.org/"
+  ],
+  [
+   "Q5547525",
+   "Augusta University Medical Center",
+   "augustahealth.org",
+   "Augusta University Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30280701",
+   "Sinai Health System",
+   "sinai.org",
+   "Sinai Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50036634",
+   "Faith Regional Health Services",
+   "frhs.org",
+   "Faith Regional Health Services",
+   "title='Access Denied' | GET https://frhs.org/ -> https://www.frhs.org/"
+  ],
+  [
+   "Q110932769",
+   "Lee Health",
+   "leehealth.org",
+   "Lee Health",
+   "title='Just a moment...' | GET https://leehealth.org/ -> https://leehealth.org/"
+  ],
+  [
+   "Q5159452",
+   "Cone Health",
+   "conehealth.com",
+   "Cone Health",
+   "title='Access Denied' | GET https://conehealth.com/ -> https://www.conehealth.com/"
+  ],
+  [
+   "Q130270667",
+   "Santa Clara Valley Healthcare",
+   "scvh.org",
+   "Santa Clara Valley Health and Hospital System",
+   "title='Attention Required! | Cloudflare' | GET https://www.scvh.org/ -> https://www.scvh.org/"
+  ],
+  [
+   "Q5713692",
+   "Hendrick Health System",
+   "hendrickhealth.org",
+   "Hendrick Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q22079516",
+   "Care New England",
+   "carene.org",
+   "Care New England Health System",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q110932129",
+   "DCH Health System",
+   "dchsystem.com",
+   "DCH Health System",
+   "title='Just a moment...' | GET https://dchsystem.com/ -> https://dchsystem.com/"
+  ],
+  [
+   "Q5419407",
+   "Excela Health",
+   "excelahealth.org",
+   "Excela Health",
+   "title='Just a moment...' | GET https://excelahealth.org/ -> https://www.excelahealth.org/"
+  ],
+  [
+   "Q50036565",
+   "ProHealth Care",
+   "prohealthcare.org",
+   "Prohealth Care",
+   "title='Access Denied' | GET https://prohealthcare.org/ -> https://www.prohealthcare.org/"
+  ],
+  [
+   "Q6793983",
+   "Maury Regional Medical Center",
+   "mauryregional.com",
+   "Maury Regional Medical Center",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30270292",
+   "Ridgeview Medical Center",
+   "ridgeviewmedical.org",
+   "Ridgeview Medical Center",
+   "title='Access Denied' | GET https://ridgeviewmedical.org/ -> https://www.ridgeviewmedical.org/"
+  ],
+  [
+   "Q120731952",
+   "OU Health",
+   "ouhealth.com",
+   "OU Health",
+   "title='Just a moment...' | GET https://ouhealth.com/ -> https://www.ouhealth.com/"
+  ],
+  [
+   "Q7895561",
+   "University of Iowa Hospitals and Clinics",
+   "iowaclinic.com",
+   "University of Iowa Hospitals and Clinics",
+   "title='The Iowa Clinic | Primary & Specialty Care in Central Iowa' | og:site_name='The Iowa Clinic' | GET https://iowaclinic.com/ -> https://www.iowaclinic.com/"
+  ],
+  [
+   "Q5098133",
+   "Children's Minnesota",
+   "childrensmn.org",
+   "Childrens Minnesota",
+   "title='Attention Required! | Cloudflare' | GET https://childrensmn.org/ -> https://childrensmn.org/"
+  ],
+  [
+   "Q50036494",
+   "AnMed Health",
+   "anmedhealth.org",
+   "AnMed Health",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30287493",
+   "Southeast Georgia Health System",
+   "sghs.org",
+   "Southeast Georgia Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30288831",
+   "Blessing Hospital",
+   "blessinghospital.org",
+   "Blessing Health System",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q30287036",
+   "EvergreenHealth",
+   "evergreenhealth.com",
+   "EvergreenHealth",
+   "title='Access Denied' | GET https://evergreenhealth.com/ -> https://www.evergreenhealth.com/"
+  ],
+  [
+   "Q30286582",
+   "Cape Cod Healthcare",
+   "capecodhealth.org",
+   "Cape Cod Healthcare",
+   "title='Access Denied' | GET https://capecodhealth.org/ -> https://www.capecodhealth.org/"
+  ],
+  [
+   "Q30254338",
+   "Houston Medical Center",
+   "hhc.org",
+   "Houston Healthcare",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.)"
+  ],
+  [
+   "Q30280888",
+   "North Oaks Health System",
+   "northoaks.org",
+   "North Oaks Health System",
+   "title='Just a moment...' | GET https://www.northoaks.org/ -> https://www.northoaks.org/"
+  ],
+  [
+   "Q50039660",
+   "Lake Region Healthcare",
+   "lrhc.org",
+   "Lake Region Healthcare",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q55106432",
+   "Astria Regional Medical Center",
+   "yakimaregional.com",
+   "Astria Health System",
+   "title='Just a moment...' | GET https://yakimaregional.com/ -> https://www.hugedomains.com/domain_profile.cfm?d=yakimaregional.com"
+  ],
+  [
+   "Q7896419",
+   "University of Tennessee Medical Center",
+   "utmedicalcenter.org",
+   "University of Tennessee Medical Center",
+   "title='Just a moment...' | GET https://utmedicalcenter.org/ -> https://www.utmedical.org/"
+  ],
+  [
+   "Q501738",
+   "Harris Health System",
+   "harrishealth.org",
+   "Harris Health System",
+   "title='Home' | GET https://harrishealth.org/ -> https://www.harrishealth.org/"
+  ],
+  [
+   "Q4974388",
+   "Brookdale University Hospital and Medical Center",
+   "brookdalehospital.org",
+   "Brookdale University Hospital And Medical Center",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30280342",
+   "Kaweah Delta Health Care District",
+   "kaweahdelta.org",
+   "Kaweah Delta Health Care District",
+   "no title (status None, URLError: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1129)>)"
+  ],
+  [
+   "Q139576456",
+   "CaroMont Health",
+   "caromonthealth.org",
+   "Caromont Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5044756",
+   "CarolinaEast Health System",
+   "carolinaeasthealth.com",
+   "CarolinaEast Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5044756",
+   "CarolinaEast Health System",
+   "carolinaeastphysicians.com",
+   "CarolinaEast Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30288257",
+   "Jupiter Medical Center",
+   "jupitermed.com",
+   "Jupiter Medical Center",
+   "title='Just a moment...' | GET https://jupitermed.com/ -> https://www.jupitermed.com/"
+  ],
+  [
+   "Q137004702",
+   "CentraState Healthcare System",
+   "centrastate.com",
+   "Centrastate Healthcare System",
+   "title='Atlantic Health: Hospitals Serving New Jersey & New York' | GET https://centrastate.com/ -> https://www.atlantichealth.org/home"
+  ],
+  [
+   "Q30279898",
+   "Hamilton Medical Center",
+   "hamiltonhealth.com",
+   "Hamilton Health Care System",
+   "title='Home - Vitruvian Health' | GET https://hamiltonhealth.com/ -> https://vitruvianhealth.com/"
+  ],
+  [
+   "Q6818756",
+   "Mercy Hospital",
+   "mercyiowacity.org",
+   "Mercy Medical Center",
+   "title='Medical Center Downtown | University of Iowa Health Care' | og:site_name='University of Iowa Health Care' | og:title='Medical Center Downtown' | GET https://www.mercyiowacity.org/ -> https://uihc.org/locations/medical-center-downtown"
+  ],
+  [
+   "Q17508972",
+   "Beebe Healthcare",
+   "beebehealthcare.org",
+   "Beebe Healthcare",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30254329",
+   "Catawba Valley Medical Center",
+   "catawbavalleymedical.org",
+   "Catawba Valley Medical Center",
+   "title='RAJAMAHYONG: Raja Permainan Dengan Aura Kemenangan' | og:site_name='RAJAMAHYONG' | GET https://catawbavalleymedical.org/ -> https://catawbavalleymedical.org/"
+  ],
+  [
+   "Q30280541",
+   "Middlesex Hospital",
+   "middlesexhospital.org",
+   "Middlesex Health System",
+   "no title (status 202, None)"
+  ],
+  [
+   "Q30270059",
+   "Lawrence General Hospital",
+   "lawrencegeneral.org",
+   "Lawrence General Hospital",
+   "title='The Merrimack Valley's Premiere Health Care Provider | Merrimack Health' | og:site_name='Merrimack Health' | GET https://lawrencegeneral.org/ -> https://lawrencegeneral.org/"
+  ],
+  [
+   "Q27969747",
+   "Great River Medical Center",
+   "greatriverhealth.org",
+   "Great River Health Systems",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q139576499",
+   "Iredell Health System",
+   "iredellhealth.org",
+   "Iredell Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q139689378",
+   "Firelands Health",
+   "firelands.com",
+   "Firelands Regional Health System",
+   "title='Access Denied' | GET https://firelands.com/ -> https://www.firelands.com/"
+  ],
+  [
+   "Q30280961",
+   "Sturdy Memorial Hospital",
+   "sturdymemorial.org",
+   "Sturdy Memorial Hospital",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_INTERNAL_ERROR] tlsv1 alert internal error (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30283169",
+   "Contra Costa Health Services",
+   "cchealth.org",
+   "Contra Costa Health Services",
+   "title='Access Denied' | GET https://cchealth.org/ -> https://www.cchealth.org/"
+  ],
+  [
+   "Q30280108",
+   "Bristol Hospital",
+   "bristolhospital.org",
+   "Bristol Hospital",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q30280633",
+   "Lake Regional Hospital",
+   "lakeregional.com",
+   "Lake Regional Health System",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30282210",
+   "CGH Medical Center",
+   "cghmc.com",
+   "CGH Medical Center",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50573111",
+   "Olympic Medical Center",
+   "olympicmedical.org",
+   "Olympic Medical Center",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5549007",
+   "Gerald Champion Regional Medical Center",
+   "gcrmc.org",
+   "Gerald Champion Regional Medical Center",
+   "title='CHRISTUS Health | Hospital in Alamogordo, NM' | GET https://www.gcrmc.org/ -> https://www.christushealth.org/locations/alamogordo-hospital"
+  ],
+  [
+   "Q87932505",
+   "Major Health Partners",
+   "majorhospital.org",
+   "Major Health Partners",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932199",
+   "Margaret Mary Health",
+   "mmch.org",
+   "Margaret Mary Health",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q22329581",
+   "Interfaith Medical Center",
+   "interfaithmedical.org",
+   "Interfaith Medical Center",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q20712149",
+   "Bartlett Regional Hospital",
+   "bartletthospital.org",
+   "BARTLETT REGIONAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7851163",
+   "Tucson Medical Center",
+   "tmcaz.com",
+   "TUCSON MEDICAL CENTER",
+   "title='TMC Health | Compassionate Care That Puts You First' | GET https://tmcaz.com/ -> https://tmcaz.com/en"
+  ],
+  [
+   "Q33121565",
+   "Tuba City Regional Health Care",
+   "tchealth.org",
+   "TUBA CITY REGIONAL HEALTH CARE CORPORATION",
+   "title='You are being redirected...' | GET https://tchealth.org/ -> https://tchealth.org/"
+  ],
+  [
+   "Q124653828",
+   "Arizona Spine & Joint Hospital",
+   "azspineandjoint.com",
+   "ARIZONA SPINE AND JOINT HOSPITAL",
+   "title='Just a moment...' | GET https://azspineandjoint.com/ -> https://azspineandjoint.com/"
+  ],
+  [
+   "Q116959473",
+   "HonorHealth Four Peaks Medical Center",
+   "mvmedicalcenter.org",
+   "HONORHEALTH FOUR PEAKS MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q113814867",
+   "St. Vincent Infirmary Medical Center",
+   "chistvincent.com",
+   "CHI-ST VINCENT INFIRMARY",
+   "title='CHI St. Vincent' | GET https://chistvincent.com/ -> https://www.commonspirit.org/stvincent"
+  ],
+  [
+   "Q50037008",
+   "Riverside Community Hospital",
+   "riversidecommunityhospital.com",
+   "RIVERSIDE COMMUNITY HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7134385",
+   "Paradise Valley Hospital",
+   "paradisevalleyhospital.net",
+   "PARADISE VALLEY HOSPITAL",
+   "title='You are being redirected...' | GET https://paradisevalleyhospital.net/ -> https://paradisevalleyhospital.net/"
+  ],
+  [
+   "Q4735953",
+   "Alta Bates Summit Medical Center",
+   "altabatessummit.org",
+   "ALTA BATES SUMMIT MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q5020739",
+   "California Pacific Medical Center",
+   "cpmc.org",
+   "CALIFORNIA PACIFIC MEDICAL CENTER- VAN NESS CAMPUS",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q4771202",
+   "Antelope Valley Hospital",
+   "avhospital.org",
+   "ANTELOPE VALLEY HOSPITAL",
+   "title='Edge IP Restricted | avhospital.org | Cloudflare' | GET https://avhospital.org/ -> https://avhospital.org/"
+  ],
+  [
+   "Q5154851",
+   "Community Regional Medical Center",
+   "communitymedical.org",
+   "COMMUNITY REGIONAL MEDICAL CENTER",
+   "title='Community Medical Centers - Home' | GET https://communitymedical.org/ -> https://www.communitymedical.org/"
+  ],
+  [
+   "Q7588823",
+   "St. John's Regional Medical Center",
+   "stjohnshealth.org",
+   "ST JOHNS REGIONAL MEDICAL CENTER",
+   "title='404 Not Found' | GET https://stjohnshealth.org/ -> https://stjohnshealth.org/"
+  ],
+  [
+   "Q41471",
+   "Sonoma Valley Hospital",
+   "svh.com",
+   "SONOMA VALLEY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q50037044",
+   "Sutter Solano Medical Center",
+   "suttersolano.org",
+   "SUTTER SOLANO MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q7587979",
+   "St. Francis Medical Center",
+   "stfrancismedicalcenter.org",
+   "SAINT FRANCIS MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7912174",
+   "Valley Presbyterian Hospital",
+   "valleypres.org",
+   "VALLEY PRESBYTERIAN HOSPITAL",
+   "title='Just a moment...' | GET https://valleypres.org/ -> https://www.valleypres.org/"
+  ],
+  [
+   "Q5020617",
+   "California Hospital Medical Center",
+   "dignityhealth.org",
+   "CALIFORNIA HOSPITAL MEDICAL CENTER LA",
+   "title='Dignity Health AZ, CA, and NV' | GET https://www.dignityhealth.org/ -> https://www.commonspirit.org/dignity-health"
+  ],
+  [
+   "Q7414393",
+   "San Joaquin General Hospital",
+   "sjgeneral.org",
+   "SAN JOAQUIN GENERAL HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q5369103",
+   "Emanuel Medical Center",
+   "emanuelmedicalcenter.org",
+   "EMANUEL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://emanuelmedicalcenter.org/ -> https://emanuelmedicalcenter.org/"
+  ],
+  [
+   "Q4705871",
+   "Alameda Hospital",
+   "alamedahospital.org",
+   "ALAMEDA HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7227401",
+   "Pomona Valley Hospital Medical Center",
+   "pvhmc.org",
+   "POMONA VALLEY HOSPITAL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://pvhmc.org/ -> https://www.pvhmc.org/"
+  ],
+  [
+   "Q30269819",
+   "Desert Regional Medical Center",
+   "desertcancercenter.com",
+   "DESERT REGIONAL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://desertcancercenter.com/ -> https://desertcancercenter.com/"
+  ],
+  [
+   "Q4796185",
+   "Arrowhead Regional Medical Center",
+   "arrowheadmedcenter.org",
+   "ARROWHEAD REGIONAL MEDICAL CENTER",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q4796185",
+   "Arrowhead Regional Medical Center",
+   "arrowheadregional.org",
+   "ARROWHEAD REGIONAL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://arrowheadregional.org/ -> https://www.arrowheadregional.org/"
+  ],
+  [
+   "Q30270470",
+   "Sutter Roseville Medical Center",
+   "sutterroseville.org",
+   "SUTTER ROSEVILLE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q18387815",
+   "Kern Medical Center",
+   "kernmedicalcenter.com",
+   "KERN MEDICAL CENTER",
+   "no usable response (HTTP 521)"
+  ],
+  [
+   "Q7404665",
+   "Salinas Valley Memorial Hospital",
+   "svmh.com",
+   "SALINAS VALLEY HEALTH MEDICAL CENTER",
+   "title='Just a moment...' | GET https://svmh.com/ -> https://www.svmh.com/"
+  ],
+  [
+   "Q7826923",
+   "Torrance Memorial Medical Center",
+   "torrancememorial.org",
+   "TORRANCE MEMORIAL MEDICAL CENTER",
+   "title='Access Denied' | GET https://torrancememorial.org/ -> https://www.torrancememorial.org/"
+  ],
+  [
+   "Q140930739",
+   "Barton Memorial Hospital",
+   "bartonhealth.org",
+   "BARTON MEMORIAL HOSPITAL",
+   "title='Access Denied' | GET https://bartonhealth.org/ -> https://www.bartonhealth.org/"
+  ],
+  [
+   "Q14682100",
+   "Harbor\u2013UCLA Medical Center",
+   "harbor-ucla.org",
+   "LAC/HARBOR-UCLA MED CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5582919",
+   "Good Samaritan Hospital",
+   "goodsam.org",
+   "GOOD SAMARITAN HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q5582914",
+   "Good Samaritan Hospital",
+   "goodsamsj.org",
+   "GOOD SAMARITAN HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7419217",
+   "Santa Barbara Cottage Hospital",
+   "cottagehealth.org",
+   "SANTA BARBARA COTTAGE HOSPITAL",
+   "title='Access Denied' | GET https://cottagehealth.org/ -> https://www.cottagehealth.org/"
+  ],
+  [
+   "Q140930741",
+   "Mercy Hospital of Folsom",
+   "mercyhs.org",
+   "MERCY HOSPITAL OF FOLSOM",
+   "title='ConnectYourDomain Error | Wix.com' | GET https://mercyhs.org/ -> https://mercyhs.org/"
+  ],
+  [
+   "Q7414384",
+   "Adventist Health Bakersfield",
+   "ahbakersfield.org",
+   "ADVENTIST HEALTH BAKERSFIELD",
+   "title='302 Found' | GET https://ahbakersfield.org/ -> http://www.adventisthealth.org/central-california/locations/adventist-health-bakersfield/"
+  ],
+  [
+   "Q30279856",
+   "Doctors Medical Center",
+   "dmc-modesto.com",
+   "DOCTORS MEDICAL CENTER",
+   "title='Just a moment...' | GET https://dmc-modesto.com/ -> https://dmc-modesto.com/"
+  ],
+  [
+   "Q50036577",
+   "Eden Medical Center",
+   "edenmedicalcenter.org",
+   "EDEN MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q50037030",
+   "Sutter Auburn Faith Hospital",
+   "sutterauburnfaith.org",
+   "SUTTER AUBURN FAITH HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q7650150",
+   "Sutter Delta Medical Center",
+   "sutterdelta.org",
+   "SUTTER DELTA MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q50037038",
+   "Sutter Davis Hospital",
+   "sutterdavis.org",
+   "SUTTER DAVIS HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q6683243",
+   "Los Robles Hospital & Medical Center",
+   "losrobleshospital.com",
+   "LOS ROBLES HOSPITAL & MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q6815474",
+   "Memorial Medical Center",
+   "memorialmedicalcenter.org",
+   "MEMORIAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q5101220",
+   "Chino Valley Medical Center",
+   "cvmc.com",
+   "CHINO VALLEY MEDICAL CENTER",
+   "title='You are being redirected...' | GET https://cvmc.com/ -> https://cvmc.com/"
+  ],
+  [
+   "Q6382471",
+   "Keck Hospital of USC",
+   "keckhospitalofusc.org",
+   "KECK HOSPITAL OF USC",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q43896645",
+   "Orange County Global Medical Center",
+   "orangecounty-gmc.com",
+   "ORANGE COUNTY GLOBAL MEDICAL CENTER",
+   "title='Injury Claims on the Texas Gulf Coast | Orange County GMC' | og:site_name='Orange County GMC' | GET https://orangecounty-gmc.com/ -> https://orangecounty-gmc.com/"
+  ],
+  [
+   "Q14956884",
+   "Martin Luther King, Jr. Community Hospital",
+   "mlkcommunityhospital.org",
+   "MARTIN LUTHER KING, JR. COMMUNITY HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q30280846",
+   "Mammoth Hospital",
+   "mammothhospital.com",
+   "MAMMOTH HOSPITAL",
+   "title='Access Denied' | GET https://mammothhospital.com/ -> https://www.mammothhospital.com/"
+  ],
+  [
+   "Q7332729",
+   "Ridgecrest Regional Hospital",
+   "rrh.org",
+   "RIDGECREST REGIONAL HOSPITAL",
+   "title='Just a moment...' | GET https://rrh.org/ -> https://www.rrh.org/"
+  ],
+  [
+   "Q5098123",
+   "UCSF Benioff Children's Hospital Oakland",
+   "childrenshospitaloakland.org",
+   "UCSF BENIOFF CHILDREN'S HOSPITAL OAKLAND",
+   "title='UCSF Benioff Children's Hospitals | Welcome to UCSF Benioff Children's Hospitals' | og:title='UCSF Benioff Children's Hospitals | Home' | GET https://www.childrenshospitaloakland.org/ -> https://www.ucsfbenioffchildrens.org/"
+  ],
+  [
+   "Q1072787",
+   "Children's Hospital Los Angeles",
+   "chla.org",
+   "CHILDREN'S HOSP OF LOS ANGELES",
+   "title='Just a moment...' | GET https://chla.org/ -> https://www.chla.org/"
+  ],
+  [
+   "Q6697222",
+   "Lucile Packard Children's Hospital",
+   "stanfordchildrens.org",
+   "LUCILE SALTER PACKARD CHILDREN'S HSP AT STANFORD",
+   "title='Stanford Medicine Children's Health' | GET https://stanfordchildrens.org/ -> https://www.stanfordchildrens.org/"
+  ],
+  [
+   "Q14685045",
+   "Parkview Medical Center",
+   "parkviewmc.com",
+   "PARKVIEW MEDICAL CENTER, INC",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q4949546",
+   "Boulder Community Hospital",
+   "bch.org",
+   "BOULDER COMMUNITY HEALTH",
+   "title='Just a moment...' | GET https://bch.org/ -> https://www.bch.org/"
+  ],
+  [
+   "Q7367861",
+   "Rose Medical Center",
+   "rosemed.com",
+   "HCA HEALTHONE ROSE",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7654751",
+   "Swedish Medical Center",
+   "swedishhospital.com",
+   "HCA-HEALTHONE DBA SWEDISH MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7750861",
+   "The Medical Center of Aurora",
+   "auroramed.com",
+   "THE MEDICAL CENTER OF AURORA & SOUTH HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q30270451",
+   "Sky Ridge Medical Center",
+   "skyridgemedcenter.com",
+   "SKY RIDGE MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q29641891",
+   "Wray Community District Hospital",
+   "wrayhospital.org",
+   "WRAY COMMUNITY DISTRICT HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7597401",
+   "Stamford Hospital",
+   "stamfordhospital.org",
+   "STAMFORD HOSPITAL",
+   "title='Just a moment...' | GET https://stamfordhospital.org/ -> https://www.stamfordhealth.org/"
+  ],
+  [
+   "Q4966597",
+   "Bridgeport Hospital",
+   "bridgeporthospital.org",
+   "BRIDGEPORT HOSPITAL",
+   "title='Just a moment...' | GET https://bridgeporthospital.org/ -> https://www.bridgeporthospital.org/"
+  ],
+  [
+   "Q7590340",
+   "St. Mary's Hospital",
+   "stmh.org",
+   "SAINT MARY'S HOSPITAL",
+   "title='Home | Trinity Health Of New England' | GET https://stmh.org/ -> https://stmh.org/"
+  ],
+  [
+   "Q12059097",
+   "Greenwich Hospital",
+   "greenwichhospital.org",
+   "GREENWICH HOSPITAL ASSOCIATION -",
+   "title='Just a moment...' | GET https://greenwichhospital.org/ -> https://www.greenwichhospital.org/"
+  ],
+  [
+   "Q12073283",
+   "Yale \u2013 New Haven Hospital",
+   "ynhh.org",
+   "YALE-NEW HAVEN HOSPITAL",
+   "title='Just a moment...' | GET https://ynhh.org/ -> https://www.ynhh.org/"
+  ],
+  [
+   "Q14714913",
+   "Hartford Hospital",
+   "harthosp.org",
+   "HARTFORD HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q6747452",
+   "Manchester Memorial Hospital",
+   "manchestermemorial.org",
+   "MANCHESTER MEMORIAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5214961",
+   "Danbury Hospital",
+   "danburyhospital.org",
+   "DANBURY HOSPITAL",
+   "title='Northwell Health' | GET https://danburyhospital.org/ -> https://www.northwell.edu/?src=nuvance_migration"
+  ],
+  [
+   "Q3344269",
+   "Norwalk Hospital",
+   "norwalkhospital.org",
+   "NORWALK HOSPITAL",
+   "title='Northwell Health' | GET https://norwalkhospital.org/ -> https://www.northwell.edu/?src=nuvance_migration"
+  ],
+  [
+   "Q108740173",
+   "Nanticoke Memorial Hospital",
+   "tidalhealth.org",
+   "TIDALHEALTH NANTICOKE, INC.",
+   "title='Just a moment...' | GET https://tidalhealth.org/ -> https://www.tidalhealth.org/"
+  ],
+  [
+   "Q7139815",
+   "Parrish Medical Center",
+   "parrishmed.com",
+   "PARRISH MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q14956881",
+   "Larkin Community Hospital Palm Springs Campus",
+   "psghosp.com",
+   "LARKIN COMMUNITY HOSPITAL PALM SPRINGS CAMPUS",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q19868209",
+   "Hialeah Hospital",
+   "hialeahhosp.com",
+   "HIALEAH HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q6108137",
+   "HCA Florida JFK Hospital",
+   "jfkmc.com",
+   "HCA FLORIDA JFK HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q5456946",
+   "Flagler Hospital",
+   "flaglerhospital.org",
+   "FLAGLER HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1129)>)"
+  ],
+  [
+   "Q4857646",
+   "Baptist Hospital",
+   "baptisthospital.com",
+   "BAPTIST HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q77975884",
+   "Cleveland Clinic Indian River Hospital",
+   "indianrivermedicalcenter.com",
+   "CLEVELAND CLINIC INDIAN RIVER HOSPITAL",
+   "title='3DSBOBET \u26a1 Daftar & Login Agen SBOBET Terpercaya | Judi Bola Mix Parlay No Limit & Link Alternatif 2026' | og:site_name='3DSBOBET by 3DBET' | og:title='3DSBOBET OFFICIAL \u2014 Agen SBOBET Resmi | Login & Daftar Situs Resmi 3DSBOBET' | GET https://www.indianrivermedicalcenter.com/ -> https://3dsbobet777.com/"
+  ],
+  [
+   "Q30270302",
+   "Osceola Regional Medical Center",
+   "osceolaregional.com",
+   "HCA FLORIDA OSCEOLA HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q16164841",
+   "Bartow Regional Medical Center",
+   "bartowregional.com",
+   "BARTOW REGIONAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q4936104",
+   "Boca Raton Regional Hospital",
+   "brrh.com",
+   "BOCA RATON REGIONAL HOSPITAL",
+   "no usable response (HTTP 503)"
+  ],
+  [
+   "Q30274389",
+   "Palm Beach Gardens Medical Center",
+   "pbgmc.com",
+   "PALM BEACH GARDENS MEDICAL CENTER",
+   "title='Just a moment...' | GET https://pbgmc.com/ -> https://pbgmc.com/"
+  ],
+  [
+   "Q30281260",
+   "Palmetto General Hospital",
+   "palmettogeneral.com",
+   "PALMETTO GENERAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q14713789",
+   "Largo Medical Center",
+   "largomedical.com",
+   "HCA FLORIDA LARGO HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q15051637",
+   "Raulerson Hospital",
+   "raulersonhospital.com",
+   "HCA FLORIDA RAULERSON HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q50036579",
+   "Delray Medical Center",
+   "delraymedicalctr.com",
+   "DELRAY MEDICAL CENTER",
+   "title='Just a moment...' | GET https://delraymedicalctr.com/ -> https://delraymedicalctr.com/"
+  ],
+  [
+   "Q60748892",
+   "Englewood Community Hospital",
+   "englewoodcommhospital.com",
+   "HCA FLORIDA ENGLEWOOD HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q5582916",
+   "Good Samaritan Medical Center",
+   "goodsamaritanmc.com",
+   "GOOD SAMARITAN MEDICAL CENTER",
+   "title='Just a moment...' | GET https://goodsamaritanmc.com/ -> https://goodsamaritanmc.com/"
+  ],
+  [
+   "Q60766666",
+   "Doctors Hospital",
+   "doctorsofsarasota.com",
+   "DOCTORS HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q4728657",
+   "Johns Hopkins All Children's Hospital",
+   "hopkinsallchildrens.org",
+   "JOHNS HOPKINS ALL CHILDREN'S HOSPITAL",
+   "title='Attention Required! | Cloudflare' | GET https://hopkinsallchildrens.org/ -> https://hopkinsallchildrens.org/"
+  ],
+  [
+   "Q6806287",
+   "Atrium Health Navicent The Medical Center",
+   "navicenthealth.org",
+   "ATRIUM HEALTH NAVICENT THE MEDICAL CENTER",
+   "title='World Class Health Care Services at Macon, Georgia- Navicent Health' | GET https://navicenthealth.org/ -> https://navicenthealth.org/"
+  ],
+  [
+   "Q5287550",
+   "Doctors Hospital",
+   "doctors-hospital.net",
+   "DOCTORS HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q7191530",
+   "Piedmont Newnan Hospital",
+   "piedmontnewnan.org",
+   "PIEDMONT NEWNAN HOSPITAL, INC",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7758968",
+   "The Queen's Medical Center",
+   "queensmedicalcenter.org",
+   "THE QUEENS MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 54] Connection reset by peer>)"
+  ],
+  [
+   "Q125559895",
+   "West Valley Medical Center",
+   "westvalleymedctr.com",
+   "WEST VALLEY MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q50039189",
+   "Clearwater Valley Hospital and Clinics",
+   "smh-cvhc.org",
+   "CLEARWATER VALLEY HOSPITAL & CLINICS",
+   "title='Something's Wrong Here' | GET https://smh-cvhc.org/ -> https://smh-cvhc.org/"
+  ],
+  [
+   "Q93220088",
+   "Gottlieb Memorial Hospital",
+   "gottliebhospital.org",
+   "LOYOLA GOTTLIEB MEMORIAL HOSPITAL",
+   "title='Home | Loyola Medicine' | GET https://gottliebhospital.org/ -> https://www.loyolamedicine.org/"
+  ],
+  [
+   "Q99762779",
+   "Palos Community Hospital",
+   "paloshealth.com",
+   "PALOS COMMUNITY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)>)"
+  ],
+  [
+   "Q6686580",
+   "Louis A. Weiss Memorial Hospital",
+   "weisshospital.com",
+   "LOUIS A WEISS MEMORIAL HOSPITAL",
+   "title='Weiss Memorial Hospital' | GET https://weisshospital.com/ -> https://www.weisshospital.com/"
+  ],
+  [
+   "Q7654629",
+   "Swedish Hospital",
+   "swedishcovenant.org",
+   "SWEDISH HOSPITAL",
+   "title='Endeavor Health' | og:site_name='Endeavor Health' | GET https://swedishcovenant.org/ -> https://www.endeavorhealth.org:443/"
+  ],
+  [
+   "Q22033932",
+   "Decatur Memorial Hospital",
+   "dmhcares.com",
+   "DECATUR MEMORIAL HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q6815476",
+   "Memorial Medical Center",
+   "memorialmedical.com",
+   "MEMORIAL MEDICAL CENTER",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q18358759",
+   "Silver Cross Hospital",
+   "silvercross.org",
+   "SILVER CROSS HOSPITAL  AND MEDICAL CENTERS",
+   "title='Access Denied' | GET https://silvercross.org/ -> https://www.silvercross.org/"
+  ],
+  [
+   "Q5343508",
+   "Edward Hospital",
+   "edward.org",
+   "EDWARD HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7060339",
+   "Northwestern Memorial Hospital",
+   "nmh.org",
+   "NORTHWESTERN MEMORIAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q30287063",
+   "Crossroads Community Hospital",
+   "crossroadshospital.com",
+   "DEACONESS ILLINOIS CROSSROADS",
+   "title='Site Not Configured | 404 Not Found' | GET https://crossroadshospital.com/ -> https://crossroadshospital.com/"
+  ],
+  [
+   "Q6704935",
+   "Ann & Robert H. Lurie Children's Hospital of Chicago",
+   "luriechildrens.org",
+   "ANN & ROBERT H LURIE CHILDRENS HOSPITAL OF CHICAGO",
+   "title='Lurie Children's Hospital of Chicago | Pediatric Medicine' | og:site_name='Lurie Children's' | og:title='Lurie Children's' | GET https://luriechildrens.org/ -> https://www.luriechildrens.org/"
+  ],
+  [
+   "Q87932279",
+   "Methodist Hospitals",
+   "methodisthospitals.org",
+   "METHODIST HOSPITALS INC",
+   "title='Just a moment...' | GET https://methodisthospitals.org/ -> https://methodisthospitals.org/"
+  ],
+  [
+   "Q87932417",
+   "Hendricks Regional Health",
+   "hendrickshospital.org",
+   "HENDRICKS REGIONAL HEALTH",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q87932431",
+   "St. Catherine Hospital",
+   "stcatherinehospital.org",
+   "ST CATHERINE HOSPITAL INC",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q30293438",
+   "Marion General Hospital",
+   "marionhealth.com",
+   "MARION GENERAL HOSPITAL",
+   "title='Just a moment...' | GET https://marionhealth.com/ -> https://www.marionhealth.com/"
+  ],
+  [
+   "Q6705724",
+   "Lutheran Hospital of Indiana",
+   "lutheranhospital.com",
+   "LUTHERAN HOSPITAL OF INDIANA",
+   "title='Lutheran Hospital | Fort Wayne, IN' | GET https://lutheranhospital.com/ -> https://www.lutheranhospital.com/"
+  ],
+  [
+   "Q87932226",
+   "Elkhart General Hospital",
+   "egh.org",
+   "ELKHART GENERAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q87932463",
+   "Porter Regional Hospital",
+   "porterhealth.org",
+   "NORTHWEST HEALTH - PORTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932385",
+   "Hancock Regional Hospital",
+   "hancockregional.org",
+   "HANCOCK REGIONAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q5582915",
+   "Good Samaritan Hospital",
+   "gshvin.org",
+   "GOOD SAMARITAN HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932085",
+   "Terre Haute Regional Hospital",
+   "regionalhospital.com",
+   "TERRE HAUTE REGIONAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q87932063",
+   "Reid Hospital & Health Care Services",
+   "reidhosp.com",
+   "REID HEALTH",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q6815469",
+   "Memorial Hospital of South Bend",
+   "qualityoflife.org",
+   "MEMORIAL HOSPITAL OF SOUTH BEND",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q87932204",
+   "Daviess Community Hospital",
+   "dchosp.org",
+   "DAVIESS COMMUNITY HOSPITAL",
+   "title='Just a moment...' | GET https://dchosp.org/ -> https://www.dchosp.org/"
+  ],
+  [
+   "Q87931971",
+   "Community Hospital Anderson",
+   "communityanderson.com",
+   "COMMUNITY HOSPITAL OF ANDERSON AND MADISON COUNTY",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932160",
+   "Memorial Hospital and Health Care Center",
+   "mhhcc.org",
+   "MEMORIAL HOSPITAL AND HEALTH CARE CENTER",
+   "title='Just a moment...' | GET https://mhhcc.org/ -> https://www.mhhcc.org/"
+  ],
+  [
+   "Q87932358",
+   "Physicians' Medical Center",
+   "pmcindiana.com",
+   "PHYSICIANS' MEDICAL CENTER LLC",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932001",
+   "Fairbanks",
+   "fairbankscd.org",
+   "FAIRBANKS",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q87932310",
+   "Community Hospital of Bremen",
+   "bremenhospital.com",
+   "COMMUNITY HOSPITAL OF BREMEN INC",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.)"
+  ],
+  [
+   "Q5559342",
+   "Gibson General Hospital",
+   "gibsongeneral.com",
+   "GIBSON GENERAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q87932388",
+   "Perry County Memorial Hospital",
+   "pchospital.org",
+   "PERRY COUNTY MEMORIAL HOSPITAL",
+   "title='Just a moment...' | GET https://pchospital.org/ -> https://www.pchospital.org/"
+  ],
+  [
+   "Q87932399",
+   "Otis R. Bowen Center for Human Services",
+   "bowencenter.org",
+   "OTIS R BOWEN CENTER FOR HUMAN SERVICES INC",
+   "title='Bowen Health' | og:site_name='Bowen Health' | GET https://bowencenter.org/ -> https://www.bowenhealth.org/"
+  ],
+  [
+   "Q87932021",
+   "Richmond State Hospital",
+   "richmondstatehospital.org",
+   "RICHMOND STATE HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1129)>)"
+  ],
+  [
+   "Q87932094",
+   "Regional Mental Health Center",
+   "regionalmentalhealth.org",
+   "REGIONAL MENTAL HEALTH CENTER",
+   "title='Your family\u2019s partner in health | Regional Health Systems' | og:site_name='Regional Health Systems' | GET https://regionalmentalhealth.org/ -> https://www.rhs.care/?utm_source=regionalmentalhealth.org&utm_medium=301&utm_campaign=redirect"
+  ],
+  [
+   "Q87932231",
+   "Oaklawn Psychiatric Center",
+   "oaklawn.org",
+   "OAKLAWN PSYCHIATRIC CENTER INC",
+   "title='Mental Health Treatment | Therapy Near Me | Oaklawn' | og:site_name='Oaklawn | Toward Health & Healing' | GET https://oaklawn.org/ -> https://oaklawn.org/"
+  ],
+  [
+   "Q87932258",
+   "Brentwood Meadows",
+   "brentwoodmeadows.com",
+   "BRENTWOOD MEADOWS LLC",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q87932321",
+   "Doctors Neuropsychiatric Hospital",
+   "neuropsychiatrichospitals.net",
+   "DOCTORS NEUROPSYCHIATRIC HOSPITAL",
+   "title='Psychiatric & Behavioral Health Care | NeuroPsychiatric Hospitals' | og:site_name='NeuroPsychiatric Hospitals' | GET https://neuropsychiatrichospitals.net/ -> https://www.neuropsychiatrichospitals.net/"
+  ],
+  [
+   "Q87932443",
+   "Medical Behavioral Hospital - Mishawaka",
+   "physicianshospitalsystem.net",
+   "MEDICAL BEHAVIORAL HOSPITAL - MISHAWAKA",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q6779670",
+   "Mary Greeley Medical Center",
+   "mgmc.org",
+   "MARY GREELEY MEDICAL CENTER",
+   "title='Access Denied' | GET https://mgmc.org/ -> https://www.mgmc.org/"
+  ],
+  [
+   "Q7589818",
+   "St. Luke's Regional Medical Center",
+   "stlukes.org",
+   "ST LUKES REGIONAL MEDICAL CENTER",
+   "title='UnityPoint Health' | GET https://stlukes.org/ -> https://www.unitypoint.org/"
+  ],
+  [
+   "Q28450485",
+   "WinnMed",
+   "winmedical.org",
+   "WINNMED",
+   "title='Just a moment...' | GET https://winmedical.org/ -> https://winnmed.org/"
+  ],
+  [
+   "Q4985466",
+   "Buena Vista Regional Medical Center",
+   "bvrmc.org",
+   "BUENA VISTA REGIONAL MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q43112639",
+   "University of Kansas Health System St. Francis Campus",
+   "kutopeka.com",
+   "UNIVERSITY OF KANSAS HEALTH SYSTEM - ST FRANCIS CAMPUS",
+   "title='Home | The University of Kansas Health System' | og:site_name='The University of Kansas Health System' | og:title='Home' | GET https://kutopeka.com/ -> https://kutopeka.com/"
+  ],
+  [
+   "Q6467013",
+   "Labette Health",
+   "labettehealth.com",
+   "LABETTE HEALTH",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7983961",
+   "Wesley Medical Center",
+   "wesleymc.com",
+   "WESLEY MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q14689786",
+   "Menorah Medical Center",
+   "menorahmedicalcenter.com",
+   "MENORAH MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q5135656",
+   "Cloud County Health Center",
+   "cchc.com",
+   "CLOUD COUNTY HEALTH CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q5759409",
+   "Highlands Regional Medical Center",
+   "hrmc.org",
+   "HIGHLANDS ARH REGIONAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7401560",
+   "Saint Joseph Hospital",
+   "sjhlex.org",
+   "SAINT JOSEPH HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7193677",
+   "Pikeville Medical Center",
+   "pikevillehospital.org",
+   "PIKEVILLE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q20899647",
+   "University Medical Center New Orleans",
+   "umcno.org",
+   "UNIVERSITY MEDICAL CENTER NEW ORLEANS",
+   "title='Just a moment...' | GET https://umcno.org/ -> https://www.umcno.org/"
+  ],
+  [
+   "Q7985582",
+   "West Jefferson Medical Center",
+   "wjmc.org",
+   "WEST JEFFERSON MEDICAL CENTER",
+   "title='Just a moment...' | GET https://wjmc.org/ -> https://www.wjmc.org/"
+  ],
+  [
+   "Q14956801",
+   "Tulane Medical Center",
+   "tulanehealthcare.com",
+   "EAST JEFFERSON GENERAL HOSPITAL",
+   "title='Just a moment...' | GET https://tulanehealthcare.com/ -> https://www.tulanehealthcare.com/"
+  ],
+  [
+   "Q30280972",
+   "St. Joseph Hospital",
+   "stjoseph-me.org",
+   "ST JOSEPH HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q5330270",
+   "Eastern Maine Medical Center",
+   "emmc.org",
+   "NORTHERN LIGHT EASTERN MAINE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 54] Connection reset by peer>)"
+  ],
+  [
+   "Q50036412",
+   "Acadia Hospital",
+   "acadiahospital.org",
+   "NORTHERN LIGHT ACADIA HOSPITAL",
+   "title='MEGAH138: Situs Slot Gacor Hari Ini Gampang Menang Terpercaya Anti Rungkad' | GET https://acadiahospital.org/ -> https://menu-meal-24.com/"
+  ],
+  [
+   "Q16891407",
+   "Frederick Memorial Hospital",
+   "fmh.org",
+   "FREDERICK HEALTH HOSPITAL",
+   "title='Just a moment...' | GET https://fmh.org/ -> https://www.fmh.org/"
+  ],
+  [
+   "Q7586717",
+   "St. Agnes Hospital",
+   "stagnes.org",
+   "SAINT AGNES HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q4768132",
+   "Anne Arundel Medical Center",
+   "askaamc.org",
+   "LUMINIS HEALTH ANNE ARUNDEL MEDICAL CENTER, INC",
+   "title='Web Site Not Found' | GET https://askaamc.org/ -> http://aahs.org/"
+  ],
+  [
+   "Q6804945",
+   "MedStar Union Memorial Hospital",
+   "medstarunionmemorial.org",
+   "MEDSTAR UNION MEMORIAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5046581",
+   "Carroll Hospital Center",
+   "carrollhospitalcenter.org",
+   "CARROLL HOSPITAL CENTER",
+   "title='Access Denied' | GET https://carrollhospitalcenter.org/ -> https://www.lifebridgehealth.org/locations/carroll-hospital"
+  ],
+  [
+   "Q5124778",
+   "Civista Medical Center",
+   "umcharlesregional.org",
+   "UNIVERSITY OF MD CHARLES REGIONAL  MEDICAL CENTER",
+   "title='University of Maryland Charles Regional Medical Center' | GET https://umcharlesregional.org/ -> https://www.umms.org/charles"
+  ],
+  [
+   "Q5024272",
+   "CalvertHealth Medical Center",
+   "calverthospital.org",
+   "CALVERTHEALTH MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 54] Connection reset by peer>)"
+  ],
+  [
+   "Q30269738",
+   "Doctors Community Hospital",
+   "dchweb.org",
+   "LUMINIS HEALTH DOCTORS COMMUNITY MEDICAL CTR, INC",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q14692057",
+   "James Lawrence Kernan Hospital",
+   "umrehabortho.org",
+   "UMD REHABILITATION &  ORTHOPAEDIC INSTITUTE",
+   "title='University of Maryland Rehabilitation & Orthopaedic Institute | UM Rehabilitation & Orthopaedic Institute' | og:title='University of Maryland Rehabilitation & Orthopaedic Institute' | GET https://umrehabortho.org/ -> https://www.umms.org/rehab"
+  ],
+  [
+   "Q4816442",
+   "Atlantic General Hospital",
+   "atlantamedcenter.com",
+   "ATLANTIC GENERAL HOSPITAL",
+   "title='Attention Required! | Cloudflare' | GET https://atlantamedcenter.com/ -> https://atlantamedcenter.com/"
+  ],
+  [
+   "Q7763781",
+   "The Sheppard and Enoch Pratt Hospital",
+   "sheppardpratt.org",
+   "SHEPPARD AND ENOCH PRATT HOSPITAL, THE",
+   "title='Sheppard Pratt: A Tradition of Changing Lives for the Better' | og:site_name='Sheppard Pratt' | og:title='Sheppard Pratt' | GET https://sheppardpratt.org/ -> https://www.sheppardpratt.org/"
+  ],
+  [
+   "Q5044034",
+   "Carney Hospital",
+   "carneyhospital.org",
+   "CARNEY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q2078787",
+   "Lowell General Hospital",
+   "lowellgeneral.org",
+   "LOWELL GENERAL HOSPITAL",
+   "title='Access Denied' | GET https://lowellgeneral.org/ -> https://www.tuftsmedicine.org/"
+  ],
+  [
+   "Q6784269",
+   "Massachusetts Eye and Ear Infirmary",
+   "masseyeandear.org",
+   "MASSACHUSETTS EYE AND EAR INFIRMARY -",
+   "title='About Mass Eye and Ear | Mass General Brigham' | GET https://masseyeandear.org/ -> https://www.massgeneralbrigham.org/en/about/mass-eye-and-ear"
+  ],
+  [
+   "Q5370890",
+   "Emerson Hospital",
+   "emersonhospital.org",
+   "EMERSON HOSPITAL -",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q23926527",
+   "Nashoba Valley Medical Center",
+   "nashobamed.org",
+   "NASHOBA VALLEY MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7851542",
+   "Tufts Medical Center",
+   "tuftsmedicalcenter.org",
+   "TUFTS MEDICAL CENTER",
+   "title='Access Denied' | GET https://tuftsmedicalcenter.org/ -> https://www.tuftsmedicine.org/"
+  ],
+  [
+   "Q6824446",
+   "MetroWest Medical Center",
+   "mwmc.com",
+   "METROWEST MEDICAL CENTER",
+   "title='Just a moment...' | GET https://mwmc.com/ -> https://mwmc.com/"
+  ],
+  [
+   "Q7402277",
+   "Saint Vincent Hospital",
+   "stvincenthospital.com",
+   "ST VINCENT HOSPITAL",
+   "title='Just a moment...' | GET https://stvincenthospital.com/ -> https://stvincenthospital.com/"
+  ],
+  [
+   "Q14715697",
+   "Martha's Vineyard Hospital",
+   "mvhospital.com",
+   "MARTHA'S VINEYARD HOSPITAL INC",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q4974053",
+   "Bronson Methodist Hospital",
+   "bronsonhealth.com",
+   "BRONSON METHODIST HOSPITAL",
+   "title='Access Denied' | GET https://bronsonhealth.com/ -> https://www.bronsonhealth.com/"
+  ],
+  [
+   "Q7521663",
+   "Sinai-Grace Hospital",
+   "sinaigrace.org",
+   "SINAI-GRACE HOSPITAL",
+   "title='Just a moment...' | GET https://sinaigrace.org/ -> https://sinaigrace.org/"
+  ],
+  [
+   "Q50036812",
+   "Lake Huron Medical Center",
+   "mylakehuron.com",
+   "LAKE HURON MEDICAL CENTER",
+   "title='You are being redirected...' | GET https://mylakehuron.com/ -> https://mylakehuron.com/"
+  ],
+  [
+   "Q7575297",
+   "Spectrum Health",
+   "spectrumhealth.org",
+   "SPECTRUM HEALTH",
+   "title='Corewell Health' | og:site_name='Corewell Health' | GET https://spectrumhealth.org/ -> https://corewellhealth.org/"
+  ],
+  [
+   "Q6772586",
+   "Marquette General Hospital",
+   "mgh.org",
+   "UPHS MARQUETTE DLP HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5273727",
+   "Dickinson County Healthcare System",
+   "dchs.org",
+   "DICKINSON COUNTY MEMORIAL HOSPITAL",
+   "no title (status 301, HTTP 301)"
+  ],
+  [
+   "Q5663450",
+   "Harper University Hospital",
+   "harperhutzel.org",
+   "HARPER UNIVERSITY HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q14716149",
+   "Hurley Medical Center",
+   "hurleymc.com",
+   "HURLEY MEDICAL CENTER",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q5265994",
+   "Detroit Receiving Hospital",
+   "drhuhc.org",
+   "DETROIT RECEIVING HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 61] Connection refused>)"
+  ],
+  [
+   "Q5098127",
+   "Children's Hospital of Michigan",
+   "childrensdmc.org",
+   "CHILDREN'S HOSPITAL OF MICHIGAN",
+   "title='Just a moment...' | GET https://childrensdmc.org/ -> https://childrensdmc.org/"
+  ],
+  [
+   "Q7195307",
+   "Pine Rest Christian Mental Health Services",
+   "pinerest.org",
+   "PINE REST CHRISTIAN MENTAL HEALTH SERVICES",
+   "title='Pine Rest | Mental Health & Addiction Treatment, Education & Research' | og:site_name='Pine Rest' | GET https://pinerest.org/ -> https://www.pinerest.org/"
+  ],
+  [
+   "Q5714832",
+   "Hennepin County Medical Center",
+   "hcmc.org",
+   "HENNEPIN COUNTY MEDICAL CENTER",
+   "title='Just a moment...' | GET https://hcmc.org/ -> https://hennepinhealthcare.org/"
+  ],
+  [
+   "Q50037052",
+   "St. Luke's Hospital",
+   "slhduluth.com",
+   "ST LUKES HOSPITAL",
+   "title='Home | Aspirus Health Care' | GET https://slhduluth.com/ -> https://www.aspirus.org/"
+  ],
+  [
+   "Q19604563",
+   "St. Francis Regional Medical Center",
+   "stfrancis-shakopee.com",
+   "ST FRANCIS REGIONAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q43896832",
+   "Phelps County Regional Medical Center",
+   "pcrmc.com",
+   "PHELPS COUNTY REGIONAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q7315115",
+   "Research Medical Center",
+   "researchmedicalcenter.com",
+   "RESEARCH MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q5060051",
+   "Centerpoint Medical Center",
+   "centerpointmedical.com",
+   "CENTERPOINT MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q5127227",
+   "Clark Fork Valley Hospital",
+   "cfvh.org",
+   "CLARK FORK VALLEY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50039545",
+   "CHI Health Good Samaritan",
+   "chihealthgoodsamaritan.org",
+   "CHI HEALTH GOOD SAMARITAN",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q50039547",
+   "CHI Health St. Francis",
+   "chihealthstfrancis.org",
+   "CHI HEALTH ST. FRANCIS",
+   "no usable response (HTTP 521)"
+  ],
+  [
+   "Q7641087",
+   "Sunrise Hospital & Medical Center",
+   "sunrisehospital.com",
+   "SUNRISE HOSPITAL AND MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q7057133",
+   "North Vista Hospital",
+   "northvistahospital.com",
+   "NORTH VISTA HOSPITAL",
+   "title='You are being redirected...' | GET https://northvistahospital.com/ -> https://northvistahospital.com/"
+  ],
+  [
+   "Q7569991",
+   "Southern Hills Hospital & Medical Center",
+   "southernhillshospital.com",
+   "SOUTHERN HILLS HOSPITAL AND MEDICAL CENTER",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q7138574",
+   "Parkland Medical Center",
+   "parklandmedicalcenter.com",
+   "PARKLAND MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q23926534",
+   "Cheshire Medical Center",
+   "cheshire-med.com",
+   "CHESHIRE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q50036961",
+   "Portsmouth Regional Hospital",
+   "portsmouthhospital.com",
+   "PORTSMOUTH REGIONAL HOSPITAL",
+   "no usable response (HTTP 500)"
+  ],
+  [
+   "Q5167833",
+   "Cooper University Hospital",
+   "cooperhealth.org",
+   "COOPER UNIVERSITY HOSPITAL",
+   "title='Access Denied' | GET https://cooperhealth.org/ -> https://www.cooperhealth.org/"
+  ],
+  [
+   "Q5108912",
+   "Christ Hospital",
+   "christhospital.org",
+   "HEIGHTS UNIVERSITY HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q4874698",
+   "Bayonne Medical Center",
+   "bayonnemedicalcenter.org",
+   "CAREPOINT HEALTH - BAYONNE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30280117",
+   "Trinitas Regional Medical Center",
+   "trinitashospital.org",
+   "TRINITAS REGIONAL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://trinitashospital.org/ -> https://www.rwjbh.org/trinitas-regional-medical-center/?utm_source=trinitashospital.org&utm_campaign=comport&utm_medium=redirect"
+  ],
+  [
+   "Q30280117",
+   "Trinitas Regional Medical Center",
+   "trinitasrmc.org",
+   "TRINITAS REGIONAL MEDICAL CENTER",
+   "title='Just a moment...' | GET https://trinitasrmc.org/ -> https://www.rwjbh.org/trinitas-regional-medical-center/?utm_source=trinitasrmc.org&utm_campaign=comport&utm_medium=redirect"
+  ],
+  [
+   "Q30280595",
+   "Raritan Bay Medical Center",
+   "rbmc.org",
+   "RARITAN BAY MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q5875170",
+   "Hoboken University Medical Center",
+   "hobokenumc.com",
+   "CAREPOINT HEALTH-HOBOKEN UNIVERSITY MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q90138566",
+   "CareWell Health Medical Center",
+   "evh.org",
+   "CAREWELL HEALTH MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30280920",
+   "Saint Michael's Medical Center",
+   "smmcnj.com",
+   "SAINT MICHAEL'S MEDICAL CENTER",
+   "title='You are being redirected...' | GET https://smmcnj.com/ -> https://smmcnj.com/"
+  ],
+  [
+   "Q30286914",
+   "Children's Specialized Hospital",
+   "childrens-specialized.org",
+   "CHILDREN'S SPECIALIZED HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q5438868",
+   "Faxton St. Luke's Healthcare",
+   "faxtonstlukes.com",
+   "WYNN HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q22079541",
+   "NewYork\u2013Presbyterian/Queens",
+   "nyhq.org",
+   "NEW YORK-PRESBYTERIAN/QUEENS",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q7013496",
+   "New York Eye and Ear Infirmary",
+   "nyee.edu",
+   "NY EYE AND EAR INFIRMARY OF MOUNT SINAI",
+   "title='Access Denied' | GET https://nyee.edu/ -> https://www.nyee.edu/"
+  ],
+  [
+   "Q30280958",
+   "Nyack Hospital",
+   "montefiorenyack.org",
+   "NYACK HOSPITAL",
+   "title='Access Denied' | GET https://montefiorenyack.org/ -> https://montefiorenyack.org/"
+  ],
+  [
+   "Q30280058",
+   "Ellis Hospital",
+   "ellishospital.org",
+   "ELLIS HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q7604005",
+   "Staten Island University Hospital",
+   "siuh.edu",
+   "STATEN ISLAND UNIVERSITY HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7587970",
+   "St. Francis Hospital",
+   "stfrancisheartcenter.com",
+   "ST FRANCIS HOSPITAL - THE HEART CENTER",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q6735870",
+   "Maimonides Medical Center",
+   "maimo.org",
+   "MAIMONIDES MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50039190",
+   "Canton-Potsdam Hospital",
+   "cphospital.org",
+   "CANTON-POTSDAM HOSPITAL",
+   "title='We're Here For It. | Rochester Regional Health' | GET https://cphospital.org/ -> https://www.rochesterregional.org/"
+  ],
+  [
+   "Q5388295",
+   "Erie County Medical Center",
+   "ecmc.edu",
+   "ERIE COUNTY MEDICAL CENTER",
+   "title='ECMC Hospital | The difference between healthcare and true care.' | og:site_name='ECMC Hospital | Buffalo, NY' | GET https://ecmc.edu/ -> https://www.ecmc.edu/"
+  ],
+  [
+   "Q8039598",
+   "Wyckoff Heights Medical Center",
+   "wyckoffhospital.org",
+   "WYCKOFF HEIGHTS MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q55629805",
+   "Phelps Hospital",
+   "phelpshospital.org",
+   "PHELPS HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q99463763",
+   "St. Luke's Cornwall Hospital",
+   "montefioreslc.org",
+   "MONTEFIORE ST LUKE'S CORNWALL",
+   "title='Just a moment...' | GET https://montefioreslc.org/ -> https://www.montefioreslc.org/"
+  ],
+  [
+   "Q21188030",
+   "White Plains Hospital",
+   "wphospital.org",
+   "WHITE PLAINS HOSPITAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q30287374",
+   "Elizabethtown Community Hospital",
+   "ech.org",
+   "ELIZABETHTOWN COMMUNITY HOSPITAL",
+   "title='University of Vermont Health | Home' | GET https://ech.org/ -> https://www.uvmhealth.org/"
+  ],
+  [
+   "Q30287083",
+   "Claxton-Hepburn Medical Center",
+   "claxtonhepburn.org",
+   "CLAXTON-HEPBURN MEDICAL CENTER",
+   "title='Just a moment...' | GET https://claxtonhepburn.org/ -> https://www.claxtonhepburn.org/"
+  ],
+  [
+   "Q7976470",
+   "Wayne Memorial Hospital",
+   "waynehealth.org",
+   "UNC HEALTH CARE WAYNE",
+   "title='Access Denied' | GET https://waynehealth.org/ -> https://www.waynehealth.org/"
+  ],
+  [
+   "Q6523047",
+   "Lenoir Memorial Hospital",
+   "unclenoir.org",
+   "UNC LENOIR HEALTH CARE",
+   "title='Access Denied' | GET https://unclenoir.org/ -> https://www.unclenoir.org/"
+  ],
+  [
+   "Q5019161",
+   "Caldwell Memorial Hospital",
+   "caldwellmemorial.org",
+   "CALDWELL MEMORIAL HOSPITAL",
+   "title='Access Denied' | GET https://caldwellmemorial.org/ -> https://www.caldwellmemorial.org/"
+  ],
+  [
+   "Q8002469",
+   "Wilkes Regional Medical Center",
+   "wilkesregional.org",
+   "WILKES REGIONAL MEDICAL CENTER",
+   "title='Best Online Casinos Secure & Fair Play UK \u2014 Reviews' | GET https://wilkesregional.org/ -> https://www.wilkesregional.org/"
+  ],
+  [
+   "Q16146598",
+   "Alamance Regional Medical Center",
+   "armc.com",
+   "ALAMANCE REGIONAL MEDICAL CENTER",
+   "title='Access Denied' | GET https://armc.com/ -> https://www.conehealth.com/locations/alamance-regional/"
+  ],
+  [
+   "Q8023141",
+   "Wilson Medical Center",
+   "wilmed.org",
+   "WILSON MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q30280751",
+   "New Hanover Regional Medical Center",
+   "nhrmc.org",
+   "NOVANT HEALTH NEW HANOVER REGIONAL MEDICAL CENTER",
+   "title='Novant Health - Serving NC & SC | Remarkable Healthcare' | GET https://nhrmc.org/ -> https://www.novanthealth.org/"
+  ],
+  [
+   "Q5047233",
+   "Carteret General Hospital",
+   "carteretgeneral.com",
+   "CARTERET GENERAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q7835482",
+   "Transylvania Regional Hospital",
+   "trhospital.org",
+   "TRANSYLVANIA REGIONAL HOSPITAL, INC",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q7570218",
+   "Southern Ohio Medical Center",
+   "somc.org",
+   "SOUTHERN OHIO MEDICAL CENTER",
+   "title='Access Denied' | GET https://somc.org/ -> https://www.somc.org/"
+  ],
+  [
+   "Q7071655",
+   "O'Bleness Memorial Hospital",
+   "obleness.org",
+   "OHIOHEALTH O'BLENESS HOSPITAL",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q4805932",
+   "Ashtabula County Medical Center",
+   "amhkalmunai.org",
+   "ASHTABULA COUNTY MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q7571282",
+   "Southwest General Health Center",
+   "swgeneral.com",
+   "SOUTHWEST GENERAL HEALTH CENTER",
+   "title='Just a moment...' | GET https://swgeneral.com/ -> https://swgeneral.com/"
+  ],
+  [
+   "Q23926532",
+   "Henry County Hospital",
+   "henrycountyhospital.org",
+   "HENRY COUNTY HOSPITAL, INC",
+   "title='Just a moment...' | GET https://henrycountyhospital.org/ -> https://www.henrycountyhospital.org/"
+  ],
+  [
+   "Q5243510",
+   "Dayton Children's Hospital",
+   "childrensdayton.org",
+   "DAYTON CHILDRENS HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q108600947",
+   "Hillcrest Medical Center",
+   "hillcrestmedicalcenter.com",
+   "HILLCREST MEDICAL CENTER",
+   "title='You are being redirected...' | GET https://hillcrestmedicalcenter.com/ -> https://hillcrest.com/locations/hillcrest-medical-center/"
+  ],
+  [
+   "Q7082383",
+   "Oklahoma State University Medical Center",
+   "osumc.net",
+   "OKLAHOMA STATE UNIVERSITY MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q123512478",
+   "Southwestern Medical Center",
+   "swmconline.com",
+   "SOUTHWESTERN MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q30280960",
+   "St. John Medical Center",
+   "sjmc.org",
+   "ASCENSION ST JOHN MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q14709289",
+   "Three Rivers Medical Center",
+   "asante.org",
+   "ASANTE THREE RIVERS MEDICAL CENTER",
+   "title='Access Denied' | GET https://asante.org/ -> https://www.asante.org/"
+  ],
+  [
+   "Q14709068",
+   "Mercy Medical Center",
+   "mercyrose.org",
+   "MERCY MEDICAL CENTER",
+   "title='404 - PAGE NOT FOUND' | GET https://mercyrose.org/ -> https://mercyrose.org/404.html"
+  ],
+  [
+   "Q7516846",
+   "Silverton Hospital",
+   "silvertonhealth.org",
+   "LEGACY SILVERTON MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q8003322",
+   "Willamette Valley Medical Center",
+   "wvmcweb.com",
+   "WILLAMETTE VALLEY MEDICAL CENTER",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q6475625",
+   "Lake District Hospital",
+   "lakehealthdistrict.org",
+   "LAKE DISTRICT HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q20064928",
+   "Columbia Memorial Hospital",
+   "columbiamemorial.org",
+   "COLUMBIA MEMORIAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7559880",
+   "Somerset Hospital",
+   "somersethospital.com",
+   "UPMC SOMERSET",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q14956829",
+   "UPMC Altoona",
+   "altoonaregional.org",
+   "UPMC ALTOONA",
+   "no title (status None, URLError: <urlopen error _ssl.c:1112: The handshake operation timed out>)"
+  ],
+  [
+   "Q6483178",
+   "Lancaster General Hospital",
+   "lancastergeneralhealth.org",
+   "LANCASTER GENERAL HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q30280417",
+   "Memorial Hospital",
+   "mhyork.org",
+   "UPMC MEMORIAL",
+   "title='301 Moved Permanently' | GET https://mhyork.org/ -> https://mhyork.org/"
+  ],
+  [
+   "Q16975298",
+   "Aria Health",
+   "ariahealth.org",
+   "JEFFERSON HEALTH- NORTHEAST",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q50037174",
+   "Suburban Community Hospital",
+   "suburbanhosp.org",
+   "SUBURBAN COMMUNITY HOSPITAL",
+   "title='You are being redirected...' | GET https://suburbanhosp.org/ -> https://suburbanbhc.org/"
+  ],
+  [
+   "Q6023380",
+   "Indiana Regional Medical Center",
+   "indianarmc.org",
+   "INDIANA REGIONAL MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q27876815",
+   "Highlands Hospital",
+   "highlandshospital.org",
+   "PENN HIGHLANDS CONNELLSVILLE",
+   "title='Just a moment...' | GET https://highlandshospital.org/ -> https://www.phhealthcare.org/location/hospitals/penn-highlands-connellsville-798"
+  ],
+  [
+   "Q66462012",
+   "St. Clair Hospital",
+   "stclair.org",
+   "ST CLAIR HOSPITAL",
+   "title='Attention Required! | Cloudflare' | GET https://stclair.org/ -> https://stclair.org/"
+  ],
+  [
+   "Q16868877",
+   "Abington Memorial Hospital",
+   "abingtonhealth.org",
+   "JEFFERSON ABINGTON HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q119216729",
+   "Corry Memorial Hospital",
+   "corryhospital.com",
+   "LECOM HEALTH CORRY MEMORIAL HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q7587546",
+   "St. Christopher's Hospital for Children",
+   "stchristophershospital.com",
+   "ST CHRISTOPHER'S HOSPITAL FOR CHILDREN",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7359131",
+   "Roger Williams Medical Center",
+   "rwmc.org",
+   "ROGER WILLIAMS MEDICAL CENTER",
+   "title='RWMC | CharterCARE' | GET https://rwmc.org/ -> https://www.chartercare.org/locations/rwmc/"
+  ],
+  [
+   "Q7110796",
+   "Our Lady of Fatima Hospital",
+   "fatimahospital.com",
+   "OUR LADY OF FATIMA HOSPITAL",
+   "title='Fatima | CharterCARE' | GET https://fatimahospital.com/ -> https://www.chartercare.org/locations/fatima/"
+  ],
+  [
+   "Q14956795",
+   "Newport Hospital",
+   "newporthospital.org",
+   "NEWPORT HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q7320925",
+   "Rhode Island Hospital",
+   "rhodeislandhospital.org",
+   "RHODE ISLAND HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q6484787",
+   "Landmark Medical Center",
+   "landmarkmedical.org",
+   "LANDMARK MEDICAL CENTER",
+   "title='You are being redirected...' | GET https://landmarkmedical.org/ -> https://landmarkmedical.org/"
+  ],
+  [
+   "Q7987411",
+   "Westerly Hospital",
+   "westerlyhospital.org",
+   "WESTERLY HOSPITAL",
+   "title='Just a moment...' | GET https://westerlyhospital.org/ -> https://www.westerlyhospital.org/"
+  ],
+  [
+   "Q7191525",
+   "Piedmont Medical Center",
+   "piedmontmedicalcenter.com",
+   "PIEDMONT MEDICAL CENTER",
+   "title='Just a moment...' | GET https://piedmontmedicalcenter.com/ -> https://piedmontmedicalcenter.com/"
+  ],
+  [
+   "Q121309758",
+   "Blount Memorial Hospital",
+   "blountmemorial.org",
+   "BLOUNT MEMORIAL HOSPITAL",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q30280789",
+   "Southern Hills Medical Center",
+   "tristarsouthernhills.com",
+   "TRISTAR SOUTHERN HILLS MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q5329496",
+   "East Tennessee Children's Hospital",
+   "etch.com",
+   "EAST TENNESSEE CHILDRENS HOSPITAL",
+   "title='Access Denied' | GET https://etch.com/ -> https://www.etch.com/"
+  ],
+  [
+   "Q7435860",
+   "Scott & White Memorial Hospital",
+   "sw.org",
+   "BAYLOR SCOTT & WHITE MEDICAL CENTER - TEMPLE",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q4857641",
+   "Baptist Health System",
+   "baptisthealthsystem.com",
+   "BAPTIST MEDICAL CENTER",
+   "title='Just a moment...' | GET https://baptisthealthsystem.com/ -> https://baptisthealthsystem.com/"
+  ],
+  [
+   "Q98600524",
+   "UT Health East Texas-Tyler",
+   "uthealtheasttexas.com",
+   "UT HEALTH EAST TEXAS TYLER REGIONAL HOSPITAL",
+   "title='UT Health East Texas | Advanced Healthcare for East TX' | og:site_name='UT Health East Texas' | og:title='Home' | GET https://uthealtheasttexas.com/ -> https://uthealtheasttexas.com/"
+  ],
+  [
+   "Q30287814",
+   "Medical Center Hospital",
+   "mchodessa.com",
+   "MEDICAL CENTER HOSPITAL",
+   "title='Just a moment...' | GET https://mchodessa.com/ -> https://www.mchodessa.com/"
+  ],
+  [
+   "Q7036976",
+   "University Health System",
+   "universityhealthsystem.com",
+   "UNIVERSITY HEALTH SYSTEM",
+   "title='Hospitals & Outpatient Clinics in San Antonio | University Health' | og:site_name='University Health' | GET https://universityhealthsystem.com/ -> https://www.universityhealth.com/"
+  ],
+  [
+   "Q6806294",
+   "Medical City Dallas Hospital",
+   "medicalcityhospital.com",
+   "MEDICAL CITY DALLAS HOSPITAL",
+   "no title (status 301, HTTP 301)"
+  ],
+  [
+   "Q8030648",
+   "Woman's Hospital of Texas",
+   "womanshospital.com",
+   "WOMANS HOSPITAL OF TEXAS,THE",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q14710517",
+   "Texas Health Huguley Hospital Fort Worth South",
+   "texashealthhuguley.org",
+   "TEXAS HEALTH HUGULEY HOSPITAL FORT WORTH SOUTH",
+   "title='Texas Health Huguley | Hospital in Burleson, TX' | GET https://texashealthhuguley.org/ -> https://www.texashealth.org/locations/texas-health-huguley"
+  ],
+  [
+   "Q7894822",
+   "University Medical Center",
+   "umchealthsystem.com",
+   "UNIVERSITY MEDICAL CENTER",
+   "title='UMC Health System | Lubbock, Texas' | og:site_name='UMC Health System' | GET https://umchealthsystem.com/ -> https://www.umchealthsystem.com/"
+  ],
+  [
+   "Q30281103",
+   "Texas Orthopedic Hospital",
+   "texasorthopedic.com",
+   "TEXAS ORTHOPEDIC HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q50036600",
+   "Doctors Hospital at Renaissance",
+   "dhr-rgv.com",
+   "DOCTORS HOSPTAL AT RENAISSANCE",
+   "title='Home | DHR Health | Edinburg Hospital & ER | Serving McAllen and Rio Grande Valley' | GET https://dhr-rgv.com/ -> https://dhrhealth.com/"
+  ],
+  [
+   "Q5098157",
+   "Children's Medical Center Dallas",
+   "childrens.com",
+   "CHILDRENS MEDICAL CTR OF DALLAS",
+   "title='Children\u2019s Health \u2013 Making Life Better for Children in Texas' | GET https://childrens.com/ -> https://www.childrens.com/"
+  ],
+  [
+   "Q6925376",
+   "Mountain View Hospital",
+   "mvhpayson.com",
+   "MOUNTAIN VIEW HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7878108",
+   "Uintah Basin Medical Center",
+   "ubmc.org",
+   "UINTAH BASIN MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid f)"
+  ],
+  [
+   "Q7807642",
+   "Timpanogos Regional Hospital",
+   "timpanogosregionalhospital.com",
+   "TIMPANOGOS REGIONAL HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q5061990",
+   "Central Vermont Medical Center",
+   "cvmc.org",
+   "CENTRAL VERMONT MEDICAL CENTER",
+   "title='University of Vermont Health | Home' | GET https://cvmc.org/ -> https://www.uvmhealth.org/"
+  ],
+  [
+   "Q7383498",
+   "Rutland Regional Medical Center",
+   "rrmc.org",
+   "RUTLAND REGIONAL MEDICAL CENTER",
+   "title='Access Denied' | GET https://rrmc.org/ -> https://www.rrmc.org/"
+  ],
+  [
+   "Q140930754",
+   "Copley Hospital",
+   "copleyhospital.org",
+   "COPLEY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q6780926",
+   "Mary Washington Hospital",
+   "marywashingtonhealthcare.com",
+   "MARY WASHINGTON HOSPITAL",
+   "title='Just a moment...' | GET https://marywashingtonhealthcare.com/ -> https://www.marywashingtonhealthcare.com/"
+  ],
+  [
+   "Q30289322",
+   "Virginia Hospital Center",
+   "vhchealth.org",
+   "VIRGINIA HOSPITAL CENTER",
+   "title='VHC Health | Arlington, VA, & DC Metro' | GET https://vhchealth.org/ -> https://www.vhchealth.org/"
+  ],
+  [
+   "Q30279860",
+   "Henrico Doctors' Hospital",
+   "henricodoctors.com",
+   "HENRICO DOCTORS' HOSPITAL",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7580104",
+   "Spotsylvania Regional Medical Center",
+   "spotsrmc.com",
+   "SPOTSYLVANIA REGIONAL MEDICAL CENTER",
+   "no title (status None, timeout: The read operation timed out)"
+  ],
+  [
+   "Q7533759",
+   "Skagit Valley Hospital",
+   "skagitregionalhealth.org",
+   "SKAGIT VALLEY HOSPITAL",
+   "title='Attention Required! | Cloudflare' | GET https://skagitregionalhealth.org/ -> https://www.skagitregionalhealth.org/"
+  ],
+  [
+   "Q7934403",
+   "Virginia Mason Medical Center",
+   "virginiamason.org",
+   "VIRGINIA MASON MEDICAL CENTER",
+   "title='Leading Health Care Provider in WA - PNW | VMFH' | og:site_name='VMFH' | GET https://virginiamason.org/ -> https://www.vmfh.org/"
+  ],
+  [
+   "Q5245052",
+   "Deaconess Medical Center",
+   "deaconessspokane.com",
+   "DEACONESS MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q30595966",
+   "Cascade Valley Hospital",
+   "cascadevalley.org",
+   "CASCADE VALLEY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q5327633",
+   "East Adams Rural Hospital",
+   "earh.org",
+   "EAST ADAMS RURAL HOSPITAL",
+   "title='Ritzville Hospital | East Adam Rural Healthcare' | og:site_name='East Adam Rural Healthcare' | GET https://earh.org/ -> https://www.earh.org/"
+  ],
+  [
+   "Q50039175",
+   "Ferry County Memorial Hospital",
+   "fcphd.org",
+   "FERRY COUNTY MEMORIAL HOSPITAL",
+   "title='FCPHD Home' | GET https://fcphd.org/ -> https://fcphd.org/"
+  ],
+  [
+   "Q50039349",
+   "Whitman Hospital & Medical Center",
+   "whitmanhospital.org",
+   "WHITMAN HOSPITAL AND MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50039349",
+   "Whitman Hospital & Medical Center",
+   "whmc.org",
+   "WHITMAN HOSPITAL AND MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q104563412",
+   "Stonewall Jackson Memorial Hospital",
+   "stonewalljacksonhospital.com",
+   "STONEWALL JACKSON MEMORIAL HOSPITAL COMPANY",
+   "no title (status 200, None)"
+  ],
+  [
+   "Q30267719",
+   "Plateau Medical Center",
+   "plateaumedicalcenter.com",
+   "CAMC PLATEAU MEDICAL CENTER, INC",
+   "no title (status None, URLError: <urlopen error timed out>)"
+  ],
+  [
+   "Q6818741",
+   "Mercy Health System",
+   "mercyhealthsystem.org",
+   "MERCY HEALTH SYSTEM CORP",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q50039160",
+   "Mile Bluff Medical Center",
+   "milebluff.com",
+   "MILE BLUFF MEDICAL CENTER",
+   "title='Just a moment...' | GET https://milebluff.com/ -> https://www.milebluff.com/"
+  ],
+  [
+   "Q50039615",
+   "Door County Medical Center",
+   "dcmedical.org",
+   "DOOR COUNTY MEDICAL CENTER",
+   "title='Home | DCMC' | og:title='Home' | GET https://dcmedical.org/ -> https://www.dcmedical.org/"
+  ],
+  [
+   "Q140930746",
+   "Campbell County Memorial Hospital",
+   "campbellcountyhealth.org",
+   "CAMPBELL COUNTY HEALTH",
+   "no title (status None, URLError: <urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>)"
+  ],
+  [
+   "Q8040358",
+   "Wyoming Medical Center",
+   "wyomingmedicalcenter.org",
+   "BANNER WYOMING MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 65] No route to host>)"
+  ],
+  [
+   "Q140930748",
+   "Ivinson Memorial Hospital",
+   "ivinsonmemorial.com",
+   "IVINSON MEMORIAL HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q140930753",
+   "Memorial Hospital of Converse County",
+   "mhcc.org",
+   "MEMORIAL HOSPITAL OF CONVERSE COUNTY",
+   "title='Community Chamber | Michigan Hispanic Chamber of Commerce' | GET https://mhcc.org/ -> https://www.mhcc.org/"
+  ],
+  [
+   "Q140930751",
+   "Platte County Memorial Hospital",
+   "plattecountymemorial.com",
+   "PLATTE COUNTY HOSPITAL",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q140930750",
+   "Washakie Medical Center",
+   "washakiemedicalcenter.org",
+   "WASHAKIE MEDICAL CENTER",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ],
+  [
+   "Q140930749",
+   "Memorial Hospital of Sweetwater County",
+   "mhswc.com",
+   "MEMORIAL HOSPITAL SWEETWATER COUNTY",
+   "no title (status None, URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>)"
+  ]
+ ],
+ "f14_override": {
+  "company": "Cascade Medical Center",
+  "domain": "cascademedical.org",
+  "state": "WA",
+  "ccn": "501313",
+  "reason": "jeffersonhealthcare.org resolves to CMS hospital 501323, but the 2023 AHRQ compendium links CCN 501323 to its own one-system record HSI00000526 (Jefferson Healthcare, hosp_cnt=2, sys_beds=25). The resolver's parent-system step would therefore resolve it to health_system, contradicting F14 gold (standalone_hospital). Replacement is a real independent hospital that is in CMS but in no AHRQ system: CCN 501313, CASCADE MEDICAL CENTER, LEAVENWORTH, WA.",
+  "homepage_evidence": "title='Homepage | Cascade Medical' | GET https://cascademedical.org/ -> https://cascademedical.org/"
+ },
+ "fixture_ok": "40/40"
+}

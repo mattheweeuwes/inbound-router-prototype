@@ -1,0 +1,11 @@
+[
+  { "id": "mirror-wrenfield", "name": "Wrenfield Health", "status": "customer", "owner": "Avery", "segment": "health_system", "firmographics": { "hospitals": 11 },
+    "domains": ["wrenfieldhealth.example"], "nameContains": ["wrenfield"],
+    "note": "Fictional. Existing customer (Signal). Expansion conversations go to the account owner." },
+  { "id": "mirror-brookmere", "name": "Brookmere Health Plan", "status": "open_opportunity", "owner": "Casey", "segment": "payer", "firmographics": { "payerKind": "regional" },
+    "domains": ["brookmerehealth.example"], "nameContains": ["brookmere"],
+    "note": "Fictional. Open opportunity." },
+  { "id": "mirror-alderfinch", "name": "Alder & Finch Benefits", "status": "partner", "owner": "Morgan", "segment": "benefits_consultant_broker", "firmographics": { "sizeClass": "national" },
+    "domains": ["alderfinch.example"], "nameContains": ["alder & finch", "alder and finch"],
+    "note": "Fictional. Partner account." }
+]

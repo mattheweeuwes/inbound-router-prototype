@@ -1,0 +1,19 @@
+{
+  "teams": {
+    "HSP": { "name": "Health Systems & Providers", "reps": [
+      { "name": "Avery", "hubspotOwnerId": "900001", "capacity": 6 },
+      { "name": "Jordan", "hubspotOwnerId": "900002", "capacity": 6 } ] },
+    "BW": { "name": "Benefits & Workforce", "reps": [
+      { "name": "Morgan", "hubspotOwnerId": "900003", "capacity": 6 },
+      { "name": "Riley", "hubspotOwnerId": "900004", "capacity": 6 } ] },
+    "PLS": { "name": "Payers, Life Sciences & Advisory", "reps": [
+      { "name": "Casey", "hubspotOwnerId": "900005", "capacity": 6 },
+      { "name": "Taylor", "hubspotOwnerId": "900006", "capacity": 6 } ] },
+    "API": { "name": "Data & API Partnerships", "reps": [
+      { "name": "Quinn", "hubspotOwnerId": "900007", "capacity": 6 } ] }
+  },
+  "queues": {
+    "Nurture": { "owner": "Marketing (Sam)", "hubspotOwnerId": "900008" },
+    "Review": { "owner": "RevOps", "hubspotOwnerId": "900009" }
+  }
+}

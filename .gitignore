@@ -1,0 +1,14 @@
+node_modules/
+out/
+data/app.sqlite*
+data/cache/
+.env
+# Raw downloads are rebuilt by `npm run etl`; the built registry (data/registry.sqlite) is committed.
+data/raw/*
+!data/raw/sources.json
+!data/raw/cms_meta.json
+!data/raw/build_report.json
+# Playwright output
+playwright-report/
+test-results/
+__pycache__/

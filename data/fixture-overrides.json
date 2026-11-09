@@ -1,0 +1,10 @@
+{
+  "F14": {
+    "company": "Cascade Medical Center",
+    "domain": "cascademedical.org",
+    "state": "WA",
+    "ccn": "501313",
+    "reason": "jeffersonhealthcare.org resolves to CMS hospital 501323, but the 2023 AHRQ compendium links CCN 501323 to its own one-system record HSI00000526 (Jefferson Healthcare, hosp_cnt=2, sys_beds=25). The resolver's parent-system step would therefore resolve it to health_system, contradicting F14 gold (standalone_hospital). Replacement is a real independent hospital that is in CMS but in no AHRQ system: CCN 501313, CASCADE MEDICAL CENTER, LEAVENWORTH, WA.",
+    "homepage_evidence": "title='Homepage | Cascade Medical' | GET https://cascademedical.org/ -> https://cascademedical.org/"
+  }
+}

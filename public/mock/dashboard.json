@@ -1,0 +1,1430 @@
+{
+ "generatedAt": "2026-11-08T20:22:49.131Z",
+ "empty": false,
+ "env": {
+  "hubspot": "dry_run",
+  "model": {
+   "provider": "rules",
+   "name": null,
+   "called": 0,
+   "answered": 0
+  },
+  "registry": "real",
+  "people": {
+   "total": 7,
+   "synthetic": 7
+  },
+  "signedDoorsMissingKey": []
+ },
+ "window": {
+  "from": "2026-11-05T13:52:00.000Z",
+  "to": "2026-11-07T02:12:00.000Z",
+  "processedFrom": "2026-11-08T20:22:49.064Z",
+  "processedTo": "2026-11-08T20:22:49.130Z",
+  "events": 8,
+  "redeliveries": 0,
+  "webhooks": 8,
+  "leads": 8,
+  "doors": 3,
+  "doorsTotal": 8,
+  "inFlight": 0,
+  "failed": 0,
+  "afterHours": 3,
+  "arrivals": [
+   {
+    "at": "2026-11-05T13:52:00.000Z",
+    "tier": "C",
+    "source": "web_intent"
+   },
+   {
+    "at": "2026-11-05T16:12:00.000Z",
+    "tier": "A",
+    "source": "calendly_demo"
+   },
+   {
+    "at": "2026-11-06T13:55:00.000Z",
+    "tier": "X",
+    "source": "calendly_demo"
+   },
+   {
+    "at": "2026-11-06T14:34:00.000Z",
+    "tier": "X",
+    "source": "sample_signup"
+   },
+   {
+    "at": "2026-11-06T14:58:00.000Z",
+    "tier": "B",
+    "source": "calendly_demo"
+   },
+   {
+    "at": "2026-11-06T16:30:00.000Z",
+    "tier": "C",
+    "source": "calendly_demo"
+   },
+   {
+    "at": "2026-11-06T19:10:00.000Z",
+    "tier": "A",
+    "source": "calendly_demo"
+   },
+   {
+    "at": "2026-11-07T02:12:00.000Z",
+    "tier": "A",
+    "source": "calendly_demo"
+   }
+  ]
+ },
+ "path": [
+  {
+   "id": "webhooks",
+   "status": "ok",
+   "label": "Webhooks verified",
+   "fact": "6 signed deliveries passed the signature check",
+   "detail": "Calendly is the signed door: HMAC-SHA256 over the timestamp and body, five-minute tolerance, constant-time compare. A delivery that fails gets a 401 and nothing is stored, so rejects are not counted here."
+  },
+  {
+   "id": "duplicates",
+   "status": "idle",
+   "label": "Duplicates absorbed",
+   "fact": "0 re-deliveries answered without a new lead · 0 repeat contacts attached",
+   "detail": "A re-delivered webhook (same source and event id) gets a 200 and does nothing. A contact seen in the last 30 days is attached to their first lead and keeps its owner."
+  },
+  {
+   "id": "matching",
+   "status": "ok",
+   "label": "Every lead matched, held or ruled out",
+   "fact": "6 on a stable ID · 1 held for a person · 1 ruled out · 0 guessed",
+   "detail": "Guessed: a lead that matched no organization but was still sent to a rep or a team on its score. Rule R6 holds those for a person instead."
+  },
+  {
+   "id": "sla",
+   "status": "ok",
+   "label": "Sales-ready leads alerted within SLA",
+   "fact": "4 of 4 alerted inside their SLA",
+   "detail": "Tier A or B leads routed to a rep, an owner or a team queue. Inside SLA: received time plus the measured time to the alert is no later than the SLA due time. A repeat contact inside 24 hours is attached without a new alert and is not counted."
+  },
+  {
+   "id": "hubspot",
+   "status": "ok",
+   "label": "HubSpot sync",
+   "fact": "23 requests planned for 7 leads · 0 failed · dry-run",
+   "detail": "Dry-run: each request is built exactly as it would be sent, stored on the lead and appended to out/hubspot/; nothing reaches HubSpot. Live: requests go to the portal and every response status is stored on the lead. Counted from the leads as they were processed."
+  },
+  {
+   "id": "eval",
+   "status": "ok",
+   "label": "Classifier gate",
+   "fact": "v4 clears all 6 floors on the sealed and held-out sets",
+   "detail": "Last run 2026-11-07T16:36:58.154Z, model llama3.2:3b. Floors from scripts/lib/eval-gate.ts, applied to out/eval.json."
+  }
+ ],
+ "kpis": {
+  "leadsIn": {
+   "value": 8,
+   "doors": 3,
+   "webhooks": 8
+  },
+  "salesReady": {
+   "value": 4,
+   "pct": 50,
+   "a": 3,
+   "b": 1,
+   "heldForPerson": 0
+  },
+  "timeToRoute": {
+   "processingP50": 1,
+   "processingP90": 23,
+   "queueP50": 0,
+   "queueP90": 1,
+   "totalP50": 1,
+   "totalP90": 24,
+   "n": 8
+  },
+  "sla": {
+   "aRouted": 3,
+   "aWithin": 3,
+   "atRisk": 0,
+   "nextDueAt": "2026-11-09T14:05:00.000Z"
+  },
+  "matched": {
+   "pct": 75,
+   "matched": 6,
+   "of": 8,
+   "topMethods": [
+    {
+     "method": "org_domain",
+     "n": 3
+    },
+    {
+     "method": "company_name",
+     "n": 1
+    },
+    {
+     "method": "crm",
+     "n": 1
+    }
+   ],
+   "otherMethods": 1
+  },
+  "needsPerson": {
+   "open": 1,
+   "oldestWaitMs": 5,
+   "oldestSince": "2026-11-08T20:22:49.126Z"
+  }
+ },
+ "motions": [
+  {
+   "id": "sales",
+   "label": "Sales-led",
+   "total": 6,
+   "salesReady": 4
+  },
+  {
+   "id": "product",
+   "label": "Product-led",
+   "total": 1,
+   "salesReady": 0
+  },
+  {
+   "id": "marketing",
+   "label": "Marketing",
+   "total": 1,
+   "salesReady": 0
+  }
+ ],
+ "doors": [
+  {
+   "source": "calendly_demo",
+   "motion": "sales",
+   "total": 6,
+   "tiers": {
+    "A": 3,
+    "B": 1,
+    "C": 1,
+    "D": 0,
+    "X": 1,
+    "pending": 0
+   }
+  },
+  {
+   "source": "guide_download",
+   "motion": "marketing",
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  },
+  {
+   "source": "signal_ask_waitlist",
+   "motion": "product",
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  },
+  {
+   "source": "sample_signup",
+   "motion": "product",
+   "total": 1,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 1,
+    "pending": 0
+   }
+  },
+  {
+   "source": "marketplace",
+   "motion": "product",
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  },
+  {
+   "source": "api_key",
+   "motion": "product",
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  },
+  {
+   "source": "event_scan",
+   "motion": "sales",
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  },
+  {
+   "source": "web_intent",
+   "motion": "marketing",
+   "total": 1,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 1,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   }
+  }
+ ],
+ "funnel": [
+  {
+   "id": "received",
+   "label": "Received",
+   "def": "Leads the doors accepted: first deliveries only.",
+   "n": 8,
+   "pctOfFirst": 100,
+   "pctOfPrev": null
+  },
+  {
+   "id": "matched",
+   "label": "Matched to an organization",
+   "def": "Resolved to an account on a stable key: AHRQ system, CMS CCN, payer, NPI or domain.",
+   "n": 6,
+   "pctOfFirst": 75,
+   "pctOfPrev": 75
+  },
+  {
+   "id": "qualified",
+   "label": "Qualified",
+   "def": "Matched, scored and not disqualified (tier A to D).",
+   "n": 5,
+   "pctOfFirst": 62.5,
+   "pctOfPrev": 83.3
+  },
+  {
+   "id": "sales_ready",
+   "label": "Sales-ready",
+   "def": "Qualified and scored A or B.",
+   "n": 4,
+   "pctOfFirst": 50,
+   "pctOfPrev": 80
+  },
+  {
+   "id": "assigned",
+   "label": "Assigned to a rep or team",
+   "def": "Sales-ready and routed to a rep, the account owner or a team queue (a repeat contact stays with its first owner).",
+   "n": 4,
+   "pctOfFirst": 50,
+   "pctOfPrev": 100
+  },
+  {
+   "id": "alerted",
+   "label": "Alerted",
+   "def": "Assigned and a Slack alert went to the rep or the team channel. A repeat contact inside 24 hours is attached without a new alert.",
+   "n": 4,
+   "pctOfFirst": 50,
+   "pctOfPrev": 100
+  },
+  {
+   "id": "synced",
+   "label": "HubSpot sync planned",
+   "def": "Alerted, and the HubSpot requests for it were built and recorded (dry-run: nothing is sent).",
+   "n": 4,
+   "pctOfFirst": 50,
+   "pctOfPrev": 100
+  }
+ ],
+ "markets": [
+  {
+   "id": "providers",
+   "label": "Providers & health systems",
+   "segments": [
+    "health_system",
+    "standalone_hospital",
+    "provider_group"
+   ],
+   "total": 4,
+   "tiers": {
+    "A": 2,
+    "B": 1,
+    "C": 1,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   },
+   "teams": [
+    {
+     "team": "HSP",
+     "n": 4
+    }
+   ]
+  },
+  {
+   "id": "payers",
+   "label": "Payers",
+   "segments": [
+    "payer"
+   ],
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   },
+   "teams": []
+  },
+  {
+   "id": "benefits",
+   "label": "Employers, brokers & TPAs",
+   "segments": [
+    "employer_self_funded",
+    "benefits_consultant_broker",
+    "tpa",
+    "government"
+   ],
+   "total": 1,
+   "tiers": {
+    "A": 1,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   },
+   "teams": [
+    {
+     "team": "BW",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "id": "data_api",
+   "label": "Data & API buyers",
+   "segments": [
+    "innovator_api_data",
+    "innovator_navigation"
+   ],
+   "total": 0,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "X": 0,
+    "pending": 0
+   },
+   "teams": []
+  },
+  {
+   "id": "other",
+   "label": "Other",
+   "segments": [
+    "life_sciences",
+    "pe_investor",
+    "consulting_advisory",
+    "academic",
+    "media",
+    "competitor",
+    "non_us",
+    "unknown_org"
+   ],
+   "total": 3,
+   "tiers": {
+    "A": 0,
+    "B": 0,
+    "C": 1,
+    "D": 0,
+    "X": 2,
+    "pending": 0
+   },
+   "teams": [
+    {
+     "team": "Nurture",
+     "n": 2
+    },
+    {
+     "team": "Review",
+     "n": 1
+    }
+   ]
+  }
+ ],
+ "unsegmented": 0,
+ "notForSales": {
+  "total": 2,
+  "nurture": 0,
+  "reasons": [
+   {
+    "id": "competitor",
+    "label": "Competitor",
+    "n": 1
+   },
+   {
+    "id": "job_seeker",
+    "label": "Job seeker",
+    "n": 1
+   }
+  ]
+ },
+ "speed": {
+  "processing": {
+   "n": 8,
+   "p50": 1,
+   "p90": 23
+  },
+  "queue": {
+   "n": 8,
+   "p50": 0,
+   "p90": 1
+  },
+  "timeToRoute": {
+   "n": 8,
+   "p50": 1,
+   "p90": 24
+  },
+  "stages": [
+   {
+    "stage": "normalize",
+    "n": 8,
+    "p50": 0,
+    "p90": 0
+   },
+   {
+    "stage": "resolve",
+    "n": 8,
+    "p50": 0,
+    "p90": 22
+   },
+   {
+    "stage": "qualify",
+    "n": 8,
+    "p50": 0,
+    "p90": 4
+   },
+   {
+    "stage": "score",
+    "n": 8,
+    "p50": 0,
+    "p90": 0
+   },
+   {
+    "stage": "route",
+    "n": 8,
+    "p50": 0,
+    "p90": 0
+   },
+   {
+    "stage": "notify",
+    "n": 8,
+    "p50": 0,
+    "p90": 0
+   },
+   {
+    "stage": "crm",
+    "n": 8,
+    "p50": 0,
+    "p90": 1
+   }
+  ],
+  "model": null,
+  "byDoor": [
+   {
+    "source": "calendly_demo",
+    "n": 6,
+    "processingP50": 1,
+    "queueP50": 0,
+    "routeP50": 1
+   },
+   {
+    "source": "sample_signup",
+    "n": 1,
+    "processingP50": 0,
+    "queueP50": 0,
+    "routeP50": 0
+   },
+   {
+    "source": "web_intent",
+    "n": 1,
+    "processingP50": 9,
+    "queueP50": 1,
+    "routeP50": 10
+   }
+  ],
+  "byMarket": [
+   {
+    "id": "providers",
+    "label": "Providers & health systems",
+    "n": 4,
+    "processingP50": 1,
+    "queueP50": 0,
+    "routeP50": 1
+   },
+   {
+    "id": "benefits",
+    "label": "Employers, brokers & TPAs",
+    "n": 1,
+    "processingP50": 3,
+    "queueP50": 0,
+    "routeP50": 3
+   },
+   {
+    "id": "other",
+    "label": "Other",
+    "n": 3,
+    "processingP50": 0,
+    "queueP50": 0,
+    "routeP50": 0
+   }
+  ]
+ },
+ "sla": {
+  "salesReady": {
+   "routed": 4,
+   "within": 4,
+   "late": 0,
+   "notAlerted": 0,
+   "attachedQuietly": 0
+  },
+  "aTier": {
+   "routed": 3,
+   "within": 3,
+   "late": 0,
+   "notAlerted": 0
+  },
+  "atRisk": 0,
+  "nextDueAt": "2026-11-09T14:05:00.000Z",
+  "open": [
+   {
+    "leadId": "sample-f40",
+    "name": "Hannah Brooks",
+    "org": "Piedmont Healthcare",
+    "tier": "A",
+    "owner": "Jordan",
+    "team": "HSP",
+    "action": "rep_alert",
+    "dueAt": "2026-11-09T14:05:00.000Z"
+   }
+  ],
+  "openCount": 1
+ },
+ "reps": [
+  {
+   "name": "Avery",
+   "team": "HSP",
+   "kind": "rep",
+   "assigned": 1,
+   "aTier": 1,
+   "claimed": 1,
+   "load24h": 1,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": 2
+  },
+  {
+   "name": "Jordan",
+   "team": "HSP",
+   "kind": "rep",
+   "assigned": 1,
+   "aTier": 1,
+   "claimed": 1,
+   "load24h": 1,
+   "capacity": 6,
+   "nextSlaDue": "2026-11-09T14:05:00.000Z",
+   "alertP50": 1
+  },
+  {
+   "name": "Morgan",
+   "team": "BW",
+   "kind": "rep",
+   "assigned": 1,
+   "aTier": 1,
+   "claimed": 0,
+   "load24h": 0,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": 3
+  },
+  {
+   "name": "Riley",
+   "team": "BW",
+   "kind": "rep",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": 0,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "Casey",
+   "team": "PLS",
+   "kind": "rep",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": 0,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "Taylor",
+   "team": "PLS",
+   "kind": "rep",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": 0,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "Quinn",
+   "team": "API",
+   "kind": "rep",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": 0,
+   "capacity": 6,
+   "nextSlaDue": null,
+   "alertP50": null
+  }
+ ],
+ "queues": [
+  {
+   "name": "HSP queue",
+   "team": "HSP",
+   "kind": "queue",
+   "assigned": 2,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": 24
+  },
+  {
+   "name": "BW queue",
+   "team": "BW",
+   "kind": "queue",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "PLS queue",
+   "team": "PLS",
+   "kind": "queue",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "API queue",
+   "team": "API",
+   "kind": "queue",
+   "assigned": 0,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": null
+  },
+  {
+   "name": "Marketing (Sam)",
+   "team": "Nurture",
+   "kind": "queue",
+   "assigned": 2,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": 1
+  },
+  {
+   "name": "RevOps",
+   "team": "Review",
+   "kind": "queue",
+   "assigned": 1,
+   "aTier": 0,
+   "claimed": 0,
+   "load24h": null,
+   "capacity": null,
+   "nextSlaDue": null,
+   "alertP50": 18
+  }
+ ],
+ "hubspot": {
+  "mode": "dry_run",
+  "planned": 23,
+  "failed": 0,
+  "reused": 0,
+  "leadsWritten": 7,
+  "leadsNotWritten": 1,
+  "liveLeads": 0,
+  "plannedDryRun": 23,
+  "sentLive": 0,
+  "redeliveriesWithoutWrites": 0,
+  "requests": [
+   {
+    "id": "contacts_upsert",
+    "object": "Contacts",
+    "op": "batch upsert on email",
+    "planned": 6,
+    "failed": 0,
+    "reused": 0
+   },
+   {
+    "id": "companies_upsert",
+    "object": "Companies",
+    "op": "batch upsert on account key",
+    "planned": 6,
+    "failed": 0,
+    "reused": 0
+   },
+   {
+    "id": "association",
+    "object": "Associations",
+    "op": "contact to company",
+    "planned": 5,
+    "failed": 0,
+    "reused": 0
+   },
+   {
+    "id": "task_create",
+    "object": "Tasks",
+    "op": "create, due at the SLA",
+    "planned": 6,
+    "failed": 0,
+    "reused": 0
+   }
+  ],
+  "record": {
+   "files": 1,
+   "lines": 23
+  },
+  "lifecycle": [
+   {
+    "stage": "salesqualifiedlead",
+    "n": 3
+   },
+   {
+    "stage": "marketingqualifiedlead",
+    "n": 1
+   },
+   {
+    "stage": "lead",
+    "n": 1
+   },
+   {
+    "stage": "not_set",
+    "n": 1
+   }
+  ],
+  "contactUpserts": 6,
+  "companyUpserts": 6,
+  "properties": [
+   {
+    "object": "contact",
+    "name": "serif_segment",
+    "label": "Segment",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_use_case",
+    "label": "Use case",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_urgency",
+    "label": "Urgency",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_tier",
+    "label": "Tier",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_fit_score",
+    "label": "Fit score",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_intent_score",
+    "label": "Intent score",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_route_team",
+    "label": "Route team",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_source",
+    "label": "Source",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_lead_id",
+    "label": "Lead id",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_account_key",
+    "label": "Account key",
+    "writer": "router",
+    "written": 5,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "serif_nurture_track",
+    "label": "Nurture track",
+    "writer": "router",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "first_touch_utm_source",
+    "label": "First touch UTM source",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "first_touch_utm_medium",
+    "label": "First touch UTM medium",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "first_touch_utm_campaign",
+    "label": "First touch UTM campaign",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "first_touch_utm_content",
+    "label": "First touch UTM content",
+    "writer": "router",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "first_touch_utm_term",
+    "label": "First touch UTM term",
+    "writer": "router",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "last_touch_utm_source",
+    "label": "Last touch UTM source",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "last_touch_utm_medium",
+    "label": "Last touch UTM medium",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "last_touch_utm_campaign",
+    "label": "Last touch UTM campaign",
+    "writer": "router",
+    "written": 1,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "last_touch_utm_content",
+    "label": "Last touch UTM content",
+    "writer": "router",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "contact",
+    "name": "last_touch_utm_term",
+    "label": "Last touch UTM term",
+    "writer": "router",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_account_key",
+    "label": "Account key",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_segment",
+    "label": "Segment",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_hospital_count",
+    "label": "Hospital count",
+    "writer": "router",
+    "written": 4,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_match_method",
+    "label": "Match method",
+    "writer": "router",
+    "written": 6,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_account_score",
+    "label": "Account score",
+    "writer": "reverse_etl",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_open_leads",
+    "label": "Leads (30d)",
+    "writer": "reverse_etl",
+    "written": 0,
+    "of": 6
+   },
+   {
+    "object": "company",
+    "name": "serif_web_intent_points",
+    "label": "Web intent points",
+    "writer": "reverse_etl",
+    "written": 0,
+    "of": 6
+   }
+  ]
+ },
+ "matching": {
+  "reached": 8,
+  "matched": 6,
+  "pct": 75,
+  "ambiguous": 1,
+  "unresolved": 1,
+  "methods": [
+   {
+    "method": "org_domain",
+    "n": 3,
+    "high": 3,
+    "medium": 0,
+    "low": 0
+   },
+   {
+    "method": "company_name",
+    "n": 1,
+    "high": 0,
+    "medium": 1,
+    "low": 0
+   },
+   {
+    "method": "crm",
+    "n": 1,
+    "high": 1,
+    "medium": 0,
+    "low": 0
+   },
+   {
+    "method": "curated_domain",
+    "n": 1,
+    "high": 1,
+    "medium": 0,
+    "low": 0
+   }
+  ],
+  "keyKinds": [
+   {
+    "kind": "ahrq",
+    "n": 4
+   },
+   {
+    "kind": "crm",
+    "n": 1
+   },
+   {
+    "kind": "domain",
+    "n": 1
+   }
+  ],
+  "held": 1,
+  "guessed": 0
+ },
+ "hygiene": {
+  "utmFixed": 2,
+  "duplicatesMerged": 0,
+  "idempotentReplays": 0,
+  "freeMailResolved": 1,
+  "spamDropped": 0,
+  "titlesNormalized": 7,
+  "nonUs": 0
+ },
+ "stageFailures": 0,
+ "activity": [
+  {
+   "at": "2026-11-08T20:22:49.130Z",
+   "leadId": "sample-f40",
+   "person": "Hannah Brooks",
+   "org": "Piedmont Healthcare",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Jordan",
+   "team": "HSP",
+   "action": "rep_alert",
+   "kind": "alerted",
+   "channel": "@Jordan"
+  },
+  {
+   "at": "2026-11-08T20:22:49.130Z",
+   "leadId": "sample-f40",
+   "person": "Hannah Brooks",
+   "org": "Piedmont Healthcare",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Jordan",
+   "team": "HSP",
+   "action": "rep_alert",
+   "kind": "crm",
+   "requests": 4,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.129Z",
+   "leadId": "sample-f35",
+   "person": "Mei Tanaka",
+   "org": "Johns Hopkins Health System",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Avery",
+   "team": "HSP",
+   "action": "rep_alert",
+   "kind": "alerted",
+   "channel": "@Avery"
+  },
+  {
+   "at": "2026-11-08T20:22:49.128Z",
+   "leadId": "sample-f35",
+   "person": "Mei Tanaka",
+   "org": "Johns Hopkins Health System",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Avery",
+   "team": "HSP",
+   "action": "rep_alert",
+   "kind": "crm",
+   "requests": 4,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.127Z",
+   "leadId": "sample-f29",
+   "person": "Lauren Price",
+   "org": "Baptist Health",
+   "tier": "C",
+   "source": "calendly_demo",
+   "owner": "RevOps",
+   "team": "Review",
+   "action": "review",
+   "kind": "alerted",
+   "channel": "#revops-review"
+  },
+  {
+   "at": "2026-11-08T20:22:49.126Z",
+   "leadId": "sample-f29",
+   "person": "Lauren Price",
+   "org": "Baptist Health",
+   "tier": "C",
+   "source": "calendly_demo",
+   "owner": "RevOps",
+   "team": "Review",
+   "action": "review",
+   "kind": "crm",
+   "requests": 2,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.108Z",
+   "leadId": "sample-f25",
+   "person": "Monica Reyes",
+   "org": "Northside Hospital",
+   "tier": "B",
+   "source": "calendly_demo",
+   "owner": "HSP queue",
+   "team": "HSP",
+   "action": "team_queue",
+   "kind": "alerted",
+   "channel": "#leads-hsp"
+  },
+  {
+   "at": "2026-11-08T20:22:49.108Z",
+   "leadId": "sample-f25",
+   "person": "Monica Reyes",
+   "org": "Northside Hospital",
+   "tier": "B",
+   "source": "calendly_demo",
+   "owner": "HSP queue",
+   "team": "HSP",
+   "action": "team_queue",
+   "kind": "crm",
+   "requests": 4,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.084Z",
+   "leadId": "sample-f24",
+   "person": "Liam Foster",
+   "org": "Turquoise Health",
+   "tier": "X",
+   "source": "sample_signup",
+   "owner": "Marketing (Sam)",
+   "team": "Nurture",
+   "action": "competitor_flag",
+   "kind": "alerted",
+   "channel": "#marketing"
+  },
+  {
+   "at": "2026-11-08T20:22:49.083Z",
+   "leadId": "sample-f24",
+   "person": "Liam Foster",
+   "org": "Turquoise Health",
+   "tier": "X",
+   "source": "sample_signup",
+   "owner": "Marketing (Sam)",
+   "team": "Nurture",
+   "action": "competitor_flag",
+   "kind": "crm",
+   "requests": 3,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.082Z",
+   "leadId": "sample-f22",
+   "person": "Chris Doyle",
+   "org": null,
+   "tier": "X",
+   "source": "calendly_demo",
+   "owner": "Marketing (Sam)",
+   "team": "Nurture",
+   "action": "careers",
+   "kind": "not_for_sales",
+   "reason": "Job seeker"
+  },
+  {
+   "at": "2026-11-08T20:22:49.081Z",
+   "leadId": "sample-f07",
+   "person": "Tom Gallagher",
+   "org": "Alder & Finch Benefits",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Morgan",
+   "team": "BW",
+   "action": "rep_alert",
+   "kind": "alerted",
+   "channel": "@Morgan"
+  },
+  {
+   "at": "2026-11-08T20:22:49.081Z",
+   "leadId": "sample-f07",
+   "person": "Tom Gallagher",
+   "org": "Alder & Finch Benefits",
+   "tier": "A",
+   "source": "calendly_demo",
+   "owner": "Morgan",
+   "team": "BW",
+   "action": "rep_alert",
+   "kind": "crm",
+   "requests": 4,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.076Z",
+   "leadId": "sample-f32",
+   "person": null,
+   "org": "Sutter Health",
+   "tier": "C",
+   "source": "web_intent",
+   "owner": "HSP queue",
+   "team": "HSP",
+   "action": "account_signal",
+   "kind": "crm",
+   "requests": 2,
+   "mode": "dry_run"
+  },
+  {
+   "at": "2026-11-08T20:22:49.074Z",
+   "leadId": "sample-f32",
+   "person": null,
+   "org": "Sutter Health",
+   "tier": "C",
+   "source": "web_intent",
+   "owner": "HSP queue",
+   "team": "HSP",
+   "action": "account_signal",
+   "kind": "signal",
+   "reason": null
+  }
+ ],
+ "review": [
+  {
+   "leadId": "sample-f29",
+   "reason": "ambiguous_company",
+   "createdAt": "2026-11-08T20:22:49.126Z",
+   "waitMs": 5,
+   "name": "Lauren Price",
+   "title": "Managed Care Director",
+   "company": "Baptist Health",
+   "tier": "C",
+   "source": "calendly_demo"
+  }
+ ],
+ "eval": {
+  "recorded": true,
+  "generatedAt": "2026-11-07T16:36:58.154Z",
+  "model": "llama3.2:3b",
+  "combineVersion": "v4",
+  "floors": "model",
+  "pass": true,
+  "passed": 6,
+  "rows": [
+   {
+    "set": "sealed",
+    "field": "urgency",
+    "ok": 23,
+    "n": 24,
+    "floor": 22,
+    "pass": true
+   },
+   {
+    "set": "sealed",
+    "field": "useCase",
+    "ok": 18,
+    "n": 24,
+    "floor": 17,
+    "pass": true
+   },
+   {
+    "set": "sealed",
+    "field": "disqualifier",
+    "ok": 22,
+    "n": 24,
+    "floor": 21,
+    "pass": true
+   },
+   {
+    "set": "heldout",
+    "field": "urgency",
+    "ok": 22,
+    "n": 24,
+    "floor": 21,
+    "pass": true
+   },
+   {
+    "set": "heldout",
+    "field": "useCase",
+    "ok": 20,
+    "n": 24,
+    "floor": 19,
+    "pass": true
+   },
+   {
+    "set": "heldout",
+    "field": "disqualifier",
+    "ok": 23,
+    "n": 24,
+    "floor": 22,
+    "pass": true
+   }
+  ]
+ }
+}

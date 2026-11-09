@@ -1,0 +1,7 @@
+SELECT DISTINCT ?item ?itemLabel ?site ?stateLabel ?clsLabel WHERE {
+  VALUES ?cls { wd:Q16917 wd:Q7048982 wd:Q210999 wd:Q644264 wd:Q1813474 wd:Q1059324 wd:Q4671274 wd:Q7257872 wd:Q4284971 wd:Q2440002 wd:Q22914759 wd:Q2473971 wd:Q28405265 wd:Q5154967 wd:Q21016139 wd:Q25004734 wd:Q60327604 wd:Q1391390 wd:Q7705274 wd:Q2387974 wd:Q95984744 wd:Q6953133 wd:Q70490064 }
+  ?item wdt:P31 ?cls; wdt:P17 wd:Q30; wdt:P856 ?site .
+  OPTIONAL { ?item wdt:P131* ?st . ?st wdt:P31 wd:Q35657 . }
+  BIND(?st AS ?state)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}

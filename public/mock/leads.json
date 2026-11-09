@@ -1,0 +1,60 @@
+{
+  "leads": [
+    {
+      "id": "sample-f40", "receivedAt": "2026-11-07T02:12:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Hannah Brooks", "title": "Executive Director, Managed Care", "email": "hbrooks@piedmont.org" },
+      "org": { "name": "Piedmont Healthcare", "accountId": "ahrq:SAMPLE-0001", "segment": "health_system", "matchedBy": "org_domain", "confidence": "high" },
+      "tier": "A", "score": 90, "routeAction": "rep_alert", "routeTeam": "HSP", "owner": "Jordan",
+      "useCase": "contract_negotiation", "urgency": "now", "timeToRouteMs": 1840, "flags": ["after_hours"]
+    },
+    {
+      "id": "sample-f35", "receivedAt": "2026-11-06T20:41:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Mei Tanaka", "title": "Director, Payer Relations", "email": "mtanaka@jhmi.edu" },
+      "org": { "name": "Johns Hopkins Health System", "accountId": "ahrq:SAMPLE-0002", "segment": "health_system", "matchedBy": "org_domain", "confidence": "high" },
+      "tier": "A", "score": 77, "routeAction": "rep_alert", "routeTeam": "HSP", "owner": "Avery",
+      "useCase": "contract_negotiation", "urgency": "this_quarter", "timeToRouteMs": 1310, "flags": []
+    },
+    {
+      "id": "sample-f32", "receivedAt": "2026-11-06T18:05:00Z", "source": "web_intent", "synthetic": true, "status": "synced",
+      "person": null,
+      "org": { "name": "Sutter Health", "accountId": "ahrq:SAMPLE-0003", "segment": "health_system", "matchedBy": "org_domain", "confidence": "high" },
+      "tier": null, "score": null, "routeAction": "account_signal", "routeTeam": "HSP", "owner": null,
+      "useCase": null, "urgency": null, "timeToRouteMs": 210, "flags": []
+    },
+    {
+      "id": "sample-f29", "receivedAt": "2026-11-06T17:20:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Lauren Price", "title": "Managed Care Director", "email": "lprice@gmail.com" },
+      "org": { "name": "Baptist Health", "accountId": null, "segment": "unknown_org", "matchedBy": "company_name", "confidence": "low" },
+      "tier": "B", "score": 52, "routeAction": "review", "routeTeam": "Review", "owner": "RevOps",
+      "useCase": "rate_benchmarking_market", "urgency": "unknown", "timeToRouteMs": 980, "flags": ["free_mail", "review"]
+    },
+    {
+      "id": "sample-f25", "receivedAt": "2026-11-06T16:02:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Monica Reyes", "title": "Payer Contracting Manager", "email": "monica.reyes@outlook.com" },
+      "org": { "name": "Northside Hospital", "accountId": "ahrq:SAMPLE-0004", "segment": "health_system", "matchedBy": "company_name", "confidence": "medium" },
+      "tier": "A", "score": 75, "routeAction": "rep_alert", "routeTeam": "HSP", "owner": "Avery",
+      "useCase": "contract_negotiation", "urgency": "this_quarter", "timeToRouteMs": 1520, "flags": ["free_mail"]
+    },
+    {
+      "id": "sample-f24", "receivedAt": "2026-11-06T15:11:00Z", "source": "sample_signup", "synthetic": true, "status": "synced",
+      "person": { "name": "Liam Foster", "title": "Product Analyst", "email": "lfoster@turquoise.health" },
+      "org": { "name": "Turquoise Health", "accountId": "domain:turquoise.health", "segment": "competitor", "matchedBy": "curated_domain", "confidence": "high" },
+      "tier": "X", "score": 18, "routeAction": "competitor_flag", "routeTeam": null, "owner": "Marketing (Sam)",
+      "useCase": "other", "urgency": "unknown", "timeToRouteMs": 640, "flags": ["competitor"]
+    },
+    {
+      "id": "sample-f22", "receivedAt": "2026-11-06T14:30:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Chris Doyle", "title": "Data Engineer", "email": "cdoyle@gmail.com" },
+      "org": { "name": null, "accountId": null, "segment": "unknown_org", "matchedBy": "none", "confidence": "low" },
+      "tier": "X", "score": 34, "routeAction": "careers", "routeTeam": null, "owner": null,
+      "useCase": "job_seeker", "urgency": "unknown", "timeToRouteMs": 870, "flags": ["free_mail"]
+    },
+    {
+      "id": "sample-f07", "receivedAt": "2026-11-05T15:44:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+      "person": { "name": "Tom Gallagher", "title": "SVP, Benefits Consulting", "email": "tgallagher@alderfinch.example" },
+      "org": { "name": "Alder & Finch Benefits", "accountId": "crm:mirror-alderfinch", "segment": "benefits_consultant_broker", "matchedBy": "crm", "confidence": "high" },
+      "tier": "A", "score": 86, "routeAction": "rep_alert", "routeTeam": "BW", "owner": "Morgan",
+      "useCase": "network_design_benefits", "urgency": "now", "timeToRouteMs": 1190, "flags": ["existing_account"]
+    }
+  ]
+}

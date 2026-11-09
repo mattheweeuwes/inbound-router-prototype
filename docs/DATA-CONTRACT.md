@@ -1,0 +1,138 @@
+# Data contract
+
+What crosses each boundary: inbound payloads, the canonical lead, the CRM. Source of truth for types is `src/schema.ts`; for tables, `sql/migrations/001_init.sql`.
+
+## 1. Canonical lead
+
+Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalized (`src/normalize.ts`), and stored on `leads`.
+
+| group | fields |
+|---|---|
+| identity | `id` (uuid), `source`, `source_event_id`, `received_at` (ISO UTC, from the payload), `synthetic` |
+| person | `email` (trimmed, lowercased; its domain must be a plain DNS hostname, so an address with a port, path, IP address or bare name like `localhost` is treated as having no email), `first_name`, `last_name` (title-cased), `title`, `title_function`, `title_seniority` |
+| company as submitted | `company_name_raw`, `company_domain` (null for free-mail and disposable), `state` (2-letter), `country` |
+| attribution | `utm_source/medium/campaign/content/term` (normalized), `channel`, `landing_page`, `referrer` |
+| message | `message` (the prospect's own words, never rewritten) |
+| dedupe | `contact_key` (sha256 of the email, 16 hex), `duplicate_of` (first lead of the same contact within 30 days) |
+| resolution | `account_id`, `segment`, plus `resolution_json` (method, confidence, evidence, firmographics, candidates) |
+| qualification | `qualification_json` (rules output with its evidence, including the date parser's `urgencyCue`, `urgencyDate`, `urgencyDays` and `urgencyKind`, model output, final with per-field `sources`, per-field agreement, fallback reason, prompt and combine versions) |
+| decision | `tier`, `score`, `score_json` (itemized), `route_action`, `route_team`, `owner`, `sla_due_at`, `route_json` (rule and reason) |
+| sync | `crm_json` (the exact HubSpot requests), `alert_json` (Slack payload) |
+| timing | `time_to_route_ms` (receipt to routing decision), `timings_json` (per stage, plus `queued`, the part of the wait before the pipeline picked the lead up, `alerted`, the time the alert was out, and `total`; the alert stage runs before the HubSpot write) |
+
+`title_function`: `managed_care_contracting | network_strategy | benefits | revenue_cycle_finance | strategy_bd | analytics_data | product_engineering | executive | clinical | marketing_sales | research_academic | media | hr_recruiting | other`.
+`title_seniority`: `c_level | vp | director | manager | individual | student | unknown`.
+
+### Account keys (stable IDs, never names)
+
+| key | entity | source |
+|---|---|---|
+| `ahrq:<health_sys_id>` | health system (a hospital that belongs to one resolves to it; its CCNs stay in `ids_json.ccns`) | AHRQ Compendium |
+| `ccn:<ccn>` | standalone hospital | CMS Hospital General Information |
+| `payer:<slug>` | payer | payer inventory / curated |
+| `npi:<npi>` | provider group with one organizational NPI | NPPES NPI-2 |
+| `crm:<mirror id>` | an account in `fixtures/crm-mirror.json` that no public registry knows (the CRM record supplies the name, segment and size) | CRM mirror |
+| `domain:<domain>` | everything else: curated organizations, TLD-placed orgs, unknown orgs, and provider-group brands that span several NPI-2 records | email domain |
+
+`accounts.owner` holds a rep only after a tier-A rep alert claimed the account (see DECISIONS #5); owners seeded in `fixtures/crm-mirror.json` are never stored there. The claim is also recorded as an `account_signals` row of type `claim`, and the claiming lead's company upsert carries `hubspot_owner_id`.
+
+Free-mail leads whose company can't be matched, and ambiguous leads, get no account (`account_id` is null) until a person resolves them.
+
+## 2. Required fields by source
+
+Required means the inbound handler answers 422 without it. Everything else is optional and degrades gracefully.
+
+| source (`?source=`) | required | `source_event_id` |
+|---|---|---|
+| `calendly_demo` | `payload.uri`, `payload.email`; signature header; with no `CALENDLY_SIGNING_KEY` the door answers 503 | `payload.uri` |
+| `guide_download`, `signal_ask_waitlist` | `fields.email` | sha1 of source, `form_id`, email, `submitted_at` |
+| `sample_signup` | `user.email` | sha1 of source, email, `signed_up_at` |
+| `marketplace` | `requester.email` | sha1 of source, marketplace, listing, email, `received_at` |
+| `api_key` | `developer.email` | sha1 of source, product, email, `created_at` |
+| `event_scan` | `badge.email` | sha1 of source, event, email, `scanned_at` |
+| `web_intent` | `domain` | sha1 of source, domain, newest visit time, visit count |
+
+With no timestamp in the payload, the id is a SHA-256 of the canonical JSON body (keys sorted), never the server's clock, so a re-delivery of the same body is still a duplicate. `(source, source_event_id)` is unique. A repeat delivery answers `200 {leadId, duplicate: true}` and changes nothing. Every payload may carry `"synthetic": true`; the fixtures all do, and the cockpit badges them.
+
+Calendly signature: `Calendly-Webhook-Signature: t=<unix seconds>,v1=<hex hmac_sha256(key, t + "." + body)>`, five-minute tolerance, constant-time compare.
+
+## 3. UTM and channel taxonomy
+
+Normalization: trim, lowercase, then the alias map. Every change is recorded in `normalized.utmFixes` as `{field, from, to}`.
+
+| field | aliases |
+|---|---|
+| `utm_source` | `li`, `lnkd`, `linkedin.com` to `linkedin`; `gads`, `adwords` to `google`; `fb` to `facebook`; `newsletter`, `mailchimp`, `hs_email` to `email` |
+| `utm_medium` | `paidsocial`, `paid-social` to `paid_social`; `ppc` to `cpc`; `newsletter`, `mailchimp`, `hs_email` to `email` |
+
+Channel, first match wins: source `marketplace` to `partner_marketplace`; `event_scan` to `event`; `sample_signup` and `api_key` to `product`; `web_intent` to `unknown`; medium `paid_social` (or `cpc` from a social source) to `paid_social`; `cpc`, `paid_search`, `display` to `paid_search`; `email` to `email`; organic or social source to `organic_social`; organic search source to `organic_search`; `referral`/`partner` to `referral`; no UTM and a search-engine referrer to `organic_search`; other referrer to `referral`; nothing at all to `direct`; otherwise `unknown`.
+
+First-touch UTMs are written to HubSpot only on a contact's first lead; last-touch on every touch.
+
+## 4. Lifecycle mapping
+
+| tier | `lifecyclestage` | note |
+|---|---|---|
+| A | `salesqualifiedlead` | |
+| B | `marketingqualifiedlead` | |
+| C, D | `lead` | |
+| X (disqualified) and competitors | not set | HubSpot does not move lifecycle backwards, so the router never promotes what it later has to take back |
+
+`hs_lead_status` is `NEW` on every write. Routing never creates a CRM record for `drop`, `careers` or `press` actions.
+
+## 5. HubSpot
+
+Dry-run is the default. Live mode requires both a service key (`HUBSPOT_SERVICE_KEY`; a legacy `HUBSPOT_PRIVATE_APP_TOKEN` also works) and `HUBSPOT_LIVE=1`, and substitutes record ids returned by the two upserts into the association and task requests (`{{contact_id}}`, `{{company_id}}`). It has run against a developer test portal, not a production one (see "Confirmed live" below).
+
+Request plan per lead (`src/crm/hubspot.ts`), in order:
+
+| step | request | notes |
+|---|---|---|
+| 1 | `POST /crm/v3/objects/companies/batch/upsert` | `idProperty: "serif_account_key"`, `id` is the account key. Skipped when there is no resolved account. |
+| 2 | `POST /crm/v3/objects/contacts/batch/upsert` | `idProperty: "email"`. Properties below. |
+| 3 | `PUT /crm/v4/objects/contacts/{contactId}/associations/default/companies/{companyId}` | default (unlabeled) contact to company association |
+| 4 | `POST /crm/v3/objects/tasks` | A, B, existing-owner, review and account-signal routes only. `hs_timestamp` is the SLA due time, `hs_task_body` the extractive brief, `hubspot_owner_id` a synthetic id from `fixtures/owners.json`. |
+
+Nurture enrollment is the contact property `serif_nurture_track`, which a HubSpot workflow listens for. The router does not call a sequences endpoint.
+
+### Documentation checked on 2026-11-06
+
+| topic | page | what was confirmed |
+|---|---|---|
+| contacts batch upsert | https://developers.hubspot.com/docs/api-reference/crm-contacts-v3/batch/post-crm-v3-objects-contacts-batch-upsert | `POST /crm/v3/objects/contacts/batch/upsert`; body `{"inputs":[{"id","idProperty","properties"}]}`; `idProperty` is `email` or a custom unique-value property; 100 records per batch; partial upserts are not supported when `idProperty` is `email`. |
+| companies | https://developers.hubspot.com/docs/api-reference/crm-companies-v3/guide | Documents batch read by a custom unique-identifier property via `idProperty`. **The companies batch upsert endpoint was not on any page that could be fetched.** The request here assumes the same shape as contacts (`inputs[].id/idProperty/properties`) and a property created with `hasUniqueValue: true`. Verify before live use. |
+| associations | https://developers.hubspot.com/docs/api-reference/crm-associations-v4/guide | The current page documents date-versioned paths (`PUT /crm/objects/2026-09/{from}/{id}/associations/default/{to}/{id}`; batch `.../associations/2026-09/contact/company/batch/associate/default`), default contact to company `typeId` 279. **The `/crm/v4/...` path used here was not shown.** Move to the dated path that matches the portal's API version before live use. |
+| tasks | https://developers.hubspot.com/docs/api-reference/crm-tasks-v3/basic/post-crm-v3-objects-tasks | `POST /crm/v3/objects/tasks`; `hs_timestamp` required; `hs_task_status` `NOT_STARTED` or `COMPLETED`; `hs_task_priority`; `hs_task_type` `EMAIL`/`CALL`/`TODO`; associations `{to:{id}, types:[{associationCategory:"HUBSPOT_DEFINED", associationTypeId}]}`; task to contact is `204`. Task to company `192` is from HubSpot's default type list and was not on the fetched page. |
+
+### Confirmed live on 2026-11-07
+
+Against a developer test portal, after `npm run hubspot:setup` created the custom properties with `serif_account_key` unique. Every request type in the plan above returned 200 when the stored replay of the day was loaded: a 40-event day that produced 39 leads. On the second run, 126 requests were counted: 101 writes (34 company upserts, 34 contact upserts, 33 associations) returned 200, and the 25 tasks were already open, so they were reused and not created. None failed. That confirms the three things the documentation did not show: the companies batch upsert on `serif_account_key`, the `/crm/v4` default association path, and task-to-company type `192`. Running the day a second time created no new records. The `/crm/v4` path is still not the one the current page documents; a production build should move to the dated path.
+
+### Properties written
+
+Definitions: `docs/hubspot-properties.json` (one-time setup; a test keeps it equal to the code). Standard properties used: `email`, `firstname`, `lastname`, `jobtitle`, `company`, `state`, `lifecyclestage`, `hs_lead_status`.
+
+| contact property | type | meaning |
+|---|---|---|
+| `serif_segment` | enum | resolved account segment |
+| `serif_use_case` | enum | classified use case |
+| `serif_urgency` | enum | `now`, `this_quarter`, `exploring`, `unknown` |
+| `serif_tier` | enum | `A`, `B`, `C`, `D`, `X` |
+| `serif_fit_score`, `serif_intent_score` | number | 0 to 50 each |
+| `serif_route_team` | enum | `HSP`, `BW`, `PLS`, `API`, `Nurture`, `Review` |
+| `serif_source` | text | inbound door |
+| `serif_lead_id` | text | router lead id |
+| `serif_account_key` | text | stable account key |
+| `serif_nurture_track` | text | workflow trigger for C and D leads |
+| `first_touch_utm_*`, `last_touch_utm_*` | text | source, medium, campaign, content, term |
+
+| company property | type | meaning |
+|---|---|---|
+| `serif_account_key` | text, **unique value** | the upsert key |
+| `serif_segment`, `serif_match_method` | text | resolution result |
+| `serif_hospital_count` | number | AHRQ hospital count |
+| `serif_account_score`, `serif_open_leads`, `serif_web_intent_points` | number | written by `npm run reverse-etl` from `v_account_scores` |
+
+## 6. Registry tables read (read-only, attached as `reg`)
+
+`cms_hospitals`, `ahrq_systems`, `ahrq_hospital_links`, `payers`, `curated_orgs`, `org_domains`, `free_mail_domains`, `disposable_domains`, `meta`. `name_norm` follows `etl/name_norm.py`; `src/resolve/match.ts` implements the same rule, and a test compares the two on every name in the real registry.

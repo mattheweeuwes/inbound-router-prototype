@@ -1,0 +1,356 @@
+{
+  "F01": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP",
+      "action": "rep_alert"
+    }
+  },
+  "F32": {
+    "segment": "health_system",
+    "route": {
+      "action": "account_signal"
+    }
+  },
+  "F02": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP",
+      "action": "team_queue"
+    }
+  },
+  "F03": {
+    "segment": "health_system",
+    "useCase": "rate_benchmarking_market",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F04": {
+    "segment": "health_system",
+    "useCase": "rate_benchmarking_market",
+    "urgency": "exploring",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F05": {
+    "segment": "payer",
+    "useCase": "payer_competitive_intel",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "PLS",
+      "owner": "Casey"
+    }
+  },
+  "F06": {
+    "segment": "payer",
+    "useCase": "other",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "team": "PLS"
+    }
+  },
+  "F07": {
+    "segment": "benefits_consultant_broker",
+    "useCase": "network_design_benefits",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "BW",
+      "owner": "Morgan"
+    }
+  },
+  "F08": {
+    "segment": "benefits_consultant_broker",
+    "useCase": "network_design_benefits",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F09": {
+    "segment": "employer_self_funded",
+    "useCase": "network_design_benefits",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "BW",
+      "action": "rep_alert"
+    }
+  },
+  "F10": {
+    "segment": "payer",
+    "useCase": "data_platform_api",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "API"
+    }
+  },
+  "F11": {
+    "segment": "innovator_api_data",
+    "useCase": "data_platform_api",
+    "urgency": "exploring",
+    "disqualifier": "none",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F12": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "exploring",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F13": {
+    "segment": "health_system",
+    "useCase": "rate_benchmarking_market",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F14": {
+    "segment": "standalone_hospital",
+    "useCase": "contract_negotiation",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F15": {
+    "segment": "innovator_navigation",
+    "useCase": "navigation_find_care",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "API"
+    }
+  },
+  "F16": {
+    "segment": "life_sciences",
+    "useCase": "life_sciences_access",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F17": {
+    "segment": "pe_investor",
+    "useCase": "investment_diligence",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "PLS"
+    }
+  },
+  "F18": {
+    "segment": "consulting_advisory",
+    "useCase": "data_platform_api",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "team": "PLS"
+    }
+  },
+  "F19": {
+    "segment": "provider_group",
+    "useCase": "contract_negotiation",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F20": {
+    "segment": "media",
+    "useCase": "research_media",
+    "urgency": "unknown",
+    "disqualifier": "media",
+    "route": {
+      "action": "press"
+    }
+  },
+  "F21": {
+    "segment": "academic",
+    "useCase": "research_media",
+    "urgency": "exploring",
+    "disqualifier": "student",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F22": {
+    "segment": "unknown_org",
+    "useCase": "job_seeker",
+    "urgency": "unknown",
+    "disqualifier": "job_seeker",
+    "route": {
+      "action": "careers"
+    }
+  },
+  "F23": {
+    "segment": "unknown_org",
+    "useCase": "vendor_pitch",
+    "urgency": "unknown",
+    "disqualifier": "vendor_pitch",
+    "route": {
+      "action": "drop"
+    }
+  },
+  "F24": {
+    "segment": "competitor",
+    "useCase": "other",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "action": "competitor_flag"
+    }
+  },
+  "F25": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP",
+      "action": "rep_alert"
+    },
+    "flags": [
+      "free_mail"
+    ]
+  },
+  "F26": {
+    "segment": "health_system",
+    "route": {
+      "action": "attach_to_existing",
+      "ownerSameAs": "F01"
+    }
+  },
+  "F27": {
+    "noop": true
+  },
+  "F28": {
+    "segment": "health_system",
+    "useCase": "data_platform_api",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "owner": "Avery"
+    }
+  },
+  "F29": {
+    "route": {
+      "action": "review"
+    }
+  },
+  "F30": {
+    "disqualifier": "spam",
+    "route": {
+      "action": "drop"
+    }
+  },
+  "F31": {
+    "segment": "non_us",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F33": {
+    "segment": "tpa",
+    "useCase": "network_design_benefits",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "BW"
+    }
+  },
+  "F34": {
+    "segment": "government",
+    "useCase": "network_design_benefits",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F35": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "this_quarter",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP",
+      "action": "rep_alert"
+    }
+  },
+  "F36": {
+    "segment": "health_system",
+    "useCase": "rate_benchmarking_market",
+    "urgency": "exploring",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP"
+    }
+  },
+  "F37": {
+    "segment": "innovator_api_data",
+    "useCase": "data_platform_api",
+    "urgency": "exploring",
+    "disqualifier": "none",
+    "route": {
+      "team": "API"
+    }
+  },
+  "F38": {
+    "segment": "payer",
+    "useCase": "payer_competitive_intel",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "PLS",
+      "action": "rep_alert"
+    }
+  },
+  "F39": {
+    "segment": "provider_group",
+    "useCase": "rate_benchmarking_market",
+    "urgency": "unknown",
+    "disqualifier": "none",
+    "route": {
+      "action": "nurture"
+    }
+  },
+  "F40": {
+    "segment": "health_system",
+    "useCase": "contract_negotiation",
+    "urgency": "now",
+    "disqualifier": "none",
+    "route": {
+      "team": "HSP",
+      "action": "rep_alert"
+    },
+    "flags": [
+      "after_hours"
+    ]
+  }
+}

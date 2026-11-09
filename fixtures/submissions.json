@@ -1,0 +1,1312 @@
+[
+  {
+    "id": "F01",
+    "ts": "2026-11-04T14:47:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/9acf0fc6/invitees/eb122ff8",
+        "email": "dwhitfield@intermountainhealthcare.org",
+        "name": "Dana Whitfield",
+        "first_name": "Dana",
+        "last_name": "Whitfield",
+        "created_at": "2026-11-04T14:47:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "VP Managed Care Contracting"
+          },
+          {
+            "question": "Company",
+            "answer": "Intermountain Health"
+          },
+          {
+            "question": "State",
+            "answer": "UT"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Our commercial renegotiations start in January. We want to compare our rates to peer systems by service line."
+          }
+        ],
+        "tracking": {
+          "utm_source": "LinkedIn ",
+          "utm_medium": "Paid-Social",
+          "utm_campaign": "hs-contracting-q4"
+        },
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-06T14:47:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F32",
+    "ts": "2026-11-05T13:52:00.000Z",
+    "source": "web_intent",
+    "payload": {
+      "synthetic": true,
+      "domain": "sutterhealth.org",
+      "company": "Sutter Health",
+      "visitors": 2,
+      "window_days": 7,
+      "visits": [
+        {
+          "path": "/platform/products/signal/",
+          "at": "2026-11-05T13:12:00.000Z"
+        },
+        {
+          "path": "/blog/signal-watch-monitoring-rate-changes-month-over-month",
+          "at": "2026-11-05T13:19:00.000Z"
+        },
+        {
+          "path": "/platform/products/signal/",
+          "at": "2026-11-05T13:41:00.000Z"
+        },
+        {
+          "path": "/blog/signal-watch-monitoring-rate-changes-month-over-month",
+          "at": "2026-11-05T13:52:00.000Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "F02",
+    "ts": "2026-11-05T14:18:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_health_system_exec",
+      "guide": "Health System Executive Guide",
+      "fields": {
+        "email": "mbell@sutterhealth.org",
+        "firstname": "Marcus",
+        "lastname": "Bell",
+        "jobtitle": "Director, Payer Strategy",
+        "company": "Sutter Health",
+        "state": "CA"
+      },
+      "page_url": "https://example.org/prototype/resources/healthsystemexecutiveguide",
+      "utm": {},
+      "submitted_at": "2026-11-05T14:18:00.000Z"
+    }
+  },
+  {
+    "id": "F03",
+    "ts": "2026-11-05T14:41:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/8923fa40/invitees/fccb2423",
+        "email": "praman@ohiohealth.com",
+        "name": "Priya Raman",
+        "first_name": "Priya",
+        "last_name": "Raman",
+        "created_at": "2026-11-05T14:41:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Senior Analyst, Decision Support"
+          },
+          {
+            "question": "Company",
+            "answer": "OhioHealth"
+          },
+          {
+            "question": "State",
+            "answer": "OH"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We want a market rate view for orthopedics and cardiology for next year's budget."
+          }
+        ],
+        "tracking": {
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "brand"
+        },
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T14:41:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F04",
+    "ts": "2026-11-05T15:05:00.000Z",
+    "source": "sample_signup",
+    "payload": {
+      "synthetic": true,
+      "user": {
+        "email": "hprice@tanner.org",
+        "name": "Hannah Price",
+        "title": "Managed Care Analyst",
+        "company": "Tanner Health",
+        "state": "GA"
+      },
+      "signed_up_at": "2026-11-05T15:05:00.000Z",
+      "usage": [
+        {
+          "event": "session_start",
+          "at": "2026-11-05T14:10:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-05T14:17:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-05T14:24:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-05T14:31:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-05T14:38:00.000Z"
+        },
+        {
+          "event": "search",
+          "code": "CPT 27447",
+          "market": "GA",
+          "at": "2026-11-05T14:40:00.000Z"
+        },
+        {
+          "event": "search",
+          "code": "CPT 29881",
+          "market": "GA",
+          "at": "2026-11-05T14:48:00.000Z"
+        }
+      ],
+      "utm": {}
+    }
+  },
+  {
+    "id": "F05",
+    "ts": "2026-11-05T15:32:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/8324e3e5/invitees/0345a746",
+        "email": "rkline@brookmerehealth.example",
+        "name": "Robert Kline",
+        "first_name": "Robert",
+        "last_name": "Kline",
+        "created_at": "2026-11-05T15:32:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Director of Network Management"
+          },
+          {
+            "question": "Company",
+            "answer": "Brookmere Health Plan"
+          },
+          {
+            "question": "State",
+            "answer": "MI"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We want to compare our professional fee schedules against competing plans in Detroit and Grand Rapids before a 2027 strategy session."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T15:32:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F06",
+    "ts": "2026-11-05T15:50:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_data_quality",
+      "guide": "Definitive Guide to Data Quality",
+      "fields": {
+        "email": "eruiz@priorityhealth.com",
+        "firstname": "Elena",
+        "lastname": "Ruiz",
+        "jobtitle": "Provider Network Data Manager",
+        "company": "Priority Health",
+        "state": "MI"
+      },
+      "page_url": "https://example.org/prototype/resources/definitiveguidetodataquality",
+      "utm": {},
+      "submitted_at": "2026-11-05T15:50:00.000Z"
+    }
+  },
+  {
+    "id": "F07",
+    "ts": "2026-11-05T16:12:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/540b157c/invitees/26e4b3a7",
+        "email": "tgallagher@alderfinch.example",
+        "name": "Tom Gallagher",
+        "first_name": "Tom",
+        "last_name": "Gallagher",
+        "created_at": "2026-11-05T16:12:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "SVP Benefits Consulting"
+          },
+          {
+            "question": "Company",
+            "answer": "Alder & Finch Benefits"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Several of our self-funded clients renew in Q1. We need network benchmarking for broker RFPs."
+          }
+        ],
+        "tracking": {
+          "utm_source": "li",
+          "utm_medium": "paidsocial",
+          "utm_campaign": "benefits-advisors"
+        },
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T16:12:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F08",
+    "ts": "2026-11-05T16:40:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_cost_intelligence",
+      "guide": "Cost Intelligence Playbook for Benefits Advisors",
+      "fields": {
+        "email": "jcole@hylant.com",
+        "firstname": "Jasmine",
+        "lastname": "Cole",
+        "jobtitle": "Benefits Advisor",
+        "company": "Hylant",
+        "state": "OH"
+      },
+      "page_url": "https://example.org/prototype/resources/costintelligenceplaybookforbenefitsadvisors",
+      "utm": {},
+      "submitted_at": "2026-11-05T16:40:00.000Z"
+    }
+  },
+  {
+    "id": "F09",
+    "ts": "2026-11-05T17:15:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/c0ad6788/invitees/9acdd157",
+        "email": "bmendez@mohawkind.com",
+        "name": "Brian Mendez",
+        "first_name": "Brian",
+        "last_name": "Mendez",
+        "created_at": "2026-11-05T17:15:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Director of Total Rewards"
+          },
+          {
+            "question": "Company",
+            "answer": "Mohawk Industries"
+          },
+          {
+            "question": "State",
+            "answer": "GA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We are self-funded with about 20,000 members. Is our network discount real before our January renewal?"
+          }
+        ],
+        "tracking": {
+          "utm_source": "newsletter",
+          "utm_medium": "email",
+          "utm_campaign": "monthly-digest"
+        },
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T17:15:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F10",
+    "ts": "2026-11-05T17:48:00.000Z",
+    "source": "marketplace",
+    "payload": {
+      "synthetic": true,
+      "marketplace": "Databricks",
+      "listing": "Price transparency dataset (prototype listing)",
+      "requester": {
+        "email": "apetrov@highmarkhealth.org",
+        "name": "Ana Petrov",
+        "title": "Head of Data Engineering",
+        "company": "Highmark Health",
+        "state": "PA"
+      },
+      "message": "Interested in the bulk negotiated-rate dataset via Databricks. What is the coverage for PA and WV, and what is the refresh cadence? Scoping for a Q2 start.",
+      "received_at": "2026-11-05T17:48:00.000Z"
+    }
+  },
+  {
+    "id": "F11",
+    "ts": "2026-11-05T18:20:00.000Z",
+    "source": "api_key",
+    "payload": {
+      "synthetic": true,
+      "developer": {
+        "email": "lchen@paytient.com",
+        "name": "Leo Chen",
+        "title": "Software Engineer",
+        "company": "Paytient"
+      },
+      "product": "mcp",
+      "created_at": "2026-11-05T18:20:00.000Z",
+      "message": "Testing the Find Care MCP for a cost-estimate feature."
+    }
+  },
+  {
+    "id": "F12",
+    "ts": "2026-11-05T18:44:00.000Z",
+    "source": "signal_ask_waitlist",
+    "payload": {
+      "synthetic": true,
+      "form_id": "signal_ask",
+      "fields": {
+        "email": "gholloway@atriumhealth.org",
+        "firstname": "Grace",
+        "lastname": "Holloway",
+        "jobtitle": "Manager, Payer Contracting",
+        "company": "Atrium Health",
+        "state": "NC",
+        "message": "Our team spends days pulling rate comparisons by hand."
+      },
+      "page_url": "https://example.org/prototype/resources",
+      "utm": {},
+      "submitted_at": "2026-11-05T18:44:00.000Z"
+    }
+  },
+  {
+    "id": "F13",
+    "ts": "2026-11-05T19:10:00.000Z",
+    "source": "event_scan",
+    "payload": {
+      "synthetic": true,
+      "event": "HFMA",
+      "scanned_at": "2026-11-05T19:10:00.000Z",
+      "badge": {
+        "email": "dlane@tanner.org",
+        "first": "Derrick",
+        "last": "Lane",
+        "title": "Revenue Cycle Director",
+        "company": "Tanner Health",
+        "state": "GA"
+      },
+      "notes": "asked about service-line benchmarks"
+    }
+  },
+  {
+    "id": "F14",
+    "ts": "2026-11-05T19:35:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/f9280f83/invitees/5df0b6b7",
+        "email": "sortiz@jeffersonhealthcare.org",
+        "name": "Samuel Ortiz",
+        "first_name": "Samuel",
+        "last_name": "Ortiz",
+        "created_at": "2026-11-05T19:35:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Chief Financial Officer"
+          },
+          {
+            "question": "Company",
+            "answer": "Jefferson Healthcare"
+          },
+          {
+            "question": "State",
+            "answer": "WA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We are a small independent hospital. Are our commercial rates below market before the next contract cycle next spring?"
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T19:35:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F15",
+    "ts": "2026-11-05T20:02:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/c7970b6a/invitees/97a71089",
+        "email": "nalvarez@transcarent.com",
+        "name": "Nina Alvarez",
+        "first_name": "Nina",
+        "last_name": "Alvarez",
+        "created_at": "2026-11-05T20:02:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "VP Strategy & Business Development"
+          },
+          {
+            "question": "Company",
+            "answer": "Transcarent"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We want rate data to power member-facing cost estimates in our navigation product. Roadmap planning is for next quarter."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T20:02:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F16",
+    "ts": "2026-11-05T20:30:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_life_sciences",
+      "guide": "State of the Data",
+      "fields": {
+        "email": "rkim@gene.com",
+        "firstname": "Rachel",
+        "lastname": "Kim",
+        "jobtitle": "Director, Market Access Analytics",
+        "company": "Genentech",
+        "state": ""
+      },
+      "page_url": "https://example.org/prototype/resources/stateofthedata",
+      "utm": {},
+      "submitted_at": "2026-11-05T20:30:00.000Z"
+    }
+  },
+  {
+    "id": "F17",
+    "ts": "2026-11-05T20:58:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/46f9e192/invitees/61430753",
+        "email": "obrooks@cresseyco.com",
+        "name": "Owen Brooks",
+        "first_name": "Owen",
+        "last_name": "Brooks",
+        "created_at": "2026-11-05T20:58:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "VP Value Creation"
+          },
+          {
+            "question": "Company",
+            "answer": "Cressey & Company"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We need negotiated-rate benchmarks for two provider-platform diligences we are running now. Our investment committee meets in early December."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T20:58:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F18",
+    "ts": "2026-11-05T21:25:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/8259bce6/invitees/493b0ac0",
+        "email": "cdonovan@chartis.com",
+        "name": "Claire Donovan",
+        "first_name": "Claire",
+        "last_name": "Donovan",
+        "created_at": "2026-11-05T21:25:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Principal"
+          },
+          {
+            "question": "Company",
+            "answer": "Chartis"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We are looking for a data license for an advisory team supporting health-system clients."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T21:25:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F19",
+    "ts": "2026-11-05T21:50:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/e279c415/invitees/0492b081",
+        "email": "vhale@usap.com",
+        "name": "Victor Hale",
+        "first_name": "Victor",
+        "last_name": "Hale",
+        "created_at": "2026-11-05T21:50:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Chief Contracting Officer"
+          },
+          {
+            "question": "Company",
+            "answer": "US Anesthesia Partners"
+          },
+          {
+            "question": "State",
+            "answer": "TX"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Anesthesia rates vary across markets. We need payer-by-payer benchmarks for the 2027 contract cycle."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T21:50:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F20",
+    "ts": "2026-11-05T22:20:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/50ac9b89/invitees/1c500845",
+        "email": "jmeyers@statnews.com",
+        "name": "Jordan Meyers",
+        "first_name": "Jordan",
+        "last_name": "Meyers",
+        "created_at": "2026-11-05T22:20:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Health Reporter"
+          },
+          {
+            "question": "Company",
+            "answer": "STAT"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "I am working on a story on hospital price variation. Could I get a comment and a data walkthrough?"
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T22:20:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F21",
+    "ts": "2026-11-06T13:30:00.000Z",
+    "source": "sample_signup",
+    "payload": {
+      "synthetic": true,
+      "user": {
+        "email": "epark@gatech.edu",
+        "name": "Ethan Park",
+        "title": "Graduate Student",
+        "company": "Georgia Tech"
+      },
+      "signed_up_at": "2026-11-06T13:30:00.000Z",
+      "message": "I am writing a thesis on price transparency and would like sample data.",
+      "usage": [
+        {
+          "event": "session_start",
+          "at": "2026-11-06T13:20:00.000Z"
+        }
+      ],
+      "utm": {}
+    }
+  },
+  {
+    "id": "F22",
+    "ts": "2026-11-06T13:55:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/c0f5a253/invitees/f5f0552d",
+        "email": "cdoyle@gmail.com",
+        "name": "Chris Doyle",
+        "first_name": "Chris",
+        "last_name": "Doyle",
+        "created_at": "2026-11-06T13:55:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Data Engineer"
+          },
+          {
+            "question": "Company",
+            "answer": ""
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "I am not a buyer. I would love to join your team. Are you hiring?"
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T13:55:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F23",
+    "ts": "2026-11-06T14:10:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/66684104/invitees/348d0716",
+        "email": "asterling@brightpath-agency.example",
+        "name": "Ava Sterling",
+        "first_name": "Ava",
+        "last_name": "Sterling",
+        "created_at": "2026-11-06T14:10:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Growth Partner"
+          },
+          {
+            "question": "Company",
+            "answer": "BrightPath Agency"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Quick pitch from an SEO agency. Do you have 15 minutes?"
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T14:10:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F24",
+    "ts": "2026-11-06T14:34:00.000Z",
+    "source": "sample_signup",
+    "payload": {
+      "synthetic": true,
+      "user": {
+        "email": "lfoster@turquoise.health",
+        "name": "Liam Foster",
+        "title": "Product Analyst",
+        "company": "Turquoise Health"
+      },
+      "signed_up_at": "2026-11-06T14:34:00.000Z",
+      "usage": [
+        {
+          "event": "session_start",
+          "at": "2026-11-06T13:10:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-06T13:17:00.000Z"
+        }
+      ],
+      "utm": {}
+    }
+  },
+  {
+    "id": "F25",
+    "ts": "2026-11-06T14:58:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/3c329cbd/invitees/2823f237",
+        "email": "mreyes@outlook.com",
+        "name": "Monica Reyes",
+        "first_name": "Monica",
+        "last_name": "Reyes",
+        "created_at": "2026-11-06T14:58:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Payer Contracting Manager"
+          },
+          {
+            "question": "Company",
+            "answer": "Northside Hospital"
+          },
+          {
+            "question": "State",
+            "answer": "GA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "I am prepping a commercial renegotiation and need rate comparisons in metro Atlanta."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T14:58:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F26",
+    "ts": "2026-11-06T15:20:00.000Z",
+    "source": "guide_download",
+    "sameContactAs": "F01",
+    "note": "Same contact as F01, two days later. Must attach to the first lead, keep its owner, and not alert again.",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_health_system_exec",
+      "guide": "Health System Executive Guide",
+      "fields": {
+        "email": "dwhitfield@intermountainhealthcare.org",
+        "firstname": "Dana",
+        "lastname": "Whitfield",
+        "jobtitle": "VP Managed Care Contracting",
+        "company": "Intermountain Health",
+        "state": "UT"
+      },
+      "page_url": "https://example.org/prototype/resources/healthsystemexecutiveguide",
+      "utm": {},
+      "submitted_at": "2026-11-06T15:20:00.000Z"
+    }
+  },
+  {
+    "id": "F27",
+    "ts": "2026-11-06T15:41:00.000Z",
+    "source": "calendly_demo",
+    "copyOf": "F03",
+    "note": "Webhook re-delivery of F03: identical body, same sourceEventId. Must be a no-op.",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/8923fa40/invitees/fccb2423",
+        "email": "praman@ohiohealth.com",
+        "name": "Priya Raman",
+        "first_name": "Priya",
+        "last_name": "Raman",
+        "created_at": "2026-11-05T14:41:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Senior Analyst, Decision Support"
+          },
+          {
+            "question": "Company",
+            "answer": "OhioHealth"
+          },
+          {
+            "question": "State",
+            "answer": "OH"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We want a market rate view for orthopedics and cardiology for next year's budget."
+          }
+        ],
+        "tracking": {
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "brand"
+        },
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-07T14:41:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F28",
+    "ts": "2026-11-06T16:05:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/b43582df/invitees/c004d666",
+        "email": "pnovak@wrenfieldhealth.example",
+        "name": "Paul Novak",
+        "first_name": "Paul",
+        "last_name": "Novak",
+        "created_at": "2026-11-06T16:05:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Director, Managed Care Analytics"
+          },
+          {
+            "question": "Company",
+            "answer": "Wrenfield Health"
+          },
+          {
+            "question": "State",
+            "answer": "PA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We use Signal today. I want the API for our data warehouse, scoped for next quarter."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T16:05:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F29",
+    "ts": "2026-11-06T16:30:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/f31ccea3/invitees/bfc895de",
+        "email": "lprice@gmail.com",
+        "name": "Lauren Price",
+        "first_name": "Lauren",
+        "last_name": "Price",
+        "created_at": "2026-11-06T16:30:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Managed Care Director"
+          },
+          {
+            "question": "Company",
+            "answer": "Baptist Health"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "I am benchmarking commercial rates."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T16:30:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F30",
+    "ts": "2026-11-06T16:52:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_state_of_data",
+      "guide": "State of the Data",
+      "fields": {
+        "email": "xk29@mailinator.com",
+        "firstname": "asdf",
+        "lastname": "qwer",
+        "jobtitle": "",
+        "company": "zzzz",
+        "state": "",
+        "message": "Make money with crypto! https://example.invalid/win"
+      },
+      "page_url": "https://example.org/prototype/resources/stateofthedata",
+      "utm": {},
+      "submitted_at": "2026-11-06T16:52:00.000Z"
+    }
+  },
+  {
+    "id": "F31",
+    "ts": "2026-11-06T17:15:00.000Z",
+    "source": "sample_signup",
+    "payload": {
+      "synthetic": true,
+      "user": {
+        "email": "ogrant@nhs.net",
+        "name": "Oliver Grant",
+        "title": "Commissioning Analyst",
+        "company": "NHS"
+      },
+      "signed_up_at": "2026-11-06T17:15:00.000Z",
+      "usage": [
+        {
+          "event": "session_start",
+          "at": "2026-11-06T16:10:00.000Z"
+        }
+      ],
+      "utm": {}
+    }
+  },
+  {
+    "id": "F33",
+    "ts": "2026-11-06T18:00:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/b2feba9f/invitees/1cbbef66",
+        "email": "igrant@meritain.com",
+        "name": "Isabel Grant",
+        "first_name": "Isabel",
+        "last_name": "Grant",
+        "created_at": "2026-11-06T18:00:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Director of Network Contracting"
+          },
+          {
+            "question": "Company",
+            "answer": "Meritain Health"
+          },
+          {
+            "question": "State",
+            "answer": ""
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Our self-funded clients ask for network comparisons at renewal. I want a repeatable way to produce them."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T18:00:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F34",
+    "ts": "2026-11-06T18:30:00.000Z",
+    "source": "guide_download",
+    "payload": {
+      "synthetic": true,
+      "form_id": "gd_cost_intelligence",
+      "guide": "Cost Intelligence Playbook for Benefits Advisors",
+      "fields": {
+        "email": "hsilva@atlantaga.gov",
+        "firstname": "Hector",
+        "lastname": "Silva",
+        "jobtitle": "Benefits Manager",
+        "company": "City of Atlanta",
+        "state": "GA"
+      },
+      "page_url": "https://example.org/prototype/resources/costintelligenceplaybookforbenefitsadvisors",
+      "utm": {},
+      "submitted_at": "2026-11-06T18:30:00.000Z"
+    }
+  },
+  {
+    "id": "F35",
+    "ts": "2026-11-06T19:10:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/b813dc66/invitees/deaaa654",
+        "email": "mtanaka@jhmi.edu",
+        "name": "Mei Tanaka",
+        "first_name": "Mei",
+        "last_name": "Tanaka",
+        "created_at": "2026-11-06T19:10:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Director, Payer Relations"
+          },
+          {
+            "question": "Company",
+            "answer": "Johns Hopkins Medicine"
+          },
+          {
+            "question": "State",
+            "answer": "MD"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "We want peer benchmarks for the professional fee schedule ahead of renewals."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T19:10:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F36",
+    "ts": "2026-11-06T19:45:00.000Z",
+    "source": "sample_signup",
+    "payload": {
+      "synthetic": true,
+      "user": {
+        "email": "kmensah@baptisthealth.net",
+        "name": "Kofi Mensah",
+        "title": "Pricing Analyst",
+        "company": "Baptist Health South Florida",
+        "state": "FL"
+      },
+      "signed_up_at": "2026-11-06T19:45:00.000Z",
+      "usage": [
+        {
+          "event": "session_start",
+          "at": "2026-11-06T18:10:00.000Z"
+        },
+        {
+          "event": "session_start",
+          "at": "2026-11-06T18:17:00.000Z"
+        },
+        {
+          "event": "search",
+          "code": "DRG 470",
+          "market": "Miami",
+          "at": "2026-11-06T19:30:00.000Z"
+        }
+      ],
+      "utm": {}
+    }
+  },
+  {
+    "id": "F37",
+    "ts": "2026-11-06T20:20:00.000Z",
+    "source": "marketplace",
+    "payload": {
+      "synthetic": true,
+      "marketplace": "Snowflake",
+      "listing": "Price transparency dataset (prototype listing)",
+      "requester": {
+        "email": "dwright@zelis.com",
+        "name": "Daniel Wright",
+        "title": "Director, Data Partnerships",
+        "company": "Zelis"
+      },
+      "message": "Exploring a data partnership to enrich our price-transparency products.",
+      "received_at": "2026-11-06T20:20:00.000Z"
+    }
+  },
+  {
+    "id": "F38",
+    "ts": "2026-11-06T21:00:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/6c69d396/invitees/c14a8c27",
+        "email": "smartins@ibx.com",
+        "name": "Sofia Martins",
+        "first_name": "Sofia",
+        "last_name": "Martins",
+        "created_at": "2026-11-06T21:00:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Senior Manager, Provider Reimbursement"
+          },
+          {
+            "question": "Company",
+            "answer": "Independence Blue Cross"
+          },
+          {
+            "question": "State",
+            "answer": "PA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "Where do our facility rates sit versus other plans in Philadelphia? Budget planning starts in December."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-08T21:00:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "id": "F39",
+    "ts": "2026-11-06T21:40:00.000Z",
+    "source": "event_scan",
+    "payload": {
+      "synthetic": true,
+      "event": "RSNA",
+      "scanned_at": "2026-11-06T21:40:00.000Z",
+      "badge": {
+        "email": "gstone@rayusradiology.com",
+        "first": "Gabriel",
+        "last": "Stone",
+        "title": "VP Commercial Strategy",
+        "company": "RAYUS Radiology",
+        "state": ""
+      },
+      "notes": "imaging rates by market"
+    }
+  },
+  {
+    "id": "F40",
+    "ts": "2026-11-07T02:12:00.000Z",
+    "source": "calendly_demo",
+    "payload": {
+      "event": "invitee.created",
+      "synthetic": true,
+      "payload": {
+        "uri": "https://api.calendly.com/scheduled_events/105f4abd/invitees/e601fb13",
+        "email": "hbrooks@piedmont.org",
+        "name": "Hannah Brooks",
+        "first_name": "Hannah",
+        "last_name": "Brooks",
+        "created_at": "2026-11-07T02:12:00.000Z",
+        "questions_and_answers": [
+          {
+            "question": "Job title",
+            "answer": "Executive Director, Managed Care"
+          },
+          {
+            "question": "Company",
+            "answer": "Piedmont Healthcare"
+          },
+          {
+            "question": "State",
+            "answer": "GA"
+          },
+          {
+            "question": "What would you like to see in the demo?",
+            "answer": "A major commercial contract renews in spring and talks start next month. We need benchmarks fast."
+          }
+        ],
+        "tracking": {},
+        "scheduled_event": {
+          "name": "Signal demo (30 min)",
+          "start_time": "2026-11-09T02:12:00.000Z"
+        }
+      }
+    }
+  }
+]

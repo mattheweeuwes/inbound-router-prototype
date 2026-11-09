@@ -1,0 +1,280 @@
+// HubSpot request builders and the executor. Dry-run is the default: request bodies are written to out/hubspot/ and nothing is sent.
+// Live mode needs a service key (HUBSPOT_SERVICE_KEY, or a legacy HUBSPOT_PRIVATE_APP_TOKEN) and HUBSPOT_LIVE=1. CI never runs live.
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Ctx } from '../context';
+import type { CrmRequest, LeadEvent, Normalized, Qualification, Resolution, Route, Score } from '../schema';
+
+export const PATHS = {
+  contactsUpsert: '/crm/v3/objects/contacts/batch/upsert',
+  companiesUpsert: '/crm/v3/objects/companies/batch/upsert',
+  associateDefault: (contactId: string, companyId: string) => `/crm/v4/objects/contacts/${contactId}/associations/default/companies/${companyId}`,
+  tasks: '/crm/v3/objects/tasks',
+} as const;
+
+/** HubSpot-defined association type ids (task -> contact is documented on the Tasks page; task -> company is from HubSpot's default type list). */
+export const TASK_TO_CONTACT = 204;
+export const TASK_TO_COMPANY = 192;
+
+export const LIFECYCLE = { A: 'salesqualifiedlead', B: 'marketingqualifiedlead', C: 'lead', D: 'lead' } as const;
+
+const CONTACT_ID = '{{contact_id}}';
+const COMPANY_ID = '{{company_id}}';
+
+export interface CrmInput {
+  leadId: string;
+  ev: LeadEvent;
+  n: Normalized;
+  res: Resolution;
+  qual: Qualification;
+  score: Score;
+  route: Route;
+  isFirstTouch: boolean;
+  ownerId: string | null; // synthetic hubspot_owner_id of the task owner
+  companyOwnerId?: string | null; // set only on the lead whose rep alert claimed the account: the company upsert then sets its owner
+  brief: string; // extractive rep brief
+}
+
+const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+
+export function contactProperties(i: CrmInput): Record<string, unknown> {
+  const { n, res, qual, score, route, ev } = i;
+  const competitor = res.segment === 'competitor';
+  const utm = (p: string) => ({
+    [`${p}_utm_source`]: n.utm.source, [`${p}_utm_medium`]: n.utm.medium, [`${p}_utm_campaign`]: n.utm.campaign,
+    [`${p}_utm_content`]: n.utm.content, [`${p}_utm_term`]: n.utm.term,
+  });
+  const tier = score.tier === 'X' ? null : score.tier;
+  return prune({
+    email: n.email, firstname: n.firstName, lastname: n.lastName, jobtitle: n.title,
+    company: res.accountName ?? n.companyRaw, state: n.state,
+    // lifecycle is never promoted for competitors; X (disqualified) leads are not promoted either
+    lifecyclestage: competitor || !tier ? undefined : LIFECYCLE[tier],
+    hs_lead_status: 'NEW',
+    serif_segment: res.segment, serif_use_case: qual.final.useCase, serif_urgency: qual.final.urgency, serif_tier: score.tier,
+    serif_fit_score: score.fit, serif_intent_score: score.intent, serif_route_team: route.team, serif_source: ev.source,
+    serif_lead_id: i.leadId, serif_account_key: res.accountId, serif_nurture_track: route.action === 'nurture' ? route.sequence : undefined,
+    ...(i.isFirstTouch ? utm('first_touch') : {}),
+    ...utm('last_touch'),
+  });
+}
+
+export function companyProperties(res: Resolution, ownerId: string | null = null): Record<string, unknown> {
+  const domainOk = res.accountId?.startsWith('domain:') ? res.accountId.slice(7) : undefined;
+  return prune({
+    name: res.accountName, domain: domainOk, serif_account_key: res.accountId, serif_segment: res.segment,
+    serif_hospital_count: res.firmographics.hospitals ?? undefined, serif_match_method: res.method,
+    hubspot_owner_id: ownerId,
+  });
+}
+
+export function buildContactUpsert(i: CrmInput): CrmRequest {
+  const props = contactProperties(i);
+  return { method: 'POST', path: PATHS.contactsUpsert, body: { inputs: [{ id: i.n.email, idProperty: 'email', properties: props }] }, note: 'Batch upsert keyed on email. Response results[0].id is the contact record id.' };
+}
+
+export function buildCompanyUpsert(res: Resolution, ownerId: string | null = null): CrmRequest {
+  return {
+    method: 'POST', path: PATHS.companiesUpsert,
+    body: { inputs: [{ id: res.accountId, idProperty: 'serif_account_key', properties: companyProperties(res, ownerId) }] },
+    note: 'Keyed on the unique custom property serif_account_key (AHRQ id, CCN, NPI or payer slug), not on domain or name.',
+  };
+}
+
+export function buildAssociation(): CrmRequest {
+  return { method: 'PUT', path: PATHS.associateDefault(CONTACT_ID, COMPANY_ID), body: null, note: 'Default (unlabeled) contact to company association. Ids come from the two upsert responses.' };
+}
+
+export function buildTask(i: { route: Route; person: string; orgName: string | null; brief: string; ownerId: string | null; hasContact: boolean; hasCompany: boolean }): CrmRequest {
+  const { route } = i;
+  const subjectByAction: Record<string, string> = {
+    rep_alert: `Respond now: ${i.person}`, team_queue: `New lead for ${route.team} queue: ${i.person}`, owner_task: `Existing-account lead: ${i.person}`,
+    review: `Review company match: ${i.person}`, account_signal: `Research account activity: ${i.orgName ?? 'unknown account'}`,
+  };
+  const associations: unknown[] = [];
+  if (i.hasContact) associations.push({ to: { id: CONTACT_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_CONTACT }] });
+  if (i.hasCompany) associations.push({ to: { id: COMPANY_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_COMPANY }] });
+  return {
+    method: 'POST', path: PATHS.tasks,
+    body: {
+      properties: prune({
+        hs_timestamp: route.slaDueAt, hs_task_subject: subjectByAction[route.action] ?? `Follow up: ${i.person}`, hs_task_body: i.brief,
+        hubspot_owner_id: i.ownerId, hs_task_status: 'NOT_STARTED', hs_task_priority: route.action === 'rep_alert' ? 'HIGH' : 'MEDIUM', hs_task_type: 'TODO',
+      }),
+      associations,
+    },
+    note: 'hs_timestamp is the SLA due time; hs_task_body is the extractive brief.',
+  };
+}
+
+const NO_CRM_ACTIONS = new Set(['drop', 'careers', 'press']);
+const TASK_ACTIONS = new Set(['rep_alert', 'team_queue', 'owner_task', 'review', 'account_signal']);
+
+export function planCrm(i: CrmInput): { requests: CrmRequest[]; skipped: string | null } {
+  const { route, ev, res } = i;
+  if (NO_CRM_ACTIONS.has(route.action)) return { requests: [], skipped: `no CRM write for action ${route.action}` };
+  const reqs: CrmRequest[] = [];
+  const hasPerson = ev.source !== 'web_intent' && !!i.n.email;
+  const hasCompany = !!res.accountId && res.status === 'resolved';
+  if (hasCompany) reqs.push(buildCompanyUpsert(res, i.companyOwnerId ?? null));
+  if (hasPerson) reqs.push(buildContactUpsert(i));
+  if (hasPerson && hasCompany) reqs.push(buildAssociation());
+  if (TASK_ACTIONS.has(route.action)) {
+    reqs.push(buildTask({ route, person: [i.n.firstName, i.n.lastName].filter(Boolean).join(' ') || i.n.email || 'unknown', orgName: res.accountName, brief: i.brief, ownerId: i.ownerId, hasContact: hasPerson, hasCompany }));
+  }
+  return { requests: reqs, skipped: reqs.length ? null : 'nothing to write' };
+}
+
+export function recordDryRun(ctx: Ctx, leadId: string, requests: CrmRequest[], at: string) {
+  if (!requests.length) return;
+  const dir = join(ctx.cfg.outDir, 'hubspot');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${at.slice(0, 10)}.jsonl`);
+  for (const r of requests) appendFileSync(file, JSON.stringify({ leadId, at, ...r }) + '\n');
+}
+
+export interface CrmResponse { path: string; status: number; error?: string; reused?: string }
+export interface OwnerMapping { from: string; to: string | null }
+
+/** The property objects in a request body that set hubspot_owner_id: company upsert inputs and task properties. */
+function ownerSlots(body: unknown): Record<string, unknown>[] {
+  const b = body as any;
+  if (!b || typeof b !== 'object') return [];
+  const slots: Record<string, unknown>[] = [];
+  if (b.properties && 'hubspot_owner_id' in b.properties) slots.push(b.properties);
+  for (const input of Array.isArray(b.inputs) ? b.inputs : []) if (input?.properties && 'hubspot_owner_id' in input.properties) slots.push(input.properties);
+  return slots;
+}
+
+const ownerCache = new WeakMap<object, Promise<string[]>>();
+
+/**
+ * The portal's active owner ids, read once per context. A failed read gives [], so owners are dropped, never invented.
+ * Only a successful read is cached: after a failed one the next write asks again, so a retry after an outage keeps its owners.
+ */
+function realOwners(ctx: Ctx): Promise<string[]> {
+  let p = ownerCache.get(ctx);
+  if (!p) {
+    p = ctx.fetch('https://api.hubapi.com/crm/v3/owners?limit=100', { headers: { Authorization: `Bearer ${ctx.cfg.hubspotToken}` }, signal: AbortSignal.timeout(10_000) })
+      .then(async res => {
+        if (!res.ok) throw new Error(`owners lookup answered ${res.status}`);
+        return ((((await res.json()) as any)?.results ?? []) as any[]).filter((o: any) => !o.archived).map((o: any) => String(o.id));
+      })
+      .catch(() => { ownerCache.delete(ctx); return [] as string[]; });
+    ownerCache.set(ctx, p);
+  }
+  return p;
+}
+
+/**
+ * An open task with this subject already on the contact (or the company), if any: one open follow-up per person per
+ * action, so a repeat lead or a replay does not stack a second one. HubSpot's search index trails writes by a few
+ * seconds, so two identical leads seconds apart can both still create one; the door's event-id dedupe covers true
+ * redeliveries. A failed search returns null and the task is created, because a duplicate costs less than a missed follow-up.
+ */
+async function findOpenTask(ctx: Ctx, subject: string, to: { prop: string; id: string }): Promise<string | null> {
+  try {
+    const res = await ctx.fetch('https://api.hubapi.com/crm/v3/objects/tasks/search', {
+      method: 'POST', headers: { Authorization: `Bearer ${ctx.cfg.hubspotToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filterGroups: [{ filters: [
+        { propertyName: 'hs_task_subject', operator: 'EQ', value: subject },
+        { propertyName: 'hs_task_status', operator: 'NEQ', value: 'COMPLETED' },
+        { propertyName: to.prop, operator: 'EQ', value: to.id },
+      ] }], properties: ['hs_task_subject'], limit: 1 }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const id = ((await res.json()) as any)?.results?.[0]?.id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Executes a plan. Dry-run unless HUBSPOT_LIVE=1 and a key are both present. Never logs the key.
+ * The router's reps are synthetic, so an owner id the portal does not have is mapped to the portal's first real owner
+ * (or dropped when it has none), and the mapping is returned: HubSpot would otherwise reject the whole write.
+ * Every response status comes back, with HubSpot's error text on a failure, so a failed write is never reported as sent.
+ * A task is created only when the same open task is not already on the contact (findOpenTask).
+ */
+export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<{ mode: 'dry_run' | 'live'; ok?: boolean; responses?: CrmResponse[]; ownerMapped?: OwnerMapping[] }> {
+  if (!ctx.cfg.hubspotLive || !ctx.cfg.hubspotToken) return { mode: 'dry_run' };
+  const ids: Record<string, string> = {};
+  const responses: CrmResponse[] = [];
+  const ownerMapped: OwnerMapping[] = [];
+  for (const r of requests) {
+    let body = r.body;
+    if (ownerSlots(body).length) {
+      const owners = await realOwners(ctx);
+      body = JSON.parse(JSON.stringify(body));
+      for (const props of ownerSlots(body)) {
+        const from = props.hubspot_owner_id == null ? null : String(props.hubspot_owner_id);
+        if (from == null || owners.includes(from)) continue;
+        const to = owners[0] ?? null;
+        if (to) props.hubspot_owner_id = to; else delete props.hubspot_owner_id;
+        ownerMapped.push({ from, to });
+      }
+    }
+    const sub = (s: string) => s.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => ids[k] ?? `{{${k}}}`);
+    const path = sub(r.path);
+    if (r.method === 'POST' && r.path === PATHS.tasks) {
+      const subject = (body as any)?.properties?.hs_task_subject;
+      const to = ids.contact_id ? { prop: 'associations.contact', id: ids.contact_id } : ids.company_id ? { prop: 'associations.company', id: ids.company_id } : null;
+      const existing = subject && to ? await findOpenTask(ctx, String(subject), to) : null;
+      if (existing) { responses.push({ path, status: 200, reused: existing }); continue; }
+    }
+    const res = await ctx.fetch(`https://api.hubapi.com${path}`, {
+      method: r.method, headers: { Authorization: `Bearer ${ctx.cfg.hubspotToken}`, 'Content-Type': 'application/json' },
+      body: body == null ? undefined : sub(JSON.stringify(body)), signal: AbortSignal.timeout(10_000),
+    });
+    const entry: CrmResponse = { path, status: res.status };
+    if (!res.ok) entry.error = (await res.text().catch(() => '')).slice(0, 300);
+    responses.push(entry);
+    if (res.ok && r.path.includes('/contacts/batch/upsert')) ids.contact_id = String((await res.json() as any)?.results?.[0]?.id ?? '');
+    else if (res.ok && r.path.includes('/companies/batch/upsert')) ids.company_id = String((await res.json() as any)?.results?.[0]?.id ?? '');
+  }
+  return { mode: 'live', ok: responses.every(x => x.status < 300), responses, ...(ownerMapped.length ? { ownerMapped } : {}) };
+}
+
+// ------- property definitions (one-time setup; also written to docs/hubspot-properties.json) -------
+interface Prop { name: string; label: string; type: 'string' | 'number' | 'enumeration'; fieldType: 'text' | 'number' | 'select'; options?: string[]; hasUniqueValue?: boolean; description: string }
+
+const enumProp = (name: string, label: string, options: string[], description: string): Prop => ({ name, label, type: 'enumeration', fieldType: 'select', options, description });
+const text = (name: string, label: string, description: string, extra: Partial<Prop> = {}): Prop => ({ name, label, type: 'string', fieldType: 'text', description, ...extra });
+
+export const CONTACT_PROPERTIES: Prop[] = [
+  enumProp('serif_segment', 'Segment', ['health_system', 'payer', 'benefits_consultant_broker', 'tpa', 'life_sciences', 'standalone_hospital', 'employer_self_funded', 'innovator_navigation', 'innovator_api_data', 'provider_group', 'pe_investor', 'consulting_advisory', 'unknown_org', 'government', 'academic', 'non_us', 'media', 'competitor'], 'Resolved account segment.'),
+  enumProp('serif_use_case', 'Use case', ['contract_negotiation', 'rate_benchmarking_market', 'payer_competitive_intel', 'network_design_benefits', 'navigation_find_care', 'data_platform_api', 'life_sciences_access', 'investment_diligence', 'research_media', 'job_seeker', 'vendor_pitch', 'other'], 'Classified use case (rules, model-assisted).'),
+  enumProp('serif_urgency', 'Urgency', ['now', 'this_quarter', 'exploring', 'unknown'], 'Classified urgency relative to the lead date.'),
+  enumProp('serif_tier', 'Tier', ['A', 'B', 'C', 'D', 'X'], 'Score tier. X is disqualified.'),
+  { name: 'serif_fit_score', label: 'Fit score', type: 'number', fieldType: 'number', description: 'Fit points, 0 to 50.' },
+  { name: 'serif_intent_score', label: 'Intent score', type: 'number', fieldType: 'number', description: 'Intent points, 0 to 50.' },
+  enumProp('serif_route_team', 'Route team', ['HSP', 'BW', 'PLS', 'API', 'Nurture', 'Review'], 'Team the lead was routed to.'),
+  text('serif_source', 'Source', 'Inbound door: calendly_demo, guide_download, and so on.'),
+  text('serif_lead_id', 'Lead id', 'Id of the lead in the router.'),
+  text('serif_account_key', 'Account key', 'Stable account id (ahrq:, ccn:, payer:, npi:, domain:).'),
+  text('serif_nurture_track', 'Nurture track', 'Track a HubSpot workflow enrolls the contact in.'),
+  ...(['first', 'last'] as const).flatMap(p => (['source', 'medium', 'campaign', 'content', 'term'] as const).map(k => text(`${p}_touch_utm_${k}`, `${p === 'first' ? 'First' : 'Last'} touch UTM ${k}`, `Normalized utm_${k} at the ${p} touch.`))),
+];
+
+export const COMPANY_PROPERTIES: Prop[] = [
+  text('serif_account_key', 'Account key', 'Unique stable account id. Companies are upserted on this property.', { hasUniqueValue: true }),
+  text('serif_segment', 'Segment', 'Resolved account segment.'),
+  { name: 'serif_hospital_count', label: 'Hospital count', type: 'number', fieldType: 'number', description: 'AHRQ hospital count for health systems.' },
+  text('serif_match_method', 'Match method', 'How the account was resolved.'),
+  { name: 'serif_account_score', label: 'Account score', type: 'number', fieldType: 'number', description: 'Reverse-ETL account score (max lead score at the account).' },
+  { name: 'serif_open_leads', label: 'Leads (30d)', type: 'number', fieldType: 'number', description: 'Reverse-ETL count of leads in the last 30 days.' },
+  { name: 'serif_web_intent_points', label: 'Web intent points', type: 'number', fieldType: 'number', description: 'Reverse-ETL account-level web intent points.' },
+];
+
+export function propertyDefinitions() {
+  const toDef = (p: Prop) => ({ name: p.name, label: p.label, type: p.type, fieldType: p.fieldType, groupName: 'inbound_router', description: p.description,
+    ...(p.options ? { options: p.options.map((o, idx) => ({ label: o, value: o, displayOrder: idx })) } : {}), ...(p.hasUniqueValue ? { hasUniqueValue: true } : {}) });
+  return {
+    _readme: 'One-time property definitions for the inbound router. npm run hubspot:setup creates the group (POST /crm/v3/properties/{objectType}/groups), then each property (POST /crm/v3/properties/{objectType}), in the portal the key belongs to. It is safe to re-run.',
+    propertyGroup: { name: 'inbound_router', label: 'Inbound router', displayOrder: -1 },
+    contacts: CONTACT_PROPERTIES.map(toDef),
+    companies: COMPANY_PROPERTIES.map(toDef),
+  };
+}

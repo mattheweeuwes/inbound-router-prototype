@@ -1,0 +1,47 @@
+{
+  "id": "sample-f29", "receivedAt": "2026-11-06T17:20:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+  "person": { "name": "Lauren Price", "title": "Managed Care Director", "email": "lprice@gmail.com" },
+  "org": { "name": "Baptist Health", "accountId": null, "segment": "unknown_org", "matchedBy": "company_name", "confidence": "low" },
+  "tier": "B", "score": 52, "routeAction": "review", "routeTeam": "Review", "owner": "RevOps",
+  "useCase": "rate_benchmarking_market", "urgency": "unknown", "timeToRouteMs": 980, "flags": ["free_mail", "review"],
+  "raw": { "event": "invitee.created", "payload": { "email": "lprice@gmail.com", "name": "Lauren Price", "questions_and_answers": [ { "question": "Company", "answer": "Baptist Health" }, { "question": "What are you hoping to solve?", "answer": "Benchmarking our commercial rates." } ] } },
+  "normalized": {
+    "email": "lprice@gmail.com", "emailDomain": "gmail.com", "isFreeMail": true, "isDisposable": false,
+    "firstName": "Lauren", "lastName": "Price", "title": "Managed Care Director", "titleFunction": "managed_care_contracting", "titleSeniority": "director",
+    "companyNameRaw": "Baptist Health", "companyDomain": null, "state": null, "country": "US",
+    "message": "Benchmarking our commercial rates.", "utm": { "source": null, "medium": null, "campaign": null, "content": null, "term": null }, "utmFixes": [], "channel": "direct", "landingPage": null, "referrer": null
+  },
+  "dedupe": { "contactKey": "lprice@gmail.com", "duplicateOf": null, "priorTouches": 0 },
+  "resolution": {
+    "status": "ambiguous", "accountId": null, "accountName": null, "segment": "unknown_org", "subsegment": null, "confidence": "low", "method": "company_name",
+    "evidence": [
+      { "step": "domain", "detail": "gmail.com is free-mail: fall back to the company field" },
+      { "step": "company_name", "detail": "\"Baptist Health\" matches several AHRQ systems within 0.10 of each other, and no state was given" },
+      { "step": "decision", "detail": "Ambiguous: sent to a person with the top candidates instead of guessing" }
+    ],
+    "firmographics": { "hospitals": null, "beds": null, "states": [], "ccns": [], "npi": null, "payerKind": null, "taxonomy": null },
+    "candidates": [
+      { "accountId": "ahrq:SAMPLE-0101", "name": "Baptist Health (sample KY)", "state": "KY", "score": 0.93 },
+      { "accountId": "ahrq:SAMPLE-0102", "name": "Baptist Health South Florida (sample)", "state": "FL", "score": 0.88 },
+      { "accountId": "ahrq:SAMPLE-0103", "name": "Baptist Health (sample AR)", "state": "AR", "score": 0.93 }
+    ]
+  },
+  "qualification": {
+    "provider": "ollama:llama3.2:3b", "promptVersion": "v1", "latencyMs": 820,
+    "llm": { "reasons": "Wants to benchmark commercial rates; no timeline given.", "use_case": "rate_benchmarking_market", "urgency": "unknown", "buying_role": "decision_maker", "disqualifier": "none", "confidence": 0.74 },
+    "rules": { "useCase": "rate_benchmarking_market", "urgency": "unknown", "disqualifier": "none" },
+    "final": { "useCase": "rate_benchmarking_market", "urgency": "unknown", "buyingRole": "decision_maker", "disqualifier": "none", "confidence": 0.74, "reasons": "Wants to benchmark commercial rates; no timeline given." },
+    "agreement": true, "fallbackReason": null
+  },
+  "score": { "total": 52, "fit": 24, "intent": 28, "tier": "B", "items": [
+    { "group": "fit", "label": "Segment: unknown org (not yet resolved)", "points": 6 },
+    { "group": "fit", "label": "Persona: managed care contracting × director", "points": 12 },
+    { "group": "fit", "label": "Size: unknown until resolved", "points": 0 },
+    { "group": "intent", "label": "Source: demo request", "points": 28 }
+  ] },
+  "route": { "action": "review", "team": "Review", "owner": "RevOps", "rule": "R6", "reason": "Company name matches several health systems and no state was given, so a person picks the account before any rep is alerted.", "slaMinutes": 60, "slaDueAt": "2026-11-06T18:20:00Z" },
+  "crm": { "mode": "dry_run", "requests": [] },
+  "alert": { "slack": null },
+  "timings": { "normalize": 1, "resolve": 120, "qualify": 820, "score": 1, "route": 1, "notify": 0, "alerted": 980, "crm": 0, "total": 980 },
+  "account": null
+}

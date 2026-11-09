@@ -1,0 +1,58 @@
+{
+  "id": "sample-f40", "receivedAt": "2026-11-07T02:12:00Z", "source": "calendly_demo", "synthetic": true, "status": "synced",
+  "person": { "name": "Hannah Brooks", "title": "Executive Director, Managed Care", "email": "hbrooks@piedmont.org" },
+  "org": { "name": "Piedmont Healthcare", "accountId": "ahrq:SAMPLE-0001", "segment": "health_system", "matchedBy": "org_domain", "confidence": "high" },
+  "tier": "A", "score": 90, "routeAction": "rep_alert", "routeTeam": "HSP", "owner": "Jordan",
+  "useCase": "contract_negotiation", "urgency": "now", "timeToRouteMs": 1840, "flags": ["after_hours"],
+  "raw": { "event": "invitee.created", "payload": { "email": "hbrooks@piedmont.org", "name": "Hannah Brooks", "questions_and_answers": [ { "question": "What are you hoping to solve?", "answer": "A major commercial contract renews in spring and talks start next month. Need benchmarks fast." } ], "tracking": { "utm_source": "Google ", "utm_medium": "CPC", "utm_campaign": "brand" } } },
+  "normalized": {
+    "email": "hbrooks@piedmont.org", "emailDomain": "piedmont.org", "isFreeMail": false, "isDisposable": false,
+    "firstName": "Hannah", "lastName": "Brooks", "title": "Executive Director, Managed Care", "titleFunction": "managed_care_contracting", "titleSeniority": "director",
+    "companyNameRaw": null, "companyDomain": "piedmont.org", "state": "GA", "country": "US",
+    "message": "A major commercial contract renews in spring and talks start next month. Need benchmarks fast.",
+    "utm": { "source": "google", "medium": "cpc", "campaign": "brand", "content": null, "term": null },
+    "utmFixes": [ { "field": "utm_source", "from": "Google ", "to": "google" }, { "field": "utm_medium", "from": "CPC", "to": "cpc" } ],
+    "channel": "paid_search", "landingPage": "/platform/products/signal/", "referrer": null
+  },
+  "dedupe": { "contactKey": "hbrooks@piedmont.org", "duplicateOf": null, "priorTouches": 0 },
+  "resolution": {
+    "status": "resolved", "accountId": "ahrq:SAMPLE-0001", "accountName": "Piedmont Healthcare", "segment": "health_system", "subsegment": null,
+    "confidence": "high", "method": "org_domain",
+    "evidence": [
+      { "step": "domain", "detail": "piedmont.org is not free-mail and not on the curated list" },
+      { "step": "org_domain", "detail": "piedmont.org → AHRQ health system (sample id), verified by homepage title" },
+      { "step": "firmographics", "detail": "Hospitals and beds read from the AHRQ hospital linkage file" }
+    ],
+    "firmographics": { "hospitals": 20, "beds": 4000, "states": ["GA"], "ccns": ["SAMPLE01", "SAMPLE02", "SAMPLE03"], "npi": null, "payerKind": null, "taxonomy": null },
+    "candidates": []
+  },
+  "qualification": {
+    "provider": "ollama:llama3.2:3b", "promptVersion": "v1", "latencyMs": 910,
+    "llm": { "reasons": "Says talks start next month and they need benchmarks fast for a contract renewal.", "use_case": "contract_negotiation", "urgency": "now", "buying_role": "decision_maker", "disqualifier": "none", "confidence": 0.86 },
+    "rules": { "useCase": "contract_negotiation", "urgency": "now", "disqualifier": "none" },
+    "final": { "useCase": "contract_negotiation", "urgency": "now", "buyingRole": "decision_maker", "disqualifier": "none", "confidence": 0.86, "reasons": "Says talks start next month and they need benchmarks fast for a contract renewal." },
+    "agreement": true, "fallbackReason": null
+  },
+  "score": { "total": 90, "fit": 50, "intent": 40, "tier": "A", "items": [
+    { "group": "fit", "label": "Segment: health system", "points": 22 },
+    { "group": "fit", "label": "Size: 20+ hospitals (AHRQ)", "points": 16 },
+    { "group": "fit", "label": "Persona: managed care contracting × director", "points": 12 },
+    { "group": "intent", "label": "Source: demo request", "points": 28 },
+    { "group": "intent", "label": "Urgency: now", "points": 12 }
+  ] },
+  "route": { "action": "rep_alert", "team": "HSP", "owner": "Jordan", "rule": "R8", "reason": "Tier A, no account owner: round-robin in Health Systems & Providers (Jordan was next).", "slaMinutes": 5, "slaDueAt": "2026-11-07T02:17:00Z" },
+  "crm": { "mode": "dry_run", "requests": [
+    { "method": "POST", "path": "/crm/v3/objects/companies/batch/upsert", "body": { "inputs": [ { "idProperty": "serif_account_key", "id": "ahrq:SAMPLE-0001", "properties": { "name": "Piedmont Healthcare", "domain": "piedmont.org", "serif_segment": "health_system" } } ] } },
+    { "method": "POST", "path": "/crm/v3/objects/contacts/batch/upsert", "body": { "inputs": [ { "idProperty": "email", "id": "hbrooks@piedmont.org", "properties": { "email": "hbrooks@piedmont.org", "firstname": "Hannah", "lastname": "Brooks", "jobtitle": "Executive Director, Managed Care", "lifecyclestage": "salesqualifiedlead", "serif_tier": "A", "serif_fit_score": "50", "serif_intent_score": "40" } } ] } },
+    { "method": "PUT", "path": "/crm/v4/objects/contact/{contactId}/associations/default/company/{companyId}", "body": null },
+    { "method": "POST", "path": "/crm/v3/objects/tasks", "body": { "properties": { "hs_task_subject": "Tier A demo request: Piedmont Healthcare", "hs_timestamp": "2026-11-07T02:17:00Z", "hubspot_owner_id": "sample-owner-jordan" } } }
+  ] },
+  "alert": { "slack": { "blocks": [
+    { "type": "header", "text": { "type": "plain_text", "text": "Tier A · Health Systems & Providers" } },
+    { "type": "section", "fields": [ { "type": "mrkdwn", "text": "*Hannah Brooks*\nExecutive Director, Managed Care" }, { "type": "mrkdwn", "text": "*Piedmont Healthcare*\nAHRQ system · 20 hospitals · matched on domain" } ] },
+    { "type": "section", "text": { "type": "mrkdwn", "text": "*Why now:* Demo request · urgency now\n> A major commercial contract renews in spring and talks start next month. Need benchmarks fast." } },
+    { "type": "context", "elements": [ { "type": "mrkdwn", "text": "Owner: Jordan · SLA 5 min · routed in 1.8 s · SYNTHETIC" } ] }
+  ] } },
+  "timings": { "normalize": 2, "resolve": 340, "qualify": 910, "score": 1, "route": 2, "notify": 3, "alerted": 1836, "crm": 4, "total": 1840 },
+  "account": { "id": "ahrq:SAMPLE-0001", "name": "Piedmont Healthcare", "owner": null, "otherLeads": [], "signals": [] }
+}

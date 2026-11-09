@@ -1,0 +1,12 @@
+{
+  "total": 8,
+  "bySource": { "calendly_demo": 6, "sample_signup": 1, "web_intent": 1 },
+  "byTier": { "A": 4, "B": 1, "C": 0, "D": 0, "X": 2 },
+  "byAction": { "rep_alert": 4, "review": 1, "competitor_flag": 1, "careers": 1, "account_signal": 1 },
+  "byTeam": { "HSP": 4, "BW": 1, "Review": 1 },
+  "timeToRouteMs": { "p50": 1190, "p90": 1840, "max": 1840 },
+  "resolvedPct": 0.75,
+  "reviewCount": 1,
+  "hygiene": { "utmFixed": 3, "duplicatesMerged": 0, "idempotentReplays": 0, "freeMailResolved": 1, "spamDropped": 0, "titlesNormalized": 7, "nonUs": 0 },
+  "generatedAt": "2026-11-07T02:12:02Z"
+}

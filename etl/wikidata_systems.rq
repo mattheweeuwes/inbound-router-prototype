@@ -1,0 +1,8 @@
+SELECT DISTINCT ?item ?itemLabel ?site ?stateLabel ?clsLabel WHERE {
+  VALUES ?cls { wd:Q1774587 wd:Q11000047 wd:Q615678 wd:Q23905463 wd:Q4287745 }
+  ?item wdt:P31 ?cls; wdt:P17 wd:Q30; wdt:P856 ?site .
+  OPTIONAL { ?item wdt:P159/wdt:P131* ?st . ?st wdt:P31 wd:Q35657 . }
+  OPTIONAL { ?item wdt:P131* ?st2 . ?st2 wdt:P31 wd:Q35657 . }
+  BIND(COALESCE(?st, ?st2) AS ?state)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}

@@ -1,0 +1,472 @@
+{
+  "_readme": "One-time property definitions for the inbound router. npm run hubspot:setup creates the group (POST /crm/v3/properties/{objectType}/groups), then each property (POST /crm/v3/properties/{objectType}), in the portal the key belongs to. It is safe to re-run.",
+  "propertyGroup": {
+    "name": "inbound_router",
+    "label": "Inbound router",
+    "displayOrder": -1
+  },
+  "contacts": [
+    {
+      "name": "serif_segment",
+      "label": "Segment",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Resolved account segment.",
+      "options": [
+        {
+          "label": "health_system",
+          "value": "health_system",
+          "displayOrder": 0
+        },
+        {
+          "label": "payer",
+          "value": "payer",
+          "displayOrder": 1
+        },
+        {
+          "label": "benefits_consultant_broker",
+          "value": "benefits_consultant_broker",
+          "displayOrder": 2
+        },
+        {
+          "label": "tpa",
+          "value": "tpa",
+          "displayOrder": 3
+        },
+        {
+          "label": "life_sciences",
+          "value": "life_sciences",
+          "displayOrder": 4
+        },
+        {
+          "label": "standalone_hospital",
+          "value": "standalone_hospital",
+          "displayOrder": 5
+        },
+        {
+          "label": "employer_self_funded",
+          "value": "employer_self_funded",
+          "displayOrder": 6
+        },
+        {
+          "label": "innovator_navigation",
+          "value": "innovator_navigation",
+          "displayOrder": 7
+        },
+        {
+          "label": "innovator_api_data",
+          "value": "innovator_api_data",
+          "displayOrder": 8
+        },
+        {
+          "label": "provider_group",
+          "value": "provider_group",
+          "displayOrder": 9
+        },
+        {
+          "label": "pe_investor",
+          "value": "pe_investor",
+          "displayOrder": 10
+        },
+        {
+          "label": "consulting_advisory",
+          "value": "consulting_advisory",
+          "displayOrder": 11
+        },
+        {
+          "label": "unknown_org",
+          "value": "unknown_org",
+          "displayOrder": 12
+        },
+        {
+          "label": "government",
+          "value": "government",
+          "displayOrder": 13
+        },
+        {
+          "label": "academic",
+          "value": "academic",
+          "displayOrder": 14
+        },
+        {
+          "label": "non_us",
+          "value": "non_us",
+          "displayOrder": 15
+        },
+        {
+          "label": "media",
+          "value": "media",
+          "displayOrder": 16
+        },
+        {
+          "label": "competitor",
+          "value": "competitor",
+          "displayOrder": 17
+        }
+      ]
+    },
+    {
+      "name": "serif_use_case",
+      "label": "Use case",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Classified use case (rules, model-assisted).",
+      "options": [
+        {
+          "label": "contract_negotiation",
+          "value": "contract_negotiation",
+          "displayOrder": 0
+        },
+        {
+          "label": "rate_benchmarking_market",
+          "value": "rate_benchmarking_market",
+          "displayOrder": 1
+        },
+        {
+          "label": "payer_competitive_intel",
+          "value": "payer_competitive_intel",
+          "displayOrder": 2
+        },
+        {
+          "label": "network_design_benefits",
+          "value": "network_design_benefits",
+          "displayOrder": 3
+        },
+        {
+          "label": "navigation_find_care",
+          "value": "navigation_find_care",
+          "displayOrder": 4
+        },
+        {
+          "label": "data_platform_api",
+          "value": "data_platform_api",
+          "displayOrder": 5
+        },
+        {
+          "label": "life_sciences_access",
+          "value": "life_sciences_access",
+          "displayOrder": 6
+        },
+        {
+          "label": "investment_diligence",
+          "value": "investment_diligence",
+          "displayOrder": 7
+        },
+        {
+          "label": "research_media",
+          "value": "research_media",
+          "displayOrder": 8
+        },
+        {
+          "label": "job_seeker",
+          "value": "job_seeker",
+          "displayOrder": 9
+        },
+        {
+          "label": "vendor_pitch",
+          "value": "vendor_pitch",
+          "displayOrder": 10
+        },
+        {
+          "label": "other",
+          "value": "other",
+          "displayOrder": 11
+        }
+      ]
+    },
+    {
+      "name": "serif_urgency",
+      "label": "Urgency",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Classified urgency relative to the lead date.",
+      "options": [
+        {
+          "label": "now",
+          "value": "now",
+          "displayOrder": 0
+        },
+        {
+          "label": "this_quarter",
+          "value": "this_quarter",
+          "displayOrder": 1
+        },
+        {
+          "label": "exploring",
+          "value": "exploring",
+          "displayOrder": 2
+        },
+        {
+          "label": "unknown",
+          "value": "unknown",
+          "displayOrder": 3
+        }
+      ]
+    },
+    {
+      "name": "serif_tier",
+      "label": "Tier",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Score tier. X is disqualified.",
+      "options": [
+        {
+          "label": "A",
+          "value": "A",
+          "displayOrder": 0
+        },
+        {
+          "label": "B",
+          "value": "B",
+          "displayOrder": 1
+        },
+        {
+          "label": "C",
+          "value": "C",
+          "displayOrder": 2
+        },
+        {
+          "label": "D",
+          "value": "D",
+          "displayOrder": 3
+        },
+        {
+          "label": "X",
+          "value": "X",
+          "displayOrder": 4
+        }
+      ]
+    },
+    {
+      "name": "serif_fit_score",
+      "label": "Fit score",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Fit points, 0 to 50."
+    },
+    {
+      "name": "serif_intent_score",
+      "label": "Intent score",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Intent points, 0 to 50."
+    },
+    {
+      "name": "serif_route_team",
+      "label": "Route team",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Team the lead was routed to.",
+      "options": [
+        {
+          "label": "HSP",
+          "value": "HSP",
+          "displayOrder": 0
+        },
+        {
+          "label": "BW",
+          "value": "BW",
+          "displayOrder": 1
+        },
+        {
+          "label": "PLS",
+          "value": "PLS",
+          "displayOrder": 2
+        },
+        {
+          "label": "API",
+          "value": "API",
+          "displayOrder": 3
+        },
+        {
+          "label": "Nurture",
+          "value": "Nurture",
+          "displayOrder": 4
+        },
+        {
+          "label": "Review",
+          "value": "Review",
+          "displayOrder": 5
+        }
+      ]
+    },
+    {
+      "name": "serif_source",
+      "label": "Source",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Inbound door: calendly_demo, guide_download, and so on."
+    },
+    {
+      "name": "serif_lead_id",
+      "label": "Lead id",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Id of the lead in the router."
+    },
+    {
+      "name": "serif_account_key",
+      "label": "Account key",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Stable account id (ahrq:, ccn:, payer:, npi:, domain:)."
+    },
+    {
+      "name": "serif_nurture_track",
+      "label": "Nurture track",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Track a HubSpot workflow enrolls the contact in."
+    },
+    {
+      "name": "first_touch_utm_source",
+      "label": "First touch UTM source",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_source at the first touch."
+    },
+    {
+      "name": "first_touch_utm_medium",
+      "label": "First touch UTM medium",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_medium at the first touch."
+    },
+    {
+      "name": "first_touch_utm_campaign",
+      "label": "First touch UTM campaign",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_campaign at the first touch."
+    },
+    {
+      "name": "first_touch_utm_content",
+      "label": "First touch UTM content",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_content at the first touch."
+    },
+    {
+      "name": "first_touch_utm_term",
+      "label": "First touch UTM term",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_term at the first touch."
+    },
+    {
+      "name": "last_touch_utm_source",
+      "label": "Last touch UTM source",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_source at the last touch."
+    },
+    {
+      "name": "last_touch_utm_medium",
+      "label": "Last touch UTM medium",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_medium at the last touch."
+    },
+    {
+      "name": "last_touch_utm_campaign",
+      "label": "Last touch UTM campaign",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_campaign at the last touch."
+    },
+    {
+      "name": "last_touch_utm_content",
+      "label": "Last touch UTM content",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_content at the last touch."
+    },
+    {
+      "name": "last_touch_utm_term",
+      "label": "Last touch UTM term",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Normalized utm_term at the last touch."
+    }
+  ],
+  "companies": [
+    {
+      "name": "serif_account_key",
+      "label": "Account key",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Unique stable account id. Companies are upserted on this property.",
+      "hasUniqueValue": true
+    },
+    {
+      "name": "serif_segment",
+      "label": "Segment",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Resolved account segment."
+    },
+    {
+      "name": "serif_hospital_count",
+      "label": "Hospital count",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "AHRQ hospital count for health systems."
+    },
+    {
+      "name": "serif_match_method",
+      "label": "Match method",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "How the account was resolved."
+    },
+    {
+      "name": "serif_account_score",
+      "label": "Account score",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Reverse-ETL account score (max lead score at the account)."
+    },
+    {
+      "name": "serif_open_leads",
+      "label": "Leads (30d)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Reverse-ETL count of leads in the last 30 days."
+    },
+    {
+      "name": "serif_web_intent_points",
+      "label": "Web intent points",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Reverse-ETL account-level web intent points."
+    }
+  ]
+}

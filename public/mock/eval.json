@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2026-11-07T02:20:00Z", "model": "llama3.2:3b", "promptVersion": "v1", "n": 40, "sample": true,
+  "fields": {
+    "useCase": { "rules": 0.0, "llm": 0.0, "final": 0.0 },
+    "urgency": { "rules": 0.0, "llm": 0.0, "final": 0.0 },
+    "disqualifier": { "rules": 0.0, "llm": 0.0, "final": 0.0 },
+    "segment": { "final": 0.0 },
+    "routeTeam": { "final": 0.0 }
+  },
+  "latencyMs": { "p50": 0, "p90": 0 },
+  "misses": []
+}
