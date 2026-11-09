@@ -41,7 +41,11 @@ export interface Config {
   anthropicModel: string;
   hubspotLive: boolean;
   hubspotToken: string | null;
-  crmRetryDelayMs: number; // pause before the one retry of a HubSpot write that threw (network error or timeout)
+  crmRetryDelayMs: number; // first backoff step for a HubSpot delivery that threw or got a 429/5xx; it doubles per attempt
+  crmMaxDelayMs: number; // longest backoff step for a HubSpot delivery (a Retry-After header can ask for longer)
+  crmMaxAttempts: number; // a HubSpot delivery is marked dead after this many attempts
+  leadRetryDelayMs: number; // first backoff step for a lead whose pipeline threw; it doubles per attempt
+  leadMaxAttempts: number; // a lead is given up (status failed, RevOps alerted) after this many failed runs
   network: boolean; // site-title + NPPES lookups allowed
   now: () => number; // injectable clock for wall-clock measurements
 }
@@ -86,7 +90,11 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     anthropicModel: env.ANTHROPIC_MODEL ?? 'claude-haiku-5-5',
     hubspotLive: env.HUBSPOT_LIVE === '1' && !!hubspotKey(env),
     hubspotToken: hubspotKey(env),
-    crmRetryDelayMs: 1500,
+    crmRetryDelayMs: 2_000,
+    crmMaxDelayMs: 5 * 60_000,
+    crmMaxAttempts: 8, // waits of 2, 4, 8 ... 128 s between them: about four minutes of trying before a plan is dead
+    leadRetryDelayMs: 5_000,
+    leadMaxAttempts: 3, // runs at 0 s, 5 s and 15 s
     network: env.OFFLINE !== '1', // OFFLINE=1 turns the site-title and NPPES lookups off
     now: () => Date.now(),
     ...over,

@@ -1,6 +1,6 @@
 # Data contract
 
-What crosses each boundary: inbound payloads, the canonical lead, the CRM. Source of truth for types is `src/schema.ts`; for tables, `sql/migrations/001_init.sql`.
+What crosses each boundary: inbound payloads, the canonical lead, the CRM. Source of truth for types is `src/schema.ts`; for tables, the files in `sql/migrations/`, applied once each in name order and recorded in `schema_migrations` (DECISIONS #18).
 
 ## 1. Canonical lead
 
@@ -8,7 +8,7 @@ Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalize
 
 | group | fields |
 |---|---|
-| identity | `id` (uuid), `source`, `source_event_id`, `received_at` (ISO UTC, from the payload), `synthetic` |
+| identity | `id` (uuid), `source`, `source_event_id`, `received_at` (ISO UTC, from the payload), `accepted_at` (ISO UTC, the server's clock at the 202; orders boot recovery), `synthetic` |
 | person | `email` (trimmed, lowercased; its domain must be a plain DNS hostname, so an address with a port, path, IP address or bare name like `localhost` is treated as having no email), `first_name`, `last_name` (title-cased), `title`, `title_function`, `title_seniority` |
 | company as submitted | `company_name_raw`, `company_domain` (null for free-mail and disposable), `state` (2-letter), `country` |
 | attribution | `utm_source/medium/campaign/content/term` (normalized), `channel`, `landing_page`, `referrer` |
@@ -17,7 +17,8 @@ Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalize
 | resolution | `account_id`, `segment`, plus `resolution_json` (method, confidence, evidence, firmographics, candidates) |
 | qualification | `qualification_json` (rules output with its evidence, including the date parser's `urgencyCue`, `urgencyDate`, `urgencyDays` and `urgencyKind`, model output, final with per-field `sources`, per-field agreement, fallback reason, prompt and combine versions) |
 | decision | `tier`, `score`, `score_json` (itemized), `route_action`, `route_team`, `owner`, `sla_due_at`, `route_json` (rule and reason) |
-| sync | `crm_json` (the exact HubSpot requests), `alert_json` (Slack payload) |
+| sync | `crm_json` (the exact HubSpot requests and, in live mode, how their delivery went; below), `alert_json` (`slack`: the Slack payload or null, `suppressed`, and `failure`: the RevOps alert of a lead that was given up) |
+| processing | `status` (`received`, then one per stage: `normalized` ... `synced`, then `done`; `retrying` while a failed run waits for its next attempt; `failed` once given up), `attempts` (failed runs), `retry_at` (epoch ms of the next run while `retrying`) |
 | timing | `time_to_route_ms` (receipt to routing decision), `timings_json` (per stage, plus `queued`, the part of the wait before the pipeline picked the lead up, `alerted`, the time the alert was out, and `total`; the alert stage runs before the HubSpot write) |
 
 `title_function`: `managed_care_contracting | network_strategy | benefits | revenue_cycle_finance | strategy_bd | analytics_data | product_engineering | executive | clinical | marketing_sales | research_academic | media | hr_recruiting | other`.
@@ -34,9 +35,28 @@ Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalize
 | `crm:<mirror id>` | an account in `fixtures/crm-mirror.json` that no public registry knows (the CRM record supplies the name, segment and size) | CRM mirror |
 | `domain:<domain>` | everything else: curated organizations, TLD-placed orgs, unknown orgs, and provider-group brands that span several NPI-2 records | email domain |
 
-`accounts.owner` holds a rep only after a tier-A rep alert claimed the account (see DECISIONS #5); owners seeded in `fixtures/crm-mirror.json` are never stored there. The claim is also recorded as an `account_signals` row of type `claim`, and the claiming lead's company upsert carries `hubspot_owner_id`.
+`accounts.owner` holds a rep only after a tier-A rep alert claimed the account (see DECISIONS #5); owners seeded in `fixtures/crm-mirror.json` are never stored there. The claim itself is a row in `account_claims` (below); it is also shown as a human-readable `account_signals` row of type `claim`, and the claiming lead's company upsert carries `hubspot_owner_id`.
 
 Free-mail leads whose company can't be matched, and ambiguous leads, get no account (`account_id` is null) until a person resolves them.
+
+### Tables beside the lead
+
+| table | one row per | columns | written by |
+|---|---|---|---|
+| `account_claims` | lead whose rep alert claimed an account | `lead_id` (primary key), `account_id`, `owner`, `at` (the lead's received time) | the route stage, in the same transaction as the assignment; a re-run deletes its lead's row and clears `accounts.owner` if that rep still holds it |
+| `account_signals` | account-level event shown in the cockpit | `account_id`, `lead_id` (the lead that wrote it), `type` (`claim`, `web_intent`), `detail` (human-readable, never parsed), `at` | the route stage; a re-run deletes its lead's rows |
+| `crm_outbox` | live HubSpot plan | `lead_id`, `plan_json` (`{requests, skipped}`), `state` (`pending`, `delivered`, `dead`), `attempts`, `next_attempt_at` (epoch ms), `last_error`, `created_at`, `updated_at` | the CRM stage enqueues; the delivery worker (`src/crm/outbox.ts`) settles, oldest first. Dry-run writes none |
+| `schema_migrations` | applied migration file | `name`, `applied_at` | the migration runner (`src/db.ts`) |
+
+### `crm_json`
+
+| field | dry-run | live |
+|---|---|---|
+| `mode` | `dry_run` | `live` |
+| `requests`, `skipped` | the plan (section 5) | the plan |
+| `ok`, `responses`, `ownerMapped` | absent | filled when delivery settles: `ok` is true only when every response was 2xx; `responses` has each status and HubSpot's error text; `ownerMapped` lists synthetic owner ids swapped for a portal owner. `ok` is false while delivery is pending |
+| `delivery` | absent | `pending` (stored, not yet tried), `retrying` (an attempt threw or got a 429 or 5xx), `delivered` (HubSpot answered; a 4xx is recorded here and not retried), `dead` (gave up after the last attempt) |
+| `attempts`, `error`, `nextAttemptAt` | absent | attempts so far, the last error, and when the next attempt is due while `retrying` |
 
 ## 2. Required fields by source
 

@@ -20,21 +20,23 @@ export function toSegment(s: string): Segment {
   return SEGMENT_ALIAS[k] ?? 'unknown_org';
 }
 
+type CuratedOrgRow = Omit<CuratedOrg, 'segment'> & { segment: string };
+
 export function curatedOrg(db: Db, domain: string): CuratedOrg | null {
-  const r = db.prepare(`SELECT domain, name, segment, subsegment, size_class FROM reg.curated_orgs WHERE domain = ?`).get(domain) as any;
+  const r = db.prepare(`SELECT domain, name, segment, subsegment, size_class FROM reg.curated_orgs WHERE domain = ?`).get(domain) as CuratedOrgRow | undefined;
   return r ? { ...r, segment: toSegment(r.segment) } : null;
 }
 
 export interface OrgDomain { domain: string; entity_type: 'ahrq_system' | 'cms_hospital' | 'payer'; entity_id: string; name: string; evidence: string | null }
 
 export function orgDomain(db: Db, domain: string): OrgDomain | null {
-  return (db.prepare(`SELECT domain, entity_type, entity_id, name, evidence FROM reg.org_domains WHERE domain = ?`).get(domain) as any) ?? null;
+  return (db.prepare(`SELECT domain, entity_type, entity_id, name, evidence FROM reg.org_domains WHERE domain = ?`).get(domain) as OrgDomain | undefined) ?? null;
 }
 
 export function systemFirmographics(db: Db, id: string): { name: string; firmographics: Firmographics } | null {
-  const s = db.prepare(`SELECT name, state, hosp_cnt, sys_beds FROM reg.ahrq_systems WHERE health_sys_id = ?`).get(id) as any;
+  const s = db.prepare(`SELECT name, state, hosp_cnt, sys_beds FROM reg.ahrq_systems WHERE health_sys_id = ?`).get(id) as { name: string; state: string | null; hosp_cnt: number | null; sys_beds: number | null } | undefined;
   if (!s) return null;
-  const links = db.prepare(`SELECT ccn, state, beds FROM reg.ahrq_hospital_links WHERE health_sys_id = ? ORDER BY source_year DESC, beds DESC`).all(id) as any[];
+  const links = db.prepare(`SELECT ccn, state, beds FROM reg.ahrq_hospital_links WHERE health_sys_id = ? ORDER BY source_year DESC, beds DESC`).all(id) as { ccn: string; state: string | null; beds: number | null }[];
   const seen = new Set<string>();
   const ccns: string[] = [];
   for (const l of links) if (!seen.has(l.ccn)) { seen.add(l.ccn); ccns.push(l.ccn); }
@@ -43,18 +45,17 @@ export function systemFirmographics(db: Db, id: string): { name: string; firmogr
 }
 
 export function hospital(db: Db, ccn: string) {
-  const h = db.prepare(`SELECT ccn, name, state, hospital_type, ownership, overall_rating FROM reg.cms_hospitals WHERE ccn = ?`).get(ccn) as any;
+  const h = db.prepare(`SELECT ccn, name, state, hospital_type, ownership, overall_rating FROM reg.cms_hospitals WHERE ccn = ?`).get(ccn) as { ccn: string; name: string; state: string | null; hospital_type: string | null; ownership: string | null; overall_rating: string | number | null } | undefined;
   if (!h) return null;
-  const link = db.prepare(`SELECT health_sys_id, beds FROM reg.ahrq_hospital_links WHERE ccn = ? ORDER BY source_year DESC LIMIT 1`).get(ccn) as any;
+  const link = db.prepare(`SELECT health_sys_id, beds FROM reg.ahrq_hospital_links WHERE ccn = ? ORDER BY source_year DESC LIMIT 1`).get(ccn) as { health_sys_id: string | null; beds: number | null } | undefined;
   const rating = h.overall_rating != null && h.overall_rating !== '' && !Number.isNaN(Number(h.overall_rating)) ? Number(h.overall_rating) : null;
-  return { ccn: h.ccn as string, name: h.name as string, state: h.state as string | null, systemId: (link?.health_sys_id ?? null) as string | null,
-    beds: (link?.beds ?? null) as number | null, cmsType: h.hospital_type as string | null, ownership: h.ownership as string | null, rating };
+  return { ccn: h.ccn, name: h.name, state: h.state, systemId: link?.health_sys_id ?? null, beds: link?.beds ?? null, cmsType: h.hospital_type, ownership: h.ownership, rating };
 }
 
 export function payer(db: Db, slug: string) {
-  return (db.prepare(`SELECT slug, name, kind, domain FROM reg.payers WHERE slug = ?`).get(slug) as any) as { slug: string; name: string; kind: string; domain: string } | undefined;
+  return db.prepare(`SELECT slug, name, kind, domain FROM reg.payers WHERE slug = ?`).get(slug) as { slug: string; name: string; kind: string; domain: string } | undefined;
 }
 
 export function registryMeta(db: Db): Record<string, string> {
-  return Object.fromEntries((db.prepare(`SELECT key, value FROM reg.meta`).all() as any[]).map(r => [r.key, r.value]));
+  return Object.fromEntries((db.prepare(`SELECT key, value FROM reg.meta`).all() as { key: string; value: string }[]).map(r => [r.key, r.value]));
 }

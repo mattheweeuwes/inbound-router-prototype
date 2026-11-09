@@ -7,7 +7,8 @@ import { PATHS } from '../src/crm/hubspot';
 import { executeCrm } from '../src/crm/hubspot';
 
 const ctx = createCtx();
-const rows = ctx.db.prepare(`SELECT * FROM v_account_scores WHERE leads_30d > 0 OR web_intent_points > 0 ORDER BY account_score DESC, account_key`).all() as any[];
+type AccountScoreRow = { account_key: string; name: string | null; segment: string | null; account_score: number; leads_30d: number; web_intent_points: number };
+const rows = ctx.db.prepare(`SELECT account_key, name, segment, account_score, leads_30d, web_intent_points FROM v_account_scores WHERE leads_30d > 0 OR web_intent_points > 0 ORDER BY account_score DESC, account_key`).all() as AccountScoreRow[];
 const BATCH = 100; // HubSpot batch limit
 const requests = [];
 for (let i = 0; i < rows.length; i += BATCH) {

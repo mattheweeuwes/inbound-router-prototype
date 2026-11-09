@@ -37,20 +37,21 @@ Until `data/registry.sqlite` exists with `meta.status = 'complete'`, the app run
  web_intent    ───┘   normalize ─► resolve ─► qualify ─► score ─► route ─► notify ─► crm
                       UTM, email,   domain,    rules on    fit 50 +   R1..R9   Slack Block  HubSpot
                       title, dedupe curated,   every lead; intent 50, first     Kit payload   requests
-                      (30 days)     name,      model on     itemized   match    (dry-run);    (dry-run); retried
-                                    site title, free text,   points     wins     the rep is    once, then at boot
+                      (30 days)     name,      model on     itemized   match    (dry-run);    (dry-run) or an
+                                    site title, free text,   points     wins     the rep is    outbox, retried
                                     NPPES, TLD  guard-railed                     told first
                       no match, a tie, or a non-buyer call only the model makes (spam or vendor pitch at any confidence,
                       anything else under 0.8): held for RevOps (R6) before any rep is alerted; an account that already
                       has an owner goes to the owner (R5), doubt included. Exception: a benefits or HR contact at an
                       unknown company is resolved as a low-confidence inferred employer and routed by tier
-                      every stage timed into stage_log; every decision stored on the lead with its evidence
+                      every stage timed into stage_log; every decision stored on the lead with its evidence; a run that
+                      throws is retried with backoff, then given up with a RevOps alert
  data/app.sqlite (WAL)  ◄── attaches ──►  data/registry.sqlite (read-only, built by etl/)
 ```
 
 An account already in the CRM that the public registries do not know keeps the CRM record's identity, segment and size.
 
-Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline; `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners and CRM mirror; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
+Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline (`src/pipeline.ts` the queue and runner, `src/stages.ts` one function per stage, `src/decisions.ts` the pure decisions, `src/store/` every statement the pipeline runs, `src/crm/outbox.ts` HubSpot delivery); `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners and CRM mirror; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
 
 ## Real and synthetic
 
@@ -78,7 +79,7 @@ Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as func
 Every push and pull request runs `.github/workflows/ci.yml`, and `npm run ci` runs the same sequence locally. It stops at the first failure.
 
 1. `npm run typecheck`: `tsc --noEmit` over the app, scripts, tests and the browser test.
-2. `npm test`: the unit and pipeline tests (449, about three seconds, no network).
+2. `npm test`: the unit and pipeline tests (489, about two seconds, no network).
 3. `npm run replay:ci`: all 40 fixtures through the real inbound handler, rules only, offline, HubSpot dry-run, in its own database and folder (`out/ci/`). It fails the build if the p90 time to route is over `TTR_P90_BUDGET_MS`, set in that script: 150 ms. On Nov 8 the p90 measured 17 ms on this Mac and 35 ms on the GitHub runner, so the budget is about four times the runner's figure: it fails when someone makes the pipeline slow, not when a runner is noisy. With `CI` set, the replay also refuses to start if HubSpot is live.
 4. `npm run eval:gate:rules`: the v4 classifier with no model, scored on the sealed and held-out sets. The rules path is deterministic, so its floors (`RULES_FLOORS` in `scripts/lib/eval-gate.ts`) are the measured results with no slack: any drop is a real change in the rules or the date parser. Its output goes to `eval-rules.*` files, never over the model run's `out/eval.json`.
 5. `npm run test:e2e`: one Playwright test. It starts the server on port 3497 with a throwaway database, opens the cockpit, sends a test lead through the form, opens it in the stream and checks the decision trail: the resolved organization, a routing decision, and a dry-run CRM sync, with no console errors or failed requests.
@@ -94,7 +95,8 @@ CI does not gate the model-in-the-loop eval. It needs the local Ollama model, so
 - A door that is meant to be signed fails closed. Calendly is the only one: with `CALENDLY_SIGNING_KEY` missing or blank, `POST /api/inbound?source=calendly_demo` answers 503 naming the setting and records nothing, and the server logs one warning line at start. `.env.example` is documentation only and is never loaded, so a missing key stays missing. `npm run dev` and `npm run replay` set a local demo key inline (`local-demo-signing-key-not-a-secret`, not a secret), which is what lets the cockpit's send-a-lead form and Replay a day (which sign server-side) work. The other doors are unsigned by design.
 - Local only by default: the server binds to 127.0.0.1 (`HOST` overrides), and the cockpit's write routes under `/api/demo/` answer 404 unless `DEMO_ROUTES=1` (`npm run dev` sets it). The read endpoints (`/api/leads`, `/api/metrics`, `/api/dashboard`, `/api/stream`) have no authentication, so do not expose this server to a network.
 - The homepage-title lookup fetches a domain taken from a stranger's email address, so it takes a plain DNS hostname only, refuses any name that resolves to a private, loopback, link-local, CGNAT or unique-local address, and follows at most 3 redirects, https only. It checks the name before the fetch and `fetch` resolves it again, so a DNS answer that changes in between is not caught; closing that needs the connection pinned to the checked address.
-- The rep alert goes out before the HubSpot write. A write that throws is retried once and again at boot, and a re-run after a crash can send the alert a second time. A link from the alert to the HubSpot record would have to be a follow-up message, because the record may not exist when the alert goes out.
+- The rep alert goes out before the HubSpot write. A live HubSpot plan goes to an outbox in the database and is delivered outside the one-at-a-time section, oldest first; a network error, a 429 or a 5xx is retried with backoff (honoring Retry-After) for about four minutes, then marked dead and shown on the dashboard. Delivery is strictly in order, so one plan waiting for its retry holds the plans behind it. A link from the alert to the HubSpot record would have to be a follow-up message, because the record may not exist when the alert goes out.
+- A lead whose run throws is retried twice (after 5 s and 10 s), then given up: status `failed`, and RevOps gets an alert payload through the same Slack recorder. A re-run, by retry or by boot recovery, can send the rep alert a second time when the earlier run failed after it. Retries run on an in-process timer; a stopped process picks them up at the next boot.
 - `npm run eval` also writes `out/eval-manifest.json` and a Provenance section at the top of `out/eval.md`: SHA-256 of the sealed set, of each classifier source file and of the whole classifier, the model and temperature, and the per-set results. `npm run eval:gate` compares the classifier hash with the previous recorded run and fails below the floors (sealed urgency 22/24, use case 17/24, disqualifier 21/24; held-out 21/24, 19/24, 22/24). The hashes make later edits detectable. They do not prove when the sealed set was written; file modification times are recorded as supporting evidence only.
 - Treat the eval numbers with care. The dev fixtures were written alongside the rules. The held-out set was used to build the date parser, so it is a development set too (v4 urgency 22/24 there). The sealed set (24 items, written before the date parser was built and kept outside the project until the classifier code was frozen, as its own note records) scores 23/24 on v4 urgency, 18/24 on use case and 21/24 on disqualifier in the Nov 9 run (22/24 on Nov 7, before the classifier changed; see `docs/DECISIONS.md` #9). The classifier code was edited after the sealed set had been scored, so read the sealed numbers as a regression check.
 - Because silent messages are `unknown`, their intent score has no urgency points. That is deliberate. Several gold labels on the dev fixtures expect `exploring` or `this_quarter` for such messages, so dev urgency accuracy is lower than the rules-only column.

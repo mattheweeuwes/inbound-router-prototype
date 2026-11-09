@@ -4,12 +4,15 @@ import { join } from 'node:path';
 import { makeConfig, type Config } from './config';
 import { chooseRegistry, openDb, type Db, type RegistryChoice } from './db';
 import type { CrmMirrorEntry, Owners } from './schema';
+import { storeFor, type Store } from './store';
 
 export type FetchFn = typeof fetch;
 
 export interface Ctx {
   cfg: Config;
   db: Db;
+  /** every statement the pipeline and the HubSpot outbox run, prepared once for db */
+  store: Store;
   registry: RegistryChoice;
   fetch: FetchFn;
   bus: EventEmitter;
@@ -28,6 +31,7 @@ export function createCtx(over: Partial<Config> = {}, fetchImpl?: FetchFn): Ctx 
   return {
     cfg,
     db,
+    store: storeFor(db),
     registry,
     fetch: fetchImpl ?? globalThis.fetch,
     bus: new EventEmitter(),

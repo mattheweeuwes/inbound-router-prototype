@@ -3,13 +3,18 @@ import type { Db } from '../db';
 import type { DomainLookups } from '../normalize';
 import type { Segment } from '../schema';
 
+const lookups = new WeakMap<Db, DomainLookups>();
+
+/** Free-mail and disposable-domain checks against the registry, prepared once per database. */
 export function registryLookups(db: Db): DomainLookups {
-  const free = db.prepare(`SELECT 1 FROM reg.free_mail_domains WHERE domain = ?`);
-  const disp = db.prepare(`SELECT 1 FROM reg.disposable_domains WHERE domain = ?`);
-  return {
-    isFreeMail: d => !!free.get(d),
-    isDisposable: d => !!disp.get(d),
-  };
+  let l = lookups.get(db);
+  if (!l) {
+    const free = db.prepare(`SELECT 1 FROM reg.free_mail_domains WHERE domain = ?`);
+    const disp = db.prepare(`SELECT 1 FROM reg.disposable_domains WHERE domain = ?`);
+    l = { isFreeMail: d => !!free.get(d), isDisposable: d => !!disp.get(d) };
+    lookups.set(db, l);
+  }
+  return l;
 }
 
 /** mail.eng.example.com -> [mail.eng.example.com, eng.example.com, example.com] */

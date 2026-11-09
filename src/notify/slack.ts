@@ -40,6 +40,32 @@ export function buildSlackPayload(i: SlackInput): SlackPayload {
   };
 }
 
+export interface FailureInput { leadId: string; source: string; receivedAt: string; attempts: number; error: string; synthetic: boolean }
+
+/**
+ * The alert RevOps gets when a lead is given up after its last failed run. It says what is known without the pipeline's
+ * output (which never finished): the door, when it arrived, how often it was tried and the last error.
+ */
+export function buildFailureAlert(i: FailureInput): SlackPayload {
+  const header = `Lead not processed after ${i.attempts} attempt${i.attempts === 1 ? '' : 's'}`;
+  const f = (label: string, value: string) => ({ type: 'mrkdwn', text: `*${label}*\n${value.slice(0, 1800)}` });
+  return {
+    channel: '#revops-review',
+    text: `${header}: ${i.source} lead ${i.leadId}`,
+    dryRun: true,
+    blocks: [
+      { type: 'header', text: { type: 'plain_text', text: header } },
+      { type: 'section', fields: [
+        f('Lead', i.leadId),
+        f('Door', i.source),
+        f('Received', i.receivedAt),
+        f('Last error', i.error),
+      ] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: `The run did not finish, so the lead may have no owner and no HubSpot record. ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
+    ],
+  };
+}
+
 export function recordSlack(ctx: Ctx, leadId: string, p: SlackPayload, at: string) {
   const dir = join(ctx.cfg.outDir, 'slack');
   mkdirSync(dir, { recursive: true });

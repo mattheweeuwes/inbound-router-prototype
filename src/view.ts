@@ -4,6 +4,7 @@ import { parse } from './db';
 import { adapt } from './sources';
 import { matchMirror } from './mirror';
 import { afterHours } from './route';
+import type { Qualification, Resolution, Route, Source } from './schema';
 
 export interface LeadSummary {
   id: string; receivedAt: string; source: string; synthetic: boolean; status: string;
@@ -13,14 +14,28 @@ export interface LeadSummary {
   useCase: string | null; urgency: string | null; timeToRouteMs: number | null; flags: string[];
 }
 
+/** A leads row joined with its event, as SELECT below returns it. */
+export type LeadViewRow = {
+  id: string; status: string; email: string | null; is_free_mail: number | null; first_name: string | null; last_name: string | null; title: string | null;
+  company_name_raw: string | null; contact_key: string | null; duplicate_of: string | null; account_id: string | null; segment: string | null;
+  normalized_json: string | null; resolution_json: string | null; qualification_json: string | null; score_json: string | null; route_json: string | null;
+  crm_json: string | null; alert_json: string | null; timings_json: string | null;
+  tier: string | null; score: number | null; route_action: string | null; route_team: string | null; owner: string | null; time_to_route_ms: number | null;
+  source: Source; received_at: string; synthetic: number; raw_json: string; replays: number;
+};
+type AccountRow = { name: string | null; domain: string | null; owner: string | null };
+type OtherLeadRow = { id: string; first_name: string | null; last_name: string | null; title: string | null; source: string; received_at: string };
+type SignalRow = { type: string; detail: string; at: string };
+type ReviewRow = { reason: string; candidates_json: string | null; resolved: number };
+
 const SELECT = `SELECT l.*, e.source, e.received_at, e.synthetic, e.raw_json,
   (SELECT COUNT(*) FROM stage_log s WHERE s.lead_id = l.id AND s.stage = 'idempotent_replay') AS replays
   FROM leads l JOIN lead_events e ON e.id = l.id`;
 
-export function toSummary(r: any): LeadSummary {
-  const res = parse<any>(r.resolution_json);
-  const qual = parse<any>(r.qualification_json);
-  const route = parse<any>(r.route_json);
+export function toSummary(r: LeadViewRow): LeadSummary {
+  const res = parse<Resolution>(r.resolution_json);
+  const qual = parse<Qualification>(r.qualification_json);
+  const route = parse<Route>(r.route_json);
   let first = r.first_name, last = r.last_name, email = r.email, title = r.title;
   if (!r.normalized_json && r.source !== 'web_intent') { // still queued: show the raw sender rather than a blank
     try { const ev = adapt(r.source, JSON.parse(r.raw_json), r.received_at); first = ev.firstName; last = ev.lastName; email = ev.email; title = ev.title; } catch { /* leave blank */ }
@@ -44,31 +59,31 @@ export function toSummary(r: any): LeadSummary {
 }
 
 export function listLeads(ctx: Ctx, limit = 200): LeadSummary[] {
-  const rows = ctx.db.prepare(`${SELECT} ORDER BY e.received_at DESC, l.created_at DESC LIMIT ?`).all(Math.max(1, Math.min(1000, limit))) as any[];
+  const rows = ctx.db.prepare(`${SELECT} ORDER BY e.received_at DESC, l.created_at DESC LIMIT ?`).all(Math.max(1, Math.min(1000, limit))) as LeadViewRow[];
   return rows.map(toSummary);
 }
 
 export function leadDetail(ctx: Ctx, id: string) {
-  const r = ctx.db.prepare(`${SELECT} WHERE l.id = ?`).get(id) as any;
+  const r = ctx.db.prepare(`${SELECT} WHERE l.id = ?`).get(id) as LeadViewRow | undefined;
   if (!r) return null;
   const summary = toSummary(r);
   const since = new Date(Date.parse(r.received_at) - 30 * 86_400_000).toISOString();
   const priorTouches = r.contact_key
-    ? (ctx.db.prepare(`SELECT COUNT(*) c FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.contact_key = ? AND l.id != ? AND e.received_at < ? AND e.received_at >= ?`).get(r.contact_key, id, r.received_at, since) as any).c
+    ? (ctx.db.prepare(`SELECT COUNT(*) c FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.contact_key = ? AND l.id != ? AND e.received_at < ? AND e.received_at >= ?`).get(r.contact_key, id, r.received_at, since) as { c: number }).c
     : 0;
   let account: unknown = null;
   if (r.account_id) {
-    const a = ctx.db.prepare(`SELECT * FROM accounts WHERE id = ?`).get(r.account_id) as any;
-    const others = ctx.db.prepare(`SELECT l.id, l.first_name, l.last_name, l.title, e.source, e.received_at FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.account_id = ? AND l.id != ? ORDER BY e.received_at DESC LIMIT 25`).all(r.account_id, id) as any[];
-    const signals = ctx.db.prepare(`SELECT type, detail, at FROM account_signals WHERE account_id = ? ORDER BY at DESC`).all(r.account_id) as any[];
+    const a = ctx.db.prepare(`SELECT name, domain, owner FROM accounts WHERE id = ?`).get(r.account_id) as AccountRow | undefined;
+    const others = ctx.db.prepare(`SELECT l.id, l.first_name, l.last_name, l.title, e.source, e.received_at FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.account_id = ? AND l.id != ? ORDER BY e.received_at DESC LIMIT 25`).all(r.account_id, id) as OtherLeadRow[];
+    const signals = ctx.db.prepare(`SELECT type, detail, at FROM account_signals WHERE account_id = ? ORDER BY at DESC`).all(r.account_id) as SignalRow[];
     account = {
       id: r.account_id, name: a?.name ?? null, owner: matchMirror(ctx.mirror, a?.domain ?? null, a?.name ?? null)?.owner ?? a?.owner ?? null,
       otherLeads: others.map(o => ({ id: o.id, name: [o.first_name, o.last_name].filter(Boolean).join(' ') || null, title: o.title, source: o.source, receivedAt: o.received_at })),
-      signals: signals.map(s => ({ type: s.type, detail: s.detail.replace(/^\[[0-9a-f-]+\]\s*/, ''), at: s.at })),
+      signals: signals.map(s => ({ type: s.type, detail: s.detail, at: s.at })),
     };
   }
   const stages = ctx.db.prepare(`SELECT stage, started_at AS startedAt, ms, ok, note FROM stage_log WHERE lead_id = ? ORDER BY rowid`).all(id);
-  const review = ctx.db.prepare(`SELECT reason, candidates_json, resolved FROM review_queue WHERE lead_id = ?`).get(id) as any;
+  const review = ctx.db.prepare(`SELECT reason, candidates_json, resolved FROM review_queue WHERE lead_id = ?`).get(id) as ReviewRow | undefined;
   return {
     ...summary,
     raw: parse(r.raw_json),

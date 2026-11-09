@@ -3,6 +3,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Ctx } from '../context';
+import { parseRetryAfter } from '../retry';
 import type { CrmRequest, LeadEvent, Normalized, Qualification, Resolution, Route, Score } from '../schema';
 
 export const PATHS = {
@@ -136,15 +137,42 @@ export function recordDryRun(ctx: Ctx, leadId: string, requests: CrmRequest[], a
 export interface CrmResponse { path: string; status: number; error?: string; reused?: string }
 export interface OwnerMapping { from: string; to: string | null }
 
+/** A 429 or 5xx answer: HubSpot may take the same request later, so the delivery is retried, not recorded as final. */
+export interface TransientAnswer { status: number; retryAfterMs: number | null }
+
+export interface CrmExecution {
+  mode: CrmMode;
+  ok?: boolean;
+  responses?: CrmResponse[];
+  ownerMapped?: OwnerMapping[];
+  /** set when the plan stopped at a 429 or 5xx; the requests after it were not sent */
+  transient?: TransientAnswer;
+}
+
+export type CrmMode = 'dry_run' | 'live';
+
+/** Live only with HUBSPOT_LIVE=1 and a key; everything else is dry-run. */
+export const crmMode = (cfg: Ctx['cfg']): CrmMode => (cfg.hubspotLive && cfg.hubspotToken ? 'live' : 'dry_run');
+
+export const isTransientStatus = (status: number) => status === 429 || status >= 500;
+
+type Props = Record<string, unknown>;
+const isObject = (v: unknown): v is Props => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** HubSpot list answers (owners, search, batch upsert) all carry `results`. */
+interface HubspotResults { results?: { id?: string | number; archived?: boolean }[] }
+
 /** The property objects in a request body that set hubspot_owner_id: company upsert inputs and task properties. */
-function ownerSlots(body: unknown): Record<string, unknown>[] {
-  const b = body as any;
-  if (!b || typeof b !== 'object') return [];
-  const slots: Record<string, unknown>[] = [];
-  if (b.properties && 'hubspot_owner_id' in b.properties) slots.push(b.properties);
-  for (const input of Array.isArray(b.inputs) ? b.inputs : []) if (input?.properties && 'hubspot_owner_id' in input.properties) slots.push(input.properties);
+function ownerSlots(body: unknown): Props[] {
+  if (!isObject(body)) return [];
+  const slots: Props[] = [];
+  if (isObject(body.properties) && 'hubspot_owner_id' in body.properties) slots.push(body.properties);
+  for (const input of Array.isArray(body.inputs) ? body.inputs : []) if (isObject(input) && isObject(input.properties) && 'hubspot_owner_id' in input.properties) slots.push(input.properties);
   return slots;
 }
+
+/** The record id of the first result, or '' when the answer has none. */
+const firstResultId = (answer: HubspotResults): string => String(answer.results?.[0]?.id ?? '');
 
 const ownerCache = new WeakMap<object, Promise<string[]>>();
 
@@ -158,7 +186,8 @@ function realOwners(ctx: Ctx): Promise<string[]> {
     p = ctx.fetch('https://api.hubapi.com/crm/v3/owners?limit=100', { headers: { Authorization: `Bearer ${ctx.cfg.hubspotToken}` }, signal: AbortSignal.timeout(10_000) })
       .then(async res => {
         if (!res.ok) throw new Error(`owners lookup answered ${res.status}`);
-        return ((((await res.json()) as any)?.results ?? []) as any[]).filter((o: any) => !o.archived).map((o: any) => String(o.id));
+        const answer = (await res.json()) as HubspotResults;
+        return (answer.results ?? []).filter(o => !o.archived).map(o => String(o.id));
       })
       .catch(() => { ownerCache.delete(ctx); return [] as string[]; });
     ownerCache.set(ctx, p);
@@ -184,11 +213,26 @@ async function findOpenTask(ctx: Ctx, subject: string, to: { prop: string; id: s
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
-    const id = ((await res.json()) as any)?.results?.[0]?.id;
-    return id ? String(id) : null;
+    return firstResultId((await res.json()) as HubspotResults) || null;
   } catch {
     return null;
   }
+}
+
+/** The body with synthetic owner ids swapped for a real portal owner (or removed), and the swaps made. */
+async function withRealOwners(ctx: Ctx, body: unknown): Promise<{ body: unknown; mapped: OwnerMapping[] }> {
+  if (!ownerSlots(body).length) return { body, mapped: [] };
+  const owners = await realOwners(ctx);
+  const copy: unknown = JSON.parse(JSON.stringify(body));
+  const mapped: OwnerMapping[] = [];
+  for (const props of ownerSlots(copy)) {
+    const from = props.hubspot_owner_id == null ? null : String(props.hubspot_owner_id);
+    if (from == null || owners.includes(from)) continue;
+    const to = owners[0] ?? null;
+    if (to) props.hubspot_owner_id = to; else delete props.hubspot_owner_id;
+    mapped.push({ from, to });
+  }
+  return { body: copy, mapped };
 }
 
 /**
@@ -197,29 +241,25 @@ async function findOpenTask(ctx: Ctx, subject: string, to: { prop: string; id: s
  * (or dropped when it has none), and the mapping is returned: HubSpot would otherwise reject the whole write.
  * Every response status comes back, with HubSpot's error text on a failure, so a failed write is never reported as sent.
  * A task is created only when the same open task is not already on the contact (findOpenTask).
+ * A 429 or 5xx stops the plan there and is returned as `transient`, with Retry-After when HubSpot sent one: the caller
+ * retries the whole plan later, which is safe because every step upserts or checks first. A network error or the 10 s
+ * timeout throws. Any other 4xx is recorded and the plan goes on, as a retry would get the same answer.
  */
-export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<{ mode: 'dry_run' | 'live'; ok?: boolean; responses?: CrmResponse[]; ownerMapped?: OwnerMapping[] }> {
-  if (!ctx.cfg.hubspotLive || !ctx.cfg.hubspotToken) return { mode: 'dry_run' };
+export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<CrmExecution> {
+  if (crmMode(ctx.cfg) === 'dry_run') return { mode: 'dry_run' };
   const ids: Record<string, string> = {};
   const responses: CrmResponse[] = [];
   const ownerMapped: OwnerMapping[] = [];
+  const settled = (transient?: TransientAnswer): CrmExecution => ({
+    mode: 'live', ok: !transient && responses.every(x => x.status < 300), responses, ...(ownerMapped.length ? { ownerMapped } : {}), ...(transient ? { transient } : {}),
+  });
   for (const r of requests) {
-    let body = r.body;
-    if (ownerSlots(body).length) {
-      const owners = await realOwners(ctx);
-      body = JSON.parse(JSON.stringify(body));
-      for (const props of ownerSlots(body)) {
-        const from = props.hubspot_owner_id == null ? null : String(props.hubspot_owner_id);
-        if (from == null || owners.includes(from)) continue;
-        const to = owners[0] ?? null;
-        if (to) props.hubspot_owner_id = to; else delete props.hubspot_owner_id;
-        ownerMapped.push({ from, to });
-      }
-    }
+    const { body, mapped } = await withRealOwners(ctx, r.body);
+    ownerMapped.push(...mapped);
     const sub = (s: string) => s.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => ids[k] ?? `{{${k}}}`);
     const path = sub(r.path);
     if (r.method === 'POST' && r.path === PATHS.tasks) {
-      const subject = (body as any)?.properties?.hs_task_subject;
+      const subject = isObject(body) && isObject(body.properties) ? body.properties.hs_task_subject : undefined;
       const to = ids.contact_id ? { prop: 'associations.contact', id: ids.contact_id } : ids.company_id ? { prop: 'associations.company', id: ids.company_id } : null;
       const existing = subject && to ? await findOpenTask(ctx, String(subject), to) : null;
       if (existing) { responses.push({ path, status: 200, reused: existing }); continue; }
@@ -231,10 +271,11 @@ export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<{ mo
     const entry: CrmResponse = { path, status: res.status };
     if (!res.ok) entry.error = (await res.text().catch(() => '')).slice(0, 300);
     responses.push(entry);
-    if (res.ok && r.path.includes('/contacts/batch/upsert')) ids.contact_id = String((await res.json() as any)?.results?.[0]?.id ?? '');
-    else if (res.ok && r.path.includes('/companies/batch/upsert')) ids.company_id = String((await res.json() as any)?.results?.[0]?.id ?? '');
+    if (isTransientStatus(res.status)) return settled({ status: res.status, retryAfterMs: parseRetryAfter(res.headers.get('retry-after'), ctx.cfg.now()) });
+    if (res.ok && r.path.includes('/contacts/batch/upsert')) ids.contact_id = firstResultId((await res.json()) as HubspotResults);
+    else if (res.ok && r.path.includes('/companies/batch/upsert')) ids.company_id = firstResultId((await res.json()) as HubspotResults);
   }
-  return { mode: 'live', ok: responses.every(x => x.status < 300), responses, ...(ownerMapped.length ? { ownerMapped } : {}) };
+  return settled();
 }
 
 // ------- property definitions (one-time setup; also written to docs/hubspot-properties.json) -------

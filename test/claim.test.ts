@@ -88,6 +88,34 @@ describe('account claiming: one account, one rep', () => {
     assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM account_signals WHERE type = 'claim'`).get() as any).c, 1);
   });
 
+  it('a rep with a two-word name: a re-run releases the claim by lead id, so it stays R8 and is not re-routed to its own claim', async () => {
+    const ctx = testCtx();
+    ctx.owners = structuredClone(ctx.owners);
+    const hsp = ctx.owners.teams.HSP.reps;
+    hsp[0] = { ...hsp[0], name: 'Avery Smith' };
+    const a = await submit(ctx, 'calendly_demo');
+    assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R8', 'Avery Smith']);
+    assert.equal(owner(ctx, INTER), 'Avery Smith');
+    enqueue(ctx, a.json.leadId); await whenIdle(ctx);
+    const rerun = JSON.parse((ctx.db.prepare(`SELECT route_json FROM leads WHERE id = ?`).get(a.json.leadId) as { route_json: string }).route_json);
+    assert.deepEqual([rerun.rule, rerun.owner], ['R8', 'Avery Smith'], 'reading the owner out of the signal text took "Avery" and left the claim in place');
+    assert.equal(owner(ctx, INTER), 'Avery Smith');
+    const claims = (ctx.db.prepare(`SELECT lead_id, owner FROM account_claims`).all() as { lead_id: string; owner: string }[]).map(r => ({ ...r }));
+    assert.deepEqual(claims, [{ lead_id: a.json.leadId, owner: 'Avery Smith' }]);
+    assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM account_signals WHERE type = 'claim'`).get() as { c: number }).c, 1);
+    const b = await submit(ctx, 'calendly_demo', second);
+    assert.deepEqual([b.lead.route.rule, b.lead.route.owner], ['R5', 'Avery Smith']);
+  });
+
+  it('a re-run does not release an account that has since passed to someone else', async () => {
+    const ctx = testCtx();
+    const a = await submit(ctx, 'calendly_demo');
+    ctx.db.prepare(`UPDATE accounts SET owner = 'Jordan' WHERE id = ?`).run(INTER); // reassigned in the CRM since
+    enqueue(ctx, a.json.leadId); await whenIdle(ctx);
+    assert.equal(owner(ctx, INTER), 'Jordan');
+    assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM account_claims`).get() as { c: number }).c, 0, 'the claim row goes; the re-run is R5 to Jordan and claims nothing');
+  });
+
   it('resetting the demo clears claimed owners with everything else', async () => {
     const ctx = testCtx();
     await submit(ctx, 'calendly_demo');

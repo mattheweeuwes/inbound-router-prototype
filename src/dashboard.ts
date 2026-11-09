@@ -59,11 +59,21 @@ interface Lead {
   res: any; qual: any; route: any; crm: any; alert: any; timings: Record<string, number> | null;
 }
 
+/** The columns loadLeads selects. */
+type LeadRow = {
+  id: string; status: string; tier: Tier | null; segment: Segment | null; route_action: string | null; route_team: string | null; owner: string | null;
+  sla_due_at: string | null; time_to_route_ms: number | null; account_id: string | null; duplicate_of: string | null; is_disposable: number | null;
+  first_name: string | null; last_name: string | null; email: string | null; title: string | null; company_name_raw: string | null;
+  created_at: string | null; updated_at: string | null; resolution_json: string | null; qualification_json: string | null; route_json: string | null;
+  crm_json: string | null; alert_json: string | null; timings_json: string | null; source: Source; received_at: string; synthetic: number;
+};
+type ActivityRow = { rid: number; lead_id: string; stage: string; started_at: string; ok: number; note: string | null };
+
 function loadLeads(ctx: Ctx): Lead[] {
   const rows = ctx.db.prepare(`SELECT l.id, l.status, l.tier, l.segment, l.route_action, l.route_team, l.owner, l.sla_due_at, l.time_to_route_ms,
       l.account_id, l.duplicate_of, l.is_disposable, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.created_at, l.updated_at,
       l.resolution_json, l.qualification_json, l.route_json, l.crm_json, l.alert_json, l.timings_json, e.source, e.received_at, e.synthetic
-    FROM leads l JOIN lead_events e ON e.id = l.id ORDER BY e.received_at, l.created_at`).all() as any[];
+    FROM leads l JOIN lead_events e ON e.id = l.id ORDER BY e.received_at, l.created_at`).all() as LeadRow[];
   return rows.map(r => ({
     id: r.id, status: r.status, tier: r.tier ?? null, segment: r.segment ?? null, action: r.route_action ?? null, team: r.route_team ?? null,
     owner: r.owner ?? null, slaDueAt: r.sla_due_at ?? null, ttr: typeof r.time_to_route_ms === 'number' ? r.time_to_route_ms : null,
@@ -181,7 +191,9 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     processedFrom: leads.map(l => l.createdAt).filter((x): x is string => !!x).sort()[0] ?? null, processedTo: processed[processed.length - 1] ?? null,
     events: leads.length, redeliveries, webhooks: leads.length + redeliveries, leads: leads.length,
     doors: new Set(leads.map(l => l.source)).size, doorsTotal: SOURCES.length,
+    // failed: given up after the last retry; a lead waiting for its next run (status retrying) is still in flight
     inFlight: leads.filter(l => l.status !== 'done' && l.status !== 'failed').length, failed: leads.filter(l => l.status === 'failed').length,
+    retrying: leads.filter(l => l.status === 'retrying').length,
     afterHours: leads.filter(l => !isBusinessTime(Date.parse(l.receivedAt))).length, // Mon-Fri 09:00-18:00 ET, as src/time.ts defines business hours
     arrivals: leads.slice(-1000).map(l => ({ at: l.receivedAt, tier: l.tier, source: l.source })),
   };
@@ -336,18 +348,21 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
   const catalog = readJsonFile<{ contacts?: { name: string; label: string; description?: string }[]; companies?: { name: string; label: string; description?: string }[] }>(join(ctx.cfg.root, 'docs', 'hubspot-properties.json'));
   const filled = { contacts: new Map<string, number>(), companies: new Map<string, number>() };
   let contactUpserts = 0, companyUpserts = 0, leadsWritten = 0, leadsNotWritten = 0, liveLeads = 0, plannedDryRun = 0, sentLive = 0;
+  let waiting = 0, dead = 0; // live leads whose plan is still in the outbox, and those whose delivery gave up
   for (const l of done) {
     const reqs: any[] = Array.isArray(l.crm?.requests) ? l.crm.requests : [];
     if (!l.crm) continue;
     if (reqs.length) leadsWritten++; else leadsNotWritten++;
     if (l.crm.mode === 'live') { liveLeads++; sentLive += reqs.length; } else plannedDryRun += reqs.length;
+    if (l.crm.delivery === 'pending' || l.crm.delivery === 'retrying') waiting++;
+    if (l.crm.delivery === 'dead') dead++;
     reqs.forEach((r, i) => {
       const k = crmKind(String(r.path ?? ''));
       const slot = (kinds[k] ??= { planned: 0, failed: 0, reused: 0 });
       slot.planned++;
       const resp = l.crm.mode === 'live' ? l.crm.responses?.[i] : null;
       if (resp?.reused) slot.reused++;
-      else if ((resp && Number(resp.status) >= 300) || l.crm.retryPending) slot.failed++; // retryPending: the call threw twice, so no request was confirmed
+      else if ((resp && Number(resp.status) >= 300) || l.crm.delivery === 'dead') slot.failed++; // dead: delivery gave up, so no request was confirmed
       const props = r.body?.inputs?.[0]?.properties;
       if (k === 'contacts_upsert' && props) {
         contactUpserts++;
@@ -365,7 +380,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
   const record = dryRunRecord(ctx.cfg.outDir);
   const hubspot = {
     mode: hubspotMode, planned, failed: Object.values(kinds).reduce((a, k) => a + k.failed, 0), reused: Object.values(kinds).reduce((a, k) => a + k.reused, 0),
-    leadsWritten, leadsNotWritten, liveLeads, plannedDryRun, sentLive, redeliveriesWithoutWrites: redeliveries,
+    leadsWritten, leadsNotWritten, liveLeads, plannedDryRun, sentLive, redeliveriesWithoutWrites: redeliveries, waiting, dead,
     requests: [...CRM_KINDS.map(k => ({ ...k, ...kinds[k.id] })), ...Object.entries(kinds).filter(([id]) => !CRM_KINDS.some(k => k.id === id)).map(([id, v]) => ({ id, object: id, op: '', ...v }))],
     record,
     lifecycle: ['salesqualifiedlead', 'marketingqualifiedlead', 'lead', 'not_set'].map(stage => ({ stage, n: lifecycle[stage] ?? 0 })).concat(Object.entries(lifecycle).filter(([s]) => !['salesqualifiedlead', 'marketingqualifiedlead', 'lead', 'not_set'].includes(s)).map(([stage, n]) => ({ stage, n }))),
@@ -393,7 +408,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     { id: 'duplicates', status: notLinked ? 'warn' : redeliveries + repeatAttached ? 'ok' : 'idle', label: 'Duplicates absorbed', fact: leads.length ? `${plural(redeliveries, 're-delivery', 're-deliveries')} answered without a new lead · ${plural(repeatAttached, 'repeat contact')} attached${notLinked ? ` · ${notLinked} not linked` : ''}` : 'No deliveries yet', detail: 'A re-delivered webhook (same source and event id) gets a 200 and does nothing. A contact seen in the last 30 days is attached to their first lead and keeps its owner.' },
     { id: 'matching', status: matching.guessed ? 'bad' : reached.length ? 'ok' : 'idle', label: 'Every lead matched, held or ruled out', fact: reached.length ? `${matched.toLocaleString('en-US')} on a stable ID · ${matching.held} held for a person · ${ruledOut} ruled out · ${matching.guessed} guessed` : 'No leads yet', detail: 'Guessed: a lead that matched no organization but was still sent to a rep or a team on its score. Rule R6 holds those for a person instead.' },
     { id: 'sla', status: sla.atRisk ? 'warn' : sla.salesReady.routed ? 'ok' : 'idle', label: 'Sales-ready leads alerted within SLA', fact: sla.salesReady.routed ? `${sla.salesReady.within} of ${sla.salesReady.routed} alerted inside their SLA${sla.atRisk ? ` · ${sla.atRisk} at risk` : ''}${sla.salesReady.attachedQuietly ? ` · ${sla.salesReady.attachedQuietly} repeat attached, no new alert` : ''}` : 'No sales-ready leads yet', detail: "Tier A or B leads routed to a rep, an owner or a team queue. Inside SLA: received time plus the measured time to the alert is no later than the SLA due time. A repeat contact inside 24 hours is attached without a new alert and is not counted." },
-    { id: 'hubspot', status: hubspot.failed ? 'bad' : planned ? 'ok' : 'idle', label: 'HubSpot sync', fact: !planned ? 'No CRM writes yet' : sentLive && plannedDryRun ? `${plural(sentLive, 'request')} sent live, ${plural(plannedDryRun, 'request')} planned in dry-run · ${hubspot.failed} failed` : sentLive ? `${plural(sentLive, 'request')} sent live for ${plural(leadsWritten, 'lead')} · ${hubspot.failed} failed` : `${plural(planned, 'request')} planned for ${plural(leadsWritten, 'lead')} · ${hubspot.failed} failed · dry-run`, detail: 'Dry-run: each request is built exactly as it would be sent, stored on the lead and appended to out/hubspot/; nothing reaches HubSpot. Live: requests go to the portal and every response status is stored on the lead. Counted from the leads as they were processed.' },
+    { id: 'hubspot', status: hubspot.failed ? 'bad' : waiting ? 'warn' : planned ? 'ok' : 'idle', label: 'HubSpot sync', fact: (!planned ? 'No CRM writes yet' : sentLive && plannedDryRun ? `${plural(sentLive, 'request')} sent live, ${plural(plannedDryRun, 'request')} planned in dry-run · ${hubspot.failed} failed` : sentLive ? `${plural(sentLive, 'request')} sent live for ${plural(leadsWritten, 'lead')} · ${hubspot.failed} failed` : `${plural(planned, 'request')} planned for ${plural(leadsWritten, 'lead')} · ${hubspot.failed} failed · dry-run`) + (waiting ? ` · ${plural(waiting, 'lead')} waiting to send` : '') + (dead ? ` · ${plural(dead, 'lead')} gave up` : ''), detail: 'Dry-run: each request is built exactly as it would be sent, stored on the lead and appended to out/hubspot/; nothing reaches HubSpot. Live: each lead\'s plan goes to an outbox and is sent in order; a network error, a 429 or a 5xx is retried with backoff and gives up after the last attempt, and every response status is stored on the lead. Counted from the leads as they were processed.' },
     ev.recorded
       ? { id: 'eval', status: ev.pass ? 'ok' : 'bad', label: 'Classifier gate', fact: `${ev.pass ? `v${ev.combineVersion.replace(/^v/, '')} clears all ${ev.rows.length} floors` : `${ev.rows.length - ev.passed} of ${ev.rows.length} floors missed`} on the sealed and held-out sets${ev.floors === 'rules' ? ' (rules only)' : ''}`, detail: `Last run ${ev.generatedAt}${ev.model ? `, model ${ev.model}` : ', no model'}. Floors from scripts/lib/eval-gate.ts, applied to out/eval.json.` }
       : { id: 'eval', status: 'idle', label: 'Classifier gate', fact: 'No eval recorded yet', detail: '`npm run eval` scores the classifier and writes out/eval.json; the gate floors live in scripts/lib/eval-gate.ts.' },
@@ -401,7 +416,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
 
   // ---- activity (wall clock, newest first) ------------------------------------------------------------------------
   const actRows = db.prepare(`SELECT rowid AS rid, lead_id, stage, started_at, ok, note FROM stage_log
-      WHERE stage IN ('route', 'crm', 'notify', 'idempotent_replay', 'pipeline') OR ok = 0 ORDER BY started_at DESC, rowid DESC LIMIT 600`).all() as any[];
+      WHERE stage IN ('route', 'crm', 'notify', 'idempotent_replay', 'pipeline') OR ok = 0 ORDER BY started_at DESC, rowid DESC LIMIT 600`).all() as ActivityRow[];
   const activity: any[] = [];
   for (const r of actRows) {
     if (activity.length >= 30) break;

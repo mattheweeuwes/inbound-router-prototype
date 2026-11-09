@@ -51,7 +51,7 @@ const indexCache = new WeakMap<Db, Entry[]>();
 
 function buildIndex(db: Db): Entry[] {
   const out: Entry[] = [];
-  const sys = db.prepare(`SELECT health_sys_id id, name, state, multistate, name_norm FROM reg.ahrq_systems`).all() as any[];
+  const sys = db.prepare(`SELECT health_sys_id id, name, state, multistate, name_norm FROM reg.ahrq_systems`).all() as { id: string; name: string; state: string | null; multistate: number | null; name_norm: string | null }[];
   const sysName = new Map<string, string>();
   for (const s of sys) {
     sysName.set(s.id, s.name);
@@ -59,10 +59,10 @@ function buildIndex(db: Db): Entry[] {
     out.push({ kind: 'ahrq_system', id: s.id, name: s.name, norm, tokens: new Set(tok(norm)), state: s.state ?? null, multistate: !!s.multistate, accountId: `ahrq:${s.id}`, accountName: s.name });
   }
   // a hospital resolves to its (latest-year) system when AHRQ links it to one
-  const links = db.prepare(`SELECT ccn, health_sys_id, source_year FROM reg.ahrq_hospital_links ORDER BY source_year ASC`).all() as any[];
+  const links = db.prepare(`SELECT ccn, health_sys_id, source_year FROM reg.ahrq_hospital_links ORDER BY source_year ASC`).all() as { ccn: string; health_sys_id: string; source_year: number }[];
   const linkOf = new Map<string, string>();
   for (const l of links) linkOf.set(l.ccn, l.health_sys_id);
-  for (const h of db.prepare(`SELECT ccn, name, state, name_norm FROM reg.cms_hospitals`).all() as any[]) {
+  for (const h of db.prepare(`SELECT ccn, name, state, name_norm FROM reg.cms_hospitals`).all() as { ccn: string; name: string; state: string | null; name_norm: string | null }[]) {
     const norm = h.name_norm || nameNorm(h.name);
     const sid = linkOf.get(h.ccn);
     out.push({
@@ -70,7 +70,7 @@ function buildIndex(db: Db): Entry[] {
       accountId: sid ? `ahrq:${sid}` : `ccn:${h.ccn}`, accountName: sid ? (sysName.get(sid) ?? h.name) : h.name,
     });
   }
-  for (const p of db.prepare(`SELECT slug, name, name_norm FROM reg.payers`).all() as any[]) {
+  for (const p of db.prepare(`SELECT slug, name, name_norm FROM reg.payers`).all() as { slug: string; name: string; name_norm: string | null }[]) {
     const norm = p.name_norm || nameNorm(p.name);
     out.push({ kind: 'payer', id: p.slug, name: p.name, norm, tokens: new Set(tok(norm)), state: null, multistate: true, accountId: `payer:${p.slug}`, accountName: p.name });
   }
