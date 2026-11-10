@@ -203,8 +203,8 @@
             <g class="d-reg" data-node="model" tabindex="0" role="button" aria-label="Model slot: how it is built">
               <rect x="776" y="34" width="286" height="72" rx="10"/>
               <text x="792" y="58" class="d-title">Model slot, filled by the eval</text>
-              <text x="792" y="79">now: a small local model</text>
-              <text x="792" y="97">next: whichever model wins the eval</text>
+              <text x="792" y="79">default: a small local model</text>
+              <text x="792" y="97">passed the same eval: a hosted model</text>
             </g>
             <path d="M790 106 V148" class="d-line d-dash"/>
 
@@ -313,7 +313,7 @@
               <li><span>Clay web intent</span>Account visits raise account intent and create a research task, not an alert.</li>
               <li><span>PostHog / product</span>Try Signal sessions and searches become product signals on the account. Feature events joined to deals drive Feature to pipeline.</li>
               <li><span>Databricks + Hightouch</span>Account scores modeled in SQL, synced to HubSpot by reverse ETL.</li>
-              <li><span>Classifier model</span>A slot behind one interface, filled by evidence. A small local model is the baseline; a larger open-weights model such as Qwen or GLM on Serif's hardware, or a hosted model under Serif's data terms (an Anthropic provider is in the code, off here), takes the slot only by beating it on Serif's own labelled leads.</li>
+              <li><span>Classifier model</span>A slot behind one interface, filled by evidence. A small local model is the default. A hosted model, Claude Sonnet 5.5 through the provider in the code, has passed the same eval at the same floors and beats the local model on every field on its own; it is one setting away and off by default, because real leads would need Serif's data terms first. A larger open-weights model such as Qwen or GLM on Serif's hardware would be tested the same way, and any of them keeps the slot only by holding up on Serif's own labelled leads.</li>
               <li><span>Closed-won / lost</span>Outcomes would feed back into the weights; conversion by tier is the check that the model is right.</li>
             </ul>
           </div>

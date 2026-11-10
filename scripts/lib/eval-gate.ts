@@ -58,7 +58,8 @@ export function gateTable(rows: GateRow[]): string {
 /** Reasons the gate cannot run at all. It never passes by skipping: each of these is a failure. */
 export function gatePreflight(o: { provider: string; modelReachable: boolean; sealedExists: boolean; model: string; ollamaUrl: string }): string[] {
   const problems: string[] = [];
-  if (o.provider !== 'ollama') problems.push(`LLM_PROVIDER is "${o.provider}", not "ollama": the gate scores the pipeline with the local model in the loop`);
+  if (o.provider !== 'ollama' && o.provider !== 'anthropic') problems.push(`LLM_PROVIDER is "${o.provider}", not "ollama" or "anthropic": the gate scores the pipeline with a model in the loop`);
+  else if (!o.modelReachable && o.provider === 'anthropic') problems.push(`the hosted model cannot be called (${o.model}): ANTHROPIC_API_KEY is not set; the gate does not pass without the model`);
   else if (!o.modelReachable) problems.push(`the local model is unreachable (${o.model} at ${o.ollamaUrl}): start Ollama and rerun; the gate does not pass without the model`);
   if (!o.sealedExists) problems.push('fixtures/heldout-sealed.json is missing: the gate does not pass without the sealed set');
   return problems;

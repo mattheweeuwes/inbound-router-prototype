@@ -43,54 +43,57 @@ export interface SecondOpinion extends SecondOpinionFinding {
 /** What second_opinion_json holds once done: the result, or the error that stopped the call (a bug, not a model failure; those are results). */
 export type StoredSecondOpinion = SecondOpinion | { at: string; error: string };
 
-interface WorkerState { pass: Promise<void> | null; again: boolean }
+/** The second opinions in flight for one context, and whoever is waiting for there to be none. */
+interface WorkerState { running: number; waiters: (() => void)[] }
 const workers = new WeakMap<Ctx, WorkerState>();
 const worker = (ctx: Ctx) => {
   let w = workers.get(ctx);
-  if (!w) workers.set(ctx, (w = { pass: null, again: false }));
+  if (!w) workers.set(ctx, (w = { running: 0, waiters: [] }));
   return w;
 };
 
 const nowIso = (ctx: Ctx) => new Date(ctx.cfg.now()).toISOString();
 
-/** Starts a pass over the due second opinions unless one is running; a running pass picks up new ones as it goes. */
+/**
+ * How many second opinions are asked at once: every model slot but one. The slot left free is for a lead whose route is
+ * waiting on the model, so it never queues behind opinions nobody is waiting for. With one slot (the local model) that is
+ * one at a time, as it always was; a hosted model with four slots clears a list's opinions three at a time.
+ */
+export const opinionsAtOnce = (ctx: Ctx) => Math.max(1, ctx.cfg.modelConcurrency - 1);
+
+/**
+ * Starts due second opinions until every strand is busy or none is due, and only while no lead is waiting in the ordered
+ * section: a model call cannot be interrupted, so one started during a burst would hold the next lead whose route needs
+ * the model for a whole call. The queue calls this when it empties (src/pipeline.ts enqueue), and each finished opinion
+ * calls it again, so a strand that found nothing due earlier is filled as soon as something is.
+ */
 export function kickSecondOpinions(ctx: Ctx) {
   const w = worker(ctx);
-  if (w.pass) { w.again = true; return; }
-  w.again = false;
-  w.pass = drain(ctx).finally(() => {
-    w.pass = null;
-    if (w.again) kickSecondOpinions(ctx);
-  });
+  while (w.running < opinionsAtOnce(ctx) && ctx.q.pending === 0) {
+    const id = ctx.store.leads.nextSecondOpinion();
+    if (!id) break;
+    if (!ctx.store.leads.claimSecondOpinion(id)) continue;
+    w.running++;
+    void giveSecondOpinion(ctx, id).finally(() => {
+      w.running--;
+      kickSecondOpinions(ctx);
+      if (w.running === 0) for (const done of w.waiters.splice(0)) done();
+    });
+  }
 }
 
-/** Resolves when no pass is running. */
-export async function secondOpinionsIdle(ctx: Ctx): Promise<void> {
+/** Resolves when no second opinion is in flight. */
+export function secondOpinionsIdle(ctx: Ctx): Promise<void> {
   const w = workers.get(ctx);
-  while (w?.pass) await w.pass;
+  return !w || w.running === 0 ? Promise.resolve() : new Promise(done => w.waiters.push(done));
 }
 
-export const secondOpinionsBusy = (ctx: Ctx) => !!workers.get(ctx)?.pass;
+export const secondOpinionsBusy = (ctx: Ctx) => (workers.get(ctx)?.running ?? 0) > 0;
 
 /** Boot: second opinions a stopped process left due or in flight are asked again. */
 export function resumeSecondOpinions(ctx: Ctx) {
   ctx.store.leads.requeueSecondOpinions();
   kickSecondOpinions(ctx);
-}
-
-/**
- * Asks due second opinions one at a time while no lead is waiting in the ordered section. A model call cannot be interrupted,
- * so one started during a burst would hold the next lead whose route needs the model for a whole call; the queue kicks the
- * worker again when it empties (src/pipeline.ts enqueue).
- */
-async function drain(ctx: Ctx): Promise<void> {
-  for (;;) {
-    if (ctx.q.pending > 0) return;
-    const id = ctx.store.leads.nextSecondOpinion();
-    if (!id) return;
-    if (!ctx.store.leads.claimSecondOpinion(id)) continue;
-    await giveSecondOpinion(ctx, id);
-  }
 }
 
 /** One second opinion. A failure is stored as the result, so the lead never stays in flight. */

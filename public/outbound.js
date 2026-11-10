@@ -236,7 +236,7 @@ function workHTML(/** @type {Loaded} */ d) {
     `<div class="ob-stat ob-work-tile"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${nf(value)}</div><div class="ob-stat-sub">${sub}${extra}</div></div>`;
   return `<div class="figs-group ob-work" role="group" aria-label="Outbound work">
       ${tile('Drafts ready: Platform', w.ready.platform, 'platforms')}
-      ${tile('Drafts ready: System gap', w.ready.system_gap, `<a class="ob-export-link" href="${esc(d.actions.export)}" download>Export the ${nf(w.ready.total)} ready drafts (CSV)</a>`)}
+      ${tile('Drafts ready: System gap', w.ready.system_gap, `<a class="ob-export-link" href="${esc(d.actions.export)}" download>Export the ${nf(w.ready.total)} ready ${w.ready.total === 1 ? 'draft' : 'drafts'} (CSV)</a>`)}
       ${tile('Suppressed', w.suppressed, 'someone has it')}
       ${tile('Links to confirm', w.linksWaiting, '', w.linksWaiting ? '<button type="button" class="btn-link ob-jump" data-jump-links>Go to them</button>' : 'none waiting')}
     </div>`;

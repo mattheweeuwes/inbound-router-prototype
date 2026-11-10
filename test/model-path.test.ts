@@ -9,7 +9,7 @@ import { computeDashboard } from '../src/dashboard';
 import { AFTER_ALERT_REASON } from '../src/modelPath';
 import { buildPayload } from '../src/payloads';
 import { resumePending, whenIdle } from '../src/pipeline';
-import { DOUBT_REVIEW_REASON, kickSecondOpinions, secondOpinionsIdle } from '../src/secondOpinion';
+import { DOUBT_REVIEW_REASON, kickSecondOpinions, opinionsAtOnce, secondOpinionsIdle } from '../src/secondOpinion';
 import { leadDetail } from '../src/view';
 import { post, spec, submit, testCtx } from './helpers';
 
@@ -265,6 +265,36 @@ describe('second opinions never hold a route', () => {
     for (const i of [1, 2, 3]) ids.push((await post(ctx, 'calendly_demo', buildPayload('calendly_demo', spec({ message: CLEAR, email: `p${i}@intermountainhealthcare.org`, seed: `p${i}` })), { wait: false })).json.leadId);
     await whenIdle(ctx);
     assert.deepEqual(ids.map(id => detail(ctx, id).secondOpinion.state), ['done', 'done', 'done']);
+  });
+});
+
+describe('second opinions use the model slots a route does not need', () => {
+  /** Six leads the rules settle, then their second opinions: the most model calls in flight at any moment. */
+  async function mostAtOnce(modelConcurrency: number) {
+    let inFlight = 0;
+    let most = 0;
+    const m = stubModel(() => ({ use_case: 'contract_negotiation' }));
+    const counted = (async (url: unknown, init?: RequestInit) => {
+      most = Math.max(most, ++inFlight);
+      await new Promise(r => setTimeout(r, 15));
+      try { return await m.fetch(url as string, init); } finally { inFlight--; }
+    }) as typeof globalThis.fetch;
+    const ctx = testCtx({ llmProvider: 'ollama', modelConcurrency }, counted);
+    const ids: string[] = [];
+    // posted one after another with a pause, as a list arrives: the first opinion is in flight before the others are due,
+    // so a strand that found nothing to do at the start has to be filled later
+    for (const i of [1, 2, 3, 4, 5, 6]) {
+      ids.push((await post(ctx, 'calendly_demo', buildPayload('calendly_demo', spec({ message: CLEAR, email: `q${i}@intermountainhealthcare.org`, seed: `q${i}` })), { wait: false })).json.leadId);
+      await new Promise(r => setTimeout(r, 4));
+    }
+    await whenIdle(ctx);
+    assert.deepEqual(ids.map(id => detail(ctx, id).secondOpinion.state), Array(6).fill('done'));
+    return most;
+  }
+  it('one slot, the local model: one at a time, as before', async () => assert.equal(await mostAtOnce(1), 1));
+  it('four slots, a hosted model: three at a time, with one slot left for a lead whose route is waiting', async () => {
+    assert.equal(opinionsAtOnce(testCtx({ modelConcurrency: 4 })), 3);
+    assert.equal(await mostAtOnce(4), 3);
   });
 });
 

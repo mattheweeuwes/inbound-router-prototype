@@ -39,6 +39,7 @@ function parseMode(args: string[]): { label: string; wait: boolean; paceMs: numb
   return { label: 'each post waits for the pipeline', wait: true, paceMs: 0 };
 }
 console.log(`posting: ${mode.label}; model before route: ${ctx.cfg.modelBeforeRoute}`);
+const hostedModel = ctx.cfg.llmProvider === 'anthropic';
 if (ctx.cfg.llmProvider === 'ollama') console.log(await warmOllama(ctx) ? 'ollama warm' : 'ollama unavailable: rules only');
 
 const results = await runReplay(ctx, { wait: mode.wait, paceMs: mode.paceMs });
@@ -87,6 +88,7 @@ console.log(`time to alert on ${modelPath.timeToAlert.n} sales-routed leads with
 if (sp.digestDelay.n) console.log(`list rows alerted by their list's digest: ${sp.digestDelay.n} (p50=${sp.digestDelay.p50}ms after arriving)`);
 console.log(`queue wait p50=${sp.queue.p50}ms p90=${sp.queue.p90}ms; waited for own prepare p50=${waitedSpread.p50}ms p90=${waitedSpread.p90}ms`);
 console.log(`model before route on ${modelPath.waitedForModel.n} lead(s)${sp.model ? ` (p50 ${sp.model.p50}ms, p90 ${sp.model.p90}ms)` : ''}; second opinions ${so.ran} (answered ${so.answered}, agreed ${so.agreed}, would change a field ${so.changed}, role filled ${so.roleFilled}, doubts ${so.doubts}, followed up ${so.followedUp})`);
+if (hostedModel) console.log(`hosted model ${ctx.cfg.anthropicModel} at effort ${ctx.cfg.anthropicEffort}: ${ctx.modelUsage.calls} answered calls, ${ctx.modelUsage.inputTokens} tokens in, ${ctx.modelUsage.outputTokens} out`);
 const budget = budgetMs == null ? null : checkTtrBudget(m.timeToRouteMs.p90, budgetMs);
 if (budget) console.log(budget.line);
 mkdirSync(ctx.cfg.outDir, { recursive: true });

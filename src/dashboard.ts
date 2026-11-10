@@ -206,7 +206,10 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
   const env = {
     hubspot: hubspotMode,
     model: {
-      provider: ctx.cfg.llmProvider, name: ctx.cfg.llmProvider === 'ollama' ? ctx.cfg.ollamaModel : null, beforeRoute: ctx.cfg.modelBeforeRoute,
+      provider: ctx.cfg.llmProvider, name: ctx.cfg.llmProvider === 'ollama' ? ctx.cfg.ollamaModel : ctx.cfg.llmProvider === 'anthropic' ? ctx.cfg.anthropicModel : null,
+      effort: ctx.cfg.llmProvider === 'anthropic' ? ctx.cfg.anthropicEffort : null, timeoutMs: ctx.cfg.modelTimeoutMs, concurrency: ctx.cfg.modelConcurrency,
+      // hosted calls answered since this process started and the tokens they used; a local model reports none
+      usage: ctx.cfg.llmProvider === 'anthropic' ? { ...ctx.modelUsage } : null, beforeRoute: ctx.cfg.modelBeforeRoute,
       called: leads.filter(modelCalled).length, answered: leads.filter(l => !!l.qual?.llm).length, secondOpinions: leads.filter(l => !!secondOpinionOf(l)).length,
     },
     registry: ctx.registry.kind,

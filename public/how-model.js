@@ -66,7 +66,7 @@ export const TOPO = {
   qualify: {
     title: 'Qualify', files: 'src/qualify/rules.ts · when.ts · llm.ts · combine.ts · src/modelPath.ts',
     sum: 'Reads the message for use case, buying role, urgency and disqualifiers. The rules run on every lead; the model is asked before the route only when the rules cannot settle the use case.',
-    facts: [['Language', 'TypeScript'], ['Shape', 'Rules, a date parser and a model slot, and a combiner (the guard rails, version 4) that decides which one wins each field.'], ['Model call', 'Ollama /api/chat at temperature 0, output held to a JSON schema, 8 s timeout.']],
+    facts: [['Language', 'TypeScript'], ['Shape', 'Rules, a date parser and a model slot, and a combiner (the guard rails, version 4) that decides which one wins each field.'], ['Model call', 'Ollama /api/chat at temperature 0, output held to a JSON schema, 8 s timeout. The hosted provider sends the same prompt under the same schema and time limit, with an effort setting in place of temperature.']],
     sections: [
       { h: 'When the model runs', items: ['Before the route only for free text with no clear keyword use case, because the use case can change the team.', 'Never before the route for an uploaded list.', 'Every other free-text lead is routed and alerted on the rules, and the same call runs after the alert as a second opinion.'] },
       { h: 'Who decides each field', items: ['Use case: a clear keyword winner, else the model at 0.6 confidence or more, else the rules.', 'Buying role: title seniority, else the model.', 'Urgency: the date parser only. No timing language is unknown.', 'Disqualifier: a rule hit counts. A model-only spam or vendor-pitch call always goes to a person; any other model-only disqualifier counts at 0.8 or more, and below that a person decides.'] },
@@ -76,23 +76,24 @@ export const TOPO = {
   },
   model: {
     title: 'Model slot', files: 'src/qualify/llm.ts · src/qualify/prompt.ts',
-    sum: 'The model sits behind one provider interface, so it can be swapped without touching the pipeline. A small local model fills it now, as the baseline.',
-    facts: [['Interface', 'Three providers: Ollama (local), rules only (no model), and a hosted provider that is written but switched off.'], ['Model', 'Llama 3.2 3B through Ollama on this machine.'], ['Call', 'Temperature 0, JSON-schema output, 8 s timeout. Plain fetch, no SDK.']],
+    sum: 'The model sits behind one provider interface, so it can be swapped without touching the pipeline. A small local model fills it by default. A hosted model has passed the same eval and is one setting away.',
+    facts: [['Interface', 'Three providers: Ollama (local), rules only (no model), and a hosted provider (LLM_PROVIDER=anthropic and a key in .env), off by default.'], ['Model', 'Llama 3.2 3B through Ollama on this machine by default. Claude Sonnet 5.5 when the hosted provider is on.'], ['Call', 'Temperature 0, JSON-schema output, 8 s timeout. Plain fetch, no SDK. A hosted call takes no temperature: an effort setting says how much the model thinks.'], ['A failed call', 'A timeout, an error, a decline or an answer outside the schema leaves every field to the rules.']],
     sections: [
       { h: 'What decides the slot', items: ['The eval: dev, held-out and sealed sets (the sealed set is 24 leads), with a floor per field.', 'A manifest hashes the sealed set and every classifier file, so each result is tied to the exact code behind it.', 'CI runs the gate with the model off, so the result is the same every time.'] },
+      { h: 'What has been through it', items: ['The local model: it passes, and on its own it is weaker than the date parser on urgency, so it never sets urgency.', 'The hosted model, on the same sets at the same floors: it passes, and on its own it beats the local model on every field.', 'The rules still go first for both. Whether a strong model should go first on use case is a question for a fresh sealed set, not for this one.'] },
     ],
-    prod: 'Run candidate models, open-weights or hosted, against labelled production leads. The one that clears the floors takes the slot.',
-    tests: [['test/eval-gate.test.ts', 'fails when any single field is one below its floor']],
+    prod: 'Run candidate models, open-weights or hosted, against labelled production leads. The one that clears the floors takes the slot. A hosted model on real leads needs data terms first.',
+    tests: [['test/eval-gate.test.ts', 'fails when any single field is one below its floor'], ['test/llm.test.ts', 'a decline, a cut-off answer and an answer outside the schema are invalid output, so the rules decide'], ['test/llm.test.ts', 'a call that outlasts the time budget is a timeout']],
   },
   secondopinion: {
     title: 'Second opinion', files: 'src/secondOpinion.ts · src/decisions.ts (compareSecondOpinion)',
-    sum: 'A lead routed on the rules gets the same model call after its alert, one at a time and only while no lead is waiting. A disqualifier only the model raised does not un-route the lead.',
-    facts: [['When', 'After the alert, in the lulls between leads.'], ['Stored', 'What the model said, whether it agrees with the route and which fields it would change.'], ['On a doubt', 'A review item opens, and a follow-up goes to where the alert went and to RevOps. The lead stays with its rep until a person decides.']],
+    sum: 'A lead routed on the rules gets the same model call after its alert, only while no lead is waiting. A disqualifier only the model raised does not un-route the lead.',
+    facts: [['When', 'After the alert, in the lulls between leads.'], ['At once', 'Every model slot but one (MODEL_CONCURRENCY), so a lead whose route needs the model never waits behind them. On the local model\'s single slot that is one at a time.'], ['Stored', 'What the model said, whether it agrees with the route and which fields it would change.'], ['On a doubt', 'A review item opens, and a follow-up goes to where the alert went and to RevOps. The lead stays with its rep until a person decides.']],
     sections: [
       { h: 'Which doubts follow up', items: ['On an owner route (R5) or a round-robin route (R8, R10): the item and the follow-up.', 'On a repeat touch (R2): recorded only.', 'When a person already said the lead is a buyer: recorded, and nothing is opened or sent.'] },
     ],
     prod: 'Measure how often the second opinion would have changed the route, and move a field before the route only if that rate earns it.',
-    tests: [['test/model-path.test.ts', 'a doubt the rules did not share opens a review item and a follow-up to the rep and RevOps; the lead stays routed'], ['test/review-decision.test.ts', 'a doubt after the alert cleared as a buyer closes the item, re-routes nothing, and is not raised again on a re-run']],
+    tests: [['test/model-path.test.ts', 'second opinions use the model slots a route does not need'], ['test/model-path.test.ts', 'a doubt the rules did not share opens a review item and a follow-up to the rep and RevOps; the lead stays routed'], ['test/review-decision.test.ts', 'a doubt after the alert cleared as a buyer closes the item, re-routes nothing, and is not raised again on a re-run']],
   },
   score: {
     title: 'Score', files: 'src/score.ts · src/referral.ts',

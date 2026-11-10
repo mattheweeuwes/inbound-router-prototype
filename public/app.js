@@ -746,7 +746,7 @@ function renderStrip() {
   if (!d || !d.env || state.mode !== 'live') { box.innerHTML = ''; return; }
   const live = d.env.hubspot === 'live';
   const m = d.env.model || {};
-  const model = m.provider === 'rules' ? 'rules only' : m.provider === 'anthropic' ? 'hosted' : 'local';
+  const model = m.provider === 'rules' ? 'rules only' : m.provider === 'anthropic' ? `${m.name || 'hosted'}${m.effort ? `, ${m.effort}` : ''}` : 'local';
   box.innerHTML = `<span class="status-chip${live ? ' is-warn' : ''}">HubSpot: ${live ? 'live' : 'not sending'}</span><span class="status-chip">Model: ${model}</span>`;
 }
 

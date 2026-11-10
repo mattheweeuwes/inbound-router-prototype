@@ -59,6 +59,14 @@ describe('eval gate fails closed', () => {
     assert.match(p[0], /llama3\.2:3b/);
   });
   it('a rules-only provider cannot pass the gate', () => assert.equal(gatePreflight({ ...ok, provider: 'rules', modelReachable: false }).length, 1));
+  it('a hosted model passes the preflight with a key, and fails it with a message that names the key when there is none', () => {
+    const hosted = { ...ok, provider: 'anthropic', model: 'claude-sonnet-5-5' };
+    assert.deepEqual(gatePreflight(hosted), []);
+    const p = gatePreflight({ ...hosted, modelReachable: false });
+    assert.equal(p.length, 1);
+    assert.match(p[0], /ANTHROPIC_API_KEY is not set/);
+    assert.match(p[0], /claude-sonnet-5-5/);
+  });
   it('a missing sealed set cannot pass the gate', () => assert.match(gatePreflight({ ...ok, sealedExists: false })[0], /sealed/));
   it('counts only unavailable and timed-out model calls as infrastructure failures', () => {
     assert.equal(infraFailures([null, 'llm_unavailable: Ollama unreachable: x', 'llm_timeout: Ollama call exceeded 8s', 'llm_invalid_output: bad', 'llm_low_confidence (0.50 < 0.6)']), 2);

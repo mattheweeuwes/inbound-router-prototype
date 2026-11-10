@@ -375,3 +375,15 @@ Nothing here is a decision: the cockpit filters, orders and searches these field
 | `review` | `lead` (brings that item forward) |
 
 A word a tab does not have (a tier E, a sort that is not a column) falls back to the default for that parameter, so a hand-edited address cannot put a view in a state it does not have. `test/cockpit-address.test.ts` and the tab model tests read and write every parameter above.
+
+## 14. The model slot's settings and what a run records (`src/config.ts`, `src/qualify/llm.ts`, `scripts/eval.ts`)
+
+**Settings.** `LLM_PROVIDER` is `ollama` (the default), `rules` (no model) or `anthropic` (a hosted model, which also needs `ANTHROPIC_API_KEY`). With `anthropic`: `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), `ANTHROPIC_EFFORT` (`low`, `medium`, `high`, `xhigh` or `max`; default `xhigh`; any other value falls back to the default). For either model: `MODEL_TIMEOUT_MS` (default 8000; a call that takes longer hands its fields to the rules) and `MODEL_CONCURRENCY` (model calls in flight at once; default 1 for the local model and 4 for a hosted one). Second opinions use every slot but one.
+
+**What the hosted model is sent.** The same system prompt and the same user message as the local model: the date received, the door, the title, the organization type and the message. Never the name, the email or the company. The answer comes back as JSON in the classifier's schema and goes through the same parser. A decline, an answer cut off at the token limit, an answer outside the schema, an error status and a timeout all leave `qualification.llm` null with a `fallbackReason`, exactly as a local failure does.
+
+**`GET /api/dashboard`, `env.model`.** `provider`; `name` (the model, null with `rules`); `effort` (hosted only, else null); `timeoutMs`; `concurrency`; `usage` (hosted only: `calls`, `inputTokens` and `outputTokens` answered since this process started; null for a local model); `beforeRoute`; `called`, `answered` and `secondOpinions` (counts of leads).
+
+**`out/eval.json`.** Beside the fields it had: `provider`; `effort` (hosted only); `modelTimeoutMs`; `latencyMs.max` and `latencyMs.overDefaultBudget` (calls slower than the 8 s default, whatever limit the run allowed); `hostedUsage` (as `usage` above, for the run); and `items`, with `dev`, `heldout` and `sealed` lists of `{id, latencyMs, fallbackReason, model, final}`: the model's own four labels (null when it was not called or did not answer) and the pipeline's final labels for every item, so two runs can be compared message by message. `out/eval-manifest.json` records `model.provider`, and for a hosted model `model.effort` with a null `temperature`.
+
+**`npm run replay`** prints one more line with a hosted model: the answered calls and the tokens in and out.

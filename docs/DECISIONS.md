@@ -416,3 +416,27 @@ The cockpit grew one tab at a time, and each tab brought its own panel padding, 
 - **Layout changes.** The Overview's status band and its six headline figures are one panel each instead of eight cards. The Lead stream's filters flow on with the route chips, so the whole area is two rows at 1440 px, and a lead's marks sit beside its name. Outbound starts with the finding, then one row of figures (the rate file and the work), then the table. Needs a person is one list with each item's actions on one line. How it works keeps every figure, with less text in the boxes.
 
 Nothing here changes an API shape, a route or a behaviour: the address format, filters, sorting, in-place decisions, undo, focus handling, list groups and the controls that keep their nodes (#37) are as they were, and the browser tests check them.
+
+## 39. A hosted model goes through the same gate, and the local one stays the default
+
+The slot was always meant to be filled by evidence, and until Nov 10 only the small local model had been scored. I put Claude Sonnet 5.5 through the same sets at the same floors (`docs/hosted-model-record-2026-11-10.md`).
+
+- **The request is the one current hosted models accept** (`hostedRequest` in `src/qualify/llm.ts`). The hosted path that was in the code had never been run and would have been refused: it sent a fixed temperature, which current models do not take, and forced a tool call, which Sonnet 5.5 refuses. It now sends no temperature and no tools, asks for a JSON output format carrying the classifier's schema, and sets how much the model thinks with effort (`ANTHROPIC_EFFORT`, default `xhigh`). The schema goes without its length and range keywords, which that format does not take; `parseClassification` still enforces them.
+- **Called over HTTP, not through an SDK.** The repository has no runtime dependencies and this is one request. The cost is that the request shape is mine to keep current, which the test in `test/llm.test.ts` pins.
+- **No answer means the rules decide.** A decline, an answer cut off at the token limit, an answer outside the schema, an error status and a timeout all hand the fields to the rules, as with the local model. A rate-limited or overloaded call is tried once more inside the time limit. There is no fallback to a second model: the eval has to say which model answered.
+- **One time limit for both providers** (`MODEL_TIMEOUT_MS`, default 8 s). An eval of the model itself can allow longer, and its record says how many answers would have missed the default.
+- **Four calls at once for a hosted model, one for the local one** (`MODEL_CONCURRENCY`). The header chip names the model and its effort, and the dashboard reports the calls answered and the tokens they used.
+- **The eval and its gate take either provider.** The floors are the same. The manifest records the provider, the model, the effort and the time limit, and that a hosted model has no temperature to record.
+- **The default does not change.** With no key the repository runs on the local model, and at Serif a hosted model would wait for data terms. What changed is that the choice now rests on a measured comparison.
+
+What the comparison found is in the record. In short: Sonnet 5.5 passes the gate and beats the local model on every field on its own; extra-high effort did no better than low on these sets; and the rules-first combine policy, built around a weak model, now costs two or three use-case answers in 24. I have not changed the policy, because I have seen this sealed set's results field by field and choosing on them would be tuning on it. That needs a fresh sealed set.
+
+## 40. Second opinions use every model slot but one
+
+Running the day on the hosted model showed the list's 103 second opinions taking 296 s, slower than the local model, although four calls could run at once.
+
+- **The worker was a loop, and then several loops that gave up.** The first version asked one opinion at a time. My first fix started several strands, but a strand that found nothing due when it started returned and never came back, so one strand did all the work. It is now a pool: `kickSecondOpinions` starts due opinions until every strand is busy, and each finished opinion calls it again (`src/secondOpinion.ts`).
+- **One slot is kept free.** Opinions take every model slot but one (`opinionsAtOnce`), so a lead whose route is waiting on the model never queues behind opinions nobody is waiting for. With the local model's single slot that is one at a time, as before.
+- **Still never during a burst.** No opinion starts while a lead is waiting in the ordered section.
+
+The same list then took 102 s. The test posts leads one after another, as a list arrives, and checks three run at once with four slots and one with one.

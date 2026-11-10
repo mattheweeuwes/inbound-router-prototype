@@ -12,6 +12,9 @@ import { storeFor, type Store } from './store';
 
 export type FetchFn = typeof fetch;
 
+/** Calls answered by the hosted model and their token counts, as the API reported them. */
+export interface ModelUsage { calls: number; inputTokens: number; outputTokens: number }
+
 export interface Ctx {
   cfg: Config;
   db: Db;
@@ -28,6 +31,8 @@ export interface Ctx {
   outbound: OutboundLoad;
   /** how the synthetic usage fixtures were loaded at startup (src/usage/load.ts); the attribution API explains an empty state from it */
   usage: UsageLoad;
+  /** hosted model calls made through this context and the tokens they used, for the eval record and the replay's cost line */
+  modelUsage: ModelUsage;
   /** the start-up pass that tagged leads committed before feature interest existed (src/interest/tag.ts) */
   interest: InterestBackfill;
 }
@@ -50,6 +55,7 @@ export function createCtx(over: Partial<Config> = {}, fetchImpl?: FetchFn): Ctx 
     q: { waiting: [], committing: false, pending: 0, head: null, idle: [] },
     outbound: { status: 'missing', path: cfg.ratesCsv, message: 'not loaded yet', rows: 0, groups: 0, ms: 0 },
     usage: { status: 'off', message: 'not loaded yet', features: 0, deals: 0, events: 0, ms: 0 },
+    modelUsage: { calls: 0, inputTokens: 0, outputTokens: 0 },
     interest: { checked: 0, tagged: 0, ms: 0 },
   };
   ctx.outbound = loadOutbound(ctx);

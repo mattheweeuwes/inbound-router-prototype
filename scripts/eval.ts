@@ -50,12 +50,15 @@ const GATE_FLOORS = RULES_ONLY ? RULES_FLOORS : FLOORS;
 // The eval runs synthetic items through the real pipeline: it never writes to HubSpot, whatever .env says.
 // Commits follow acceptance order exactly (no lane passing, decision 23), so a rules-only run is reproducible byte for byte.
 const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', modelBeforeRoute: 'all', commitGraceMs: null, ...NO_OUTSIDE_WRITES });
-const modelReachable = ctx.cfg.llmProvider === 'ollama' && await warmOllama(ctx);
+// The model in the loop: the local one by default, or a hosted one (LLM_PROVIDER=anthropic with a key), scored on the same sets at the same floors.
+const HOSTED = ctx.cfg.llmProvider === 'anthropic';
+const MODEL_NAME = HOSTED ? ctx.cfg.anthropicModel : ctx.cfg.ollamaModel;
+const modelReachable = HOSTED ? !!ctx.cfg.anthropicKey : ctx.cfg.llmProvider === 'ollama' && await warmOllama(ctx);
 if (RULES_ONLY) {
   const problems = rulesGatePreflight({ provider: ctx.cfg.llmProvider, sealedExists: !!sealed });
   if (problems.length) { console.error(`EVAL GATE (rules only): FAIL (not run)\n${problems.map(p => `  - ${p}`).join('\n')}`); rmSync(scratch, { recursive: true, force: true }); process.exit(1); }
 } else if (GATE) {
-  const problems = gatePreflight({ provider: ctx.cfg.llmProvider, modelReachable, sealedExists: !!sealed, model: ctx.cfg.ollamaModel, ollamaUrl: ctx.cfg.ollamaUrl });
+  const problems = gatePreflight({ provider: ctx.cfg.llmProvider, modelReachable, sealedExists: !!sealed, model: MODEL_NAME, ollamaUrl: ctx.cfg.ollamaUrl });
   if (problems.length) { console.error(`EVAL GATE: FAIL (not run)\n${problems.map(p => `  - ${p}`).join('\n')}`); rmSync(scratch, { recursive: true, force: true }); process.exit(1); }
 } else if (!modelReachable && ctx.cfg.llmProvider === 'ollama') console.log('ollama unavailable: the model column will be empty');
 
@@ -195,10 +198,22 @@ function fastPathSet(name: string, rows: Row[]) {
 }
 const fastPath = [fastPathSet('dev', devRows), fastPathSet('heldout', hoRows), ...(sealed ? [fastPathSet('sealed', sealedRows)] : [])];
 const misses = [...dev.misses, ...ho.misses, ...(sealedResult?.misses ?? [])];
-const latency = { p50: pctile(llmLatencies, 50), p90: pctile(llmLatencies, 90) };
+// The pipeline gives a model call 8 s before the rules decide (the default MODEL_TIMEOUT_MS). An eval of the model itself may run
+// with a longer limit, so the record also says how many answers would have missed the default.
+const DEFAULT_BUDGET_MS = 8_000;
+const latency = { p50: pctile(llmLatencies, 50), p90: pctile(llmLatencies, 90), max: llmLatencies.length ? Math.max(...llmLatencies) : null, overDefaultBudget: llmLatencies.filter(ms => ms > DEFAULT_BUDGET_MS).length };
+/** What each item's model said and what the pipeline decided, so two runs of one model can be compared answer by answer. */
+const itemAnswers = (rows: Row[]) => rows.map(r => ({
+  id: r.id, latencyMs: r.q.latencyMs, fallbackReason: r.q.fallbackReason ?? null,
+  model: r.q.llm ? { useCase: r.q.llm.useCase, urgency: r.q.llm.urgency, disqualifier: r.q.llm.disqualifier, buyingRole: r.q.llm.buyingRole } : null,
+  final: { useCase: r.q.final.useCase, urgency: r.q.final.urgency, disqualifier: r.q.final.disqualifier, buyingRole: r.q.final.buyingRole },
+}));
 const out = {
-  generatedAt: new Date().toISOString(), model: ctx.cfg.ollamaModel, promptVersion: PROMPT_VERSION, combineVersion: COMBINE_VERSION,
+  generatedAt: new Date().toISOString(), model: MODEL_NAME, provider: ctx.cfg.llmProvider, effort: HOSTED ? ctx.cfg.anthropicEffort : null,
+  modelTimeoutMs: ctx.cfg.modelTimeoutMs, promptVersion: PROMPT_VERSION, combineVersion: COMBINE_VERSION,
   latencyMs: latency, registry: ctx.registry.kind,
+  hostedUsage: HOSTED ? { ...ctx.modelUsage } : null,
+  items: { dev: itemAnswers(devRows), heldout: itemAnswers(hoRows), sealed: itemAnswers(sealedRows) },
   rulesLatencyMs: { p50: +(pctile(rulesMs, 50) ?? 0).toFixed(3), p90: +(pctile(rulesMs, 90) ?? 0).toFixed(3) },
   modelCalls: llmLatencies.length, idempotency,
   note: 'accuracies are fractions 0-1; final is combine v4 (the pipeline); llm is counted only on leads where the model answered; rules is the round-2 keyword classifier; v1: a confident model overrides the rules; v2: rules first with keyword urgency cues; v3: v2 with the date parser deciding urgency and the model asked when the parser finds nothing; v4: the parser decides urgency and the model never does (no timing language means unknown)',
@@ -232,7 +247,9 @@ const manifest = {
   schema: 'eval-manifest/1',
   evalTimestamp: out.generatedAt,
   mode: RULES_ONLY ? (GATE ? 'rules-gate' : 'rules') : GATE ? 'gate' : 'eval',
-  model: { name: ctx.cfg.ollamaModel, temperature: ollamaTemperature(llmSource), temperatureSource: 'literal in the Ollama call in src/qualify/llm.ts (there is no temperature key in config)', provider: ctx.cfg.llmProvider, ollamaUrl: ctx.cfg.ollamaUrl, promptVersion: PROMPT_VERSION, combineVersion: COMBINE_VERSION },
+  model: HOSTED
+    ? { name: MODEL_NAME, effort: ctx.cfg.anthropicEffort, temperature: null, temperatureSource: 'none: current hosted models take no temperature; how much the model thinks is set by effort', provider: ctx.cfg.llmProvider, timeoutMs: ctx.cfg.modelTimeoutMs, promptVersion: PROMPT_VERSION, combineVersion: COMBINE_VERSION }
+    : { name: MODEL_NAME, temperature: ollamaTemperature(llmSource), temperatureSource: 'literal in the Ollama call in src/qualify/llm.ts (there is no temperature key in config)', provider: ctx.cfg.llmProvider, ollamaUrl: ctx.cfg.ollamaUrl, timeoutMs: ctx.cfg.modelTimeoutMs, promptVersion: PROMPT_VERSION, combineVersion: COMBINE_VERSION },
   sealedSet: sealed ? { path: 'fixtures/heldout-sealed.json', sha256: sealedSha, items: sealed.items.length, receivedAt: sealed.receivedAt } : null,
   classifier: { files: cFiles, combinedSha256: cHash, combinedMethod: COMBINED_HASH_METHOD, scope: 'everything under src/qualify plus the transitive runtime (non type-only) local imports of those files' },
   inputPathFiles: { note: 'files that shape the classifier input (payload build, adapters, normalization); hashed for the record, NOT part of the combined classifier hash', files: inputPathFiles },
@@ -252,7 +269,7 @@ const manifest = {
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 const provenance: string[] = [
   `## Provenance`, ``,
-  `- Evaluated ${out.generatedAt}. ${RULES_ONLY ? 'No model (rules only)' : `Model \`${ctx.cfg.ollamaModel}\`, temperature ${manifest.model.temperature} (a literal in \`src/qualify/llm.ts\`)`}, prompt ${PROMPT_VERSION}, combine ${COMBINE_VERSION}.`,
+  `- Evaluated ${out.generatedAt}. ${RULES_ONLY ? 'No model (rules only)' : HOSTED ? `Hosted model \`${MODEL_NAME}\` at effort ${ctx.cfg.anthropicEffort}, no temperature (current hosted models take none), ${ctx.cfg.modelTimeoutMs / 1000} s per call` : `Model \`${MODEL_NAME}\`, temperature ${manifest.model.temperature} (a literal in \`src/qualify/llm.ts\`)`}, prompt ${PROMPT_VERSION}, combine ${COMBINE_VERSION}.`,
   `- Sealed set: \`fixtures/heldout-sealed.json\`, ${sealed ? `${sealed.items.length} items, sha256 \`${sealedSha}\`` : 'not present'}.`,
   `- Classifier: ${cFiles.length} source files (${cFiles.map(f => f.path.replace(/^src\//, '')).join(', ')}); combined sha256 \`${cHash}\`. Per-file hashes are in ${RULES_ONLY ? `\`${FILES.manifest}\` next to this file` : '`out/eval-manifest.json`'}.`,
   `- Against the previous recorded run: ${comparison.message}${sealedComparison ? `; ${sealedComparison}` : ''}.`,
@@ -265,9 +282,9 @@ const pct = (x: number | null | undefined) => (x == null ? 'n/a' : `${Math.round
 const cell = (f: any, v: string) => (f[v] == null ? 'n/a' : `${f.counts[v]} (${pct(f[v])})`);
 const md: string[] = [
   `# Qualification eval${RULES_ONLY ? ' (rules only, no model)' : ''}`, ``, ...provenance,
-  `Generated ${out.generatedAt}. Registry: **${out.registry}**. Model: ${RULES_ONLY ? 'none (rules only)' : `\`${out.model}\` at temperature 0`}, prompt ${PROMPT_VERSION}. Pipeline combine policy: **${COMBINE_VERSION}**.`, ``,
+  `Generated ${out.generatedAt}. Registry: **${out.registry}**. Model: ${RULES_ONLY ? 'none (rules only)' : HOSTED ? `\`${out.model}\` at effort ${ctx.cfg.anthropicEffort}` : `\`${out.model}\` at temperature 0`}, prompt ${PROMPT_VERSION}. Pipeline combine policy: **${COMBINE_VERSION}**.`, ``,
   `- **rules**: the keyword classifier, run on every lead.`,
-  `- **model**: the local model alone, counted only where it answered (leads with free text).`,
+  `- **model**: the ${HOSTED ? 'hosted' : 'local'} model alone, counted only where it answered (leads with free text).`,
   `- **v1**: a confident model overrides the rules.`,
   `- **v2**: rules first, the model fills gaps; urgency from keyword cues.`,
   `- **v3**: as v2, but the date parser (\`src/qualify/when.ts\`) decides urgency; the model is asked when the parser finds nothing.`,
@@ -285,7 +302,8 @@ for (const s of sets) {
   }
 }
 md.push(`Idempotent re-delivery (F27) creates no new lead: ${idempotency.every(i => i.ok) ? 'yes' : 'NO'}.`, ``,
-  `## Latency`, ``, `- rules: p50 ${out.rulesLatencyMs.p50} ms, p90 ${out.rulesLatencyMs.p90} ms per lead`, `- model: ${out.modelCalls} calls, p50 ${latency.p50} ms, p90 ${latency.p90} ms`, ``,
+  `## Latency`, ``, `- rules: p50 ${out.rulesLatencyMs.p50} ms, p90 ${out.rulesLatencyMs.p90} ms per lead`, `- model: ${out.modelCalls} calls, p50 ${latency.p50} ms, p90 ${latency.p90} ms, slowest ${latency.max} ms; ${latency.overDefaultBudget} over the pipeline's ${DEFAULT_BUDGET_MS / 1000} s default (this run allowed ${ctx.cfg.modelTimeoutMs / 1000} s)`,
+  ...(out.hostedUsage ? [`- hosted tokens: ${out.hostedUsage.inputTokens} in, ${out.hostedUsage.outputTokens} out over ${out.hostedUsage.calls} answered calls`] : []), ``,
   `## Fast path (decisions 19 and 24)`, ``,
   `Items the gated pipeline would route on different classifier inputs than the full combine above, because the model's answer that changes them would arrive after the alert. A lead whose use case the model can change waits for it, so use case differs only on a list door (decision 24), which never waits and is counted here. ${RULES_ONLY ? 'With no model, nothing waits and nothing differs.' : ''}`, ``,
   `| set | items | waited for the model | model after the alert | routed differently | which |`, `|---|---|---|---|---|---|`,

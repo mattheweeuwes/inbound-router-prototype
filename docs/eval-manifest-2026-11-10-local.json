@@ -1,0 +1,472 @@
+{
+  "schema": "eval-manifest/1",
+  "evalTimestamp": "2026-11-10T15:53:14.467Z",
+  "mode": "gate",
+  "model": {
+    "name": "llama3.2:3b",
+    "temperature": 0,
+    "temperatureSource": "literal in the Ollama call in src/qualify/llm.ts (there is no temperature key in config)",
+    "provider": "ollama",
+    "ollamaUrl": "http://127.0.0.1:11434",
+    "timeoutMs": 8000,
+    "promptVersion": "v1",
+    "combineVersion": "v4"
+  },
+  "sealedSet": {
+    "path": "fixtures/heldout-sealed.json",
+    "sha256": "19085e792f0562912cff67a6cd781ebe84cfcff469cb18a92136c78c392fa390",
+    "items": 24,
+    "receivedAt": "2026-11-10T15:00:00Z"
+  },
+  "classifier": {
+    "files": [
+      {
+        "path": "src/qualify/combine.ts",
+        "sha256": "d04375169f3df43142e97a7e50c71b4d034af11e846488815af13818b3fad4cb",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/qualify/index.ts",
+        "sha256": "a032762568c43cbccb1095021c7669e3c28bd4c3c1c8528d9ce661f0239423ed",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/qualify/llm.ts",
+        "sha256": "e74cd0423a09f036157996feb9d9f1d109cf165ad07d7b03e0f6b6208b470ead",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/qualify/prompt.ts",
+        "sha256": "b5ddb23d609df60fb6128480dff9955d1e1a5e8c074e81e05d567c8b0828bc72",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/qualify/rules.ts",
+        "sha256": "77346afbe6602cc72fd4774c6deea9bf4e80dc1bfd410c892f50fc7506e89b90",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/qualify/when.ts",
+        "sha256": "beba99ef9163d3f6e21d69e0d4e0b200ebbc0fb3f0b864a630a8713d19a2c30c",
+        "why": "under src/qualify"
+      },
+      {
+        "path": "src/schema.ts",
+        "sha256": "f2b84e0b67e1c9adc97b648bb829333439a78f0a1efc9a8837090b218df4f8f1",
+        "why": "runtime import of src/qualify/llm.ts"
+      },
+      {
+        "path": "src/time.ts",
+        "sha256": "330f4e74ad2a042dbd591d4b662c71b60478cb203ab54d0f7638ae4e9ff61e4e",
+        "why": "runtime import of src/qualify/when.ts"
+      }
+    ],
+    "combinedSha256": "dba1398bf8d6df95d59ca2a720f9b16815bcab0108502e8ada04e62e4895d003",
+    "combinedMethod": "sha256 over the concatenation of \"<path>\\0<file sha256>\\n\" for every classifier file, in ascending path order (UTF-16 code unit order)",
+    "scope": "everything under src/qualify plus the transitive runtime (non type-only) local imports of those files"
+  },
+  "inputPathFiles": {
+    "note": "files that shape the classifier input (payload build, adapters, normalization); hashed for the record, NOT part of the combined classifier hash",
+    "files": [
+      {
+        "path": "src/normalize.ts",
+        "sha256": "ddff1129b7acf27dad44e95e2e30d7ea9c75a6d333a39c0b31e06a43ef0af543"
+      },
+      {
+        "path": "src/payloads.ts",
+        "sha256": "48314b37a1671817db98b59de193e02f1299fbd80ea269767b46125749a91a19"
+      },
+      {
+        "path": "src/sources/apiKey.ts",
+        "sha256": "59f641b640f6c67f5c87de3fad6dfd12b7bac906baf37960bdb71e1282200a7a"
+      },
+      {
+        "path": "src/sources/app.ts",
+        "sha256": "c928514b766390633cb3030075a542159edd37ed917a60066774ec4c86a3f1d4"
+      },
+      {
+        "path": "src/sources/calendly.ts",
+        "sha256": "bd45b0b695c3360917d1dfb66ae63838bad7ec69a7a506a7e1d8d6ce81107b83"
+      },
+      {
+        "path": "src/sources/common.ts",
+        "sha256": "a388c0a225e4ace8a383410caed103d4ce1e4074a9cbb49b8b90a5c1f0df12c8"
+      },
+      {
+        "path": "src/sources/eventScan.ts",
+        "sha256": "0cbb08010e3943013bdf046df327b258cf9e459932fe1ef778698e97e001de39"
+      },
+      {
+        "path": "src/sources/form.ts",
+        "sha256": "918c27237d852e343bfca0e0a4b2d50899483bf5f4d7f7d6fcc83965ecb10b16"
+      },
+      {
+        "path": "src/sources/index.ts",
+        "sha256": "4a10a6104739d36f6099f093bcbf1592b3792c0a289f96447d7ee1edbb2bbaaf"
+      },
+      {
+        "path": "src/sources/marketplace.ts",
+        "sha256": "c4511861e86b656b8884e6db4bef22de72722f201e1390de0266c6a5c4f7aaa5"
+      },
+      {
+        "path": "src/sources/webIntent.ts",
+        "sha256": "cfff8dd5371c0dc671702769dcaacb3a3d52d7d98c5d3ffe214799687fbd725d"
+      }
+    ]
+  },
+  "otherFixtures": {
+    "fixtures/heldout.json": "4edf96fbbe89acdc00e6e06f49f1d643c5fcf8e36ad02552941e21ced361d89a",
+    "fixtures/gold-labels.json": "d86d8490f842e3f9831c19e29e8c8ff0eebd3933a7fe303c67dae030858154e5"
+  },
+  "comparisonWithPreviousRun": {
+    "classifier": "no earlier recorded run to compare the classifier with (this run becomes the record)",
+    "sealedSet": null,
+    "previousEvalTimestamp": null
+  },
+  "previousRun": null,
+  "results": [
+    {
+      "name": "dev",
+      "n": 39,
+      "fields": {
+        "useCase": {
+          "rules": 0.971,
+          "llm": 0.731,
+          "v1": 0.794,
+          "v2": 0.941,
+          "v3": 0.941,
+          "v4": 0.941,
+          "final": 0.941,
+          "finalOk": 32,
+          "finalN": 34,
+          "counts": {
+            "rules": "33/34",
+            "llm": "19/26",
+            "v1": "27/34",
+            "v2": "32/34",
+            "v3": "32/34",
+            "v4": "32/34",
+            "final": "32/34"
+          }
+        },
+        "urgency": {
+          "rules": 0.971,
+          "llm": 0.615,
+          "v1": 0.676,
+          "v2": 0.824,
+          "v3": 0.676,
+          "v4": 0.706,
+          "final": 0.706,
+          "finalOk": 24,
+          "finalN": 34,
+          "counts": {
+            "rules": "33/34",
+            "llm": "16/26",
+            "v1": "23/34",
+            "v2": "28/34",
+            "v3": "23/34",
+            "v4": "24/34",
+            "final": "24/34"
+          }
+        },
+        "disqualifier": {
+          "rules": 1,
+          "llm": 0.926,
+          "v1": 1,
+          "v2": 1,
+          "v3": 1,
+          "v4": 1,
+          "final": 1,
+          "finalOk": 35,
+          "finalN": 35,
+          "counts": {
+            "rules": "35/35",
+            "llm": "25/27",
+            "v1": "35/35",
+            "v2": "35/35",
+            "v3": "35/35",
+            "v4": "35/35",
+            "final": "35/35"
+          }
+        },
+        "segment": {
+          "final": 0.946,
+          "counts": {
+            "final": "35/37"
+          }
+        },
+        "routeTeam": {
+          "final": 0.957,
+          "counts": {
+            "final": "22/23"
+          }
+        },
+        "routeAction": {
+          "final": 0.864,
+          "counts": {
+            "final": "19/22"
+          }
+        },
+        "routeOwner": {
+          "final": 1,
+          "counts": {
+            "final": "4/4"
+          }
+        }
+      }
+    },
+    {
+      "name": "heldout",
+      "n": 24,
+      "fields": {
+        "useCase": {
+          "rules": 0.75,
+          "llm": 0.833,
+          "v1": 0.833,
+          "v2": 0.833,
+          "v3": 0.833,
+          "v4": 0.833,
+          "final": 0.833,
+          "finalOk": 20,
+          "finalN": 24,
+          "counts": {
+            "rules": "18/24",
+            "llm": "20/24",
+            "v1": "20/24",
+            "v2": "20/24",
+            "v3": "20/24",
+            "v4": "20/24",
+            "final": "20/24"
+          }
+        },
+        "urgency": {
+          "rules": 0.458,
+          "llm": 0.542,
+          "v1": 0.542,
+          "v2": 0.417,
+          "v3": 0.708,
+          "v4": 0.917,
+          "final": 0.917,
+          "finalOk": 22,
+          "finalN": 24,
+          "counts": {
+            "rules": "11/24",
+            "llm": "13/24",
+            "v1": "13/24",
+            "v2": "10/24",
+            "v3": "17/24",
+            "v4": "22/24",
+            "final": "22/24"
+          }
+        },
+        "disqualifier": {
+          "rules": 0.958,
+          "llm": 0.833,
+          "v1": 0.958,
+          "v2": 0.958,
+          "v3": 0.958,
+          "v4": 0.958,
+          "final": 0.958,
+          "finalOk": 23,
+          "finalN": 24,
+          "counts": {
+            "rules": "23/24",
+            "llm": "20/24",
+            "v1": "23/24",
+            "v2": "23/24",
+            "v3": "23/24",
+            "v4": "23/24",
+            "final": "23/24"
+          }
+        }
+      }
+    },
+    {
+      "name": "sealed",
+      "n": 24,
+      "fields": {
+        "useCase": {
+          "rules": 0.542,
+          "llm": 0.75,
+          "v1": 0.75,
+          "v2": 0.75,
+          "v3": 0.75,
+          "v4": 0.75,
+          "final": 0.75,
+          "finalOk": 18,
+          "finalN": 24,
+          "counts": {
+            "rules": "13/24",
+            "llm": "18/24",
+            "v1": "18/24",
+            "v2": "18/24",
+            "v3": "18/24",
+            "v4": "18/24",
+            "final": "18/24"
+          }
+        },
+        "urgency": {
+          "rules": 0.542,
+          "llm": 0.583,
+          "v1": 0.583,
+          "v2": 0.625,
+          "v3": 0.958,
+          "v4": 0.958,
+          "final": 0.958,
+          "finalOk": 23,
+          "finalN": 24,
+          "counts": {
+            "rules": "13/24",
+            "llm": "14/24",
+            "v1": "14/24",
+            "v2": "15/24",
+            "v3": "23/24",
+            "v4": "23/24",
+            "final": "23/24"
+          }
+        },
+        "disqualifier": {
+          "rules": 0.833,
+          "llm": 0.917,
+          "v1": 0.875,
+          "v2": 0.875,
+          "v3": 0.875,
+          "v4": 0.875,
+          "final": 0.875,
+          "finalOk": 21,
+          "finalN": 24,
+          "counts": {
+            "rules": "20/24",
+            "llm": "22/24",
+            "v1": "21/24",
+            "v2": "21/24",
+            "v3": "21/24",
+            "v4": "21/24",
+            "final": "21/24"
+          }
+        }
+      }
+    }
+  ],
+  "modelAnswered": {
+    "heldout": "24/24",
+    "sealed": "24/24"
+  },
+  "modelInfrastructureFailures": {
+    "heldout": 0,
+    "sealed": 0
+  },
+  "gate": {
+    "floors": {
+      "sealed": {
+        "urgency": 22,
+        "useCase": 17,
+        "disqualifier": 21
+      },
+      "heldout": {
+        "urgency": 21,
+        "useCase": 19,
+        "disqualifier": 22
+      }
+    },
+    "rows": [
+      {
+        "set": "sealed",
+        "field": "urgency",
+        "floor": 22,
+        "ok": 23,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      },
+      {
+        "set": "sealed",
+        "field": "useCase",
+        "floor": 17,
+        "ok": 18,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      },
+      {
+        "set": "sealed",
+        "field": "disqualifier",
+        "floor": 21,
+        "ok": 21,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      },
+      {
+        "set": "heldout",
+        "field": "urgency",
+        "floor": 21,
+        "ok": 22,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      },
+      {
+        "set": "heldout",
+        "field": "useCase",
+        "floor": 19,
+        "ok": 20,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      },
+      {
+        "set": "heldout",
+        "field": "disqualifier",
+        "floor": 22,
+        "ok": 23,
+        "n": 24,
+        "pass": true,
+        "why": ""
+      }
+    ],
+    "pass": true
+  },
+  "supportingEvidence": {
+    "label": "SUPPORTING EVIDENCE ONLY: file modification times. They can be changed by copying, restoring or touching a file, so they do not prove when anything was written. The hashes above are the record from this run forward.",
+    "sealedSetModified": "2026-11-07T03:49:27.000Z",
+    "newestClassifierFile": {
+      "path": "src/qualify/llm.ts",
+      "modified": "2026-11-10T15:25:29.925Z"
+    },
+    "classifierFilesModified": [
+      {
+        "path": "src/qualify/combine.ts",
+        "modified": "2026-11-09T18:07:50.000Z"
+      },
+      {
+        "path": "src/qualify/index.ts",
+        "modified": "2026-11-07T03:35:17.000Z"
+      },
+      {
+        "path": "src/qualify/llm.ts",
+        "modified": "2026-11-10T15:25:29.925Z"
+      },
+      {
+        "path": "src/qualify/prompt.ts",
+        "modified": "2026-11-07T02:55:36.000Z"
+      },
+      {
+        "path": "src/qualify/rules.ts",
+        "modified": "2026-11-07T03:35:17.000Z"
+      },
+      {
+        "path": "src/qualify/when.ts",
+        "modified": "2026-11-07T03:40:52.000Z"
+      },
+      {
+        "path": "src/schema.ts",
+        "modified": "2026-11-09T18:54:09.000Z"
+      },
+      {
+        "path": "src/time.ts",
+        "modified": "2026-11-07T02:50:00.000Z"
+      }
+    ]
+  }
+}

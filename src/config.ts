@@ -42,6 +42,9 @@ export interface Config {
   ollamaModel: string;
   anthropicKey: string | null; // the hosted provider needs this and llmProvider = 'anthropic'
   anthropicModel: string;
+  anthropicEffort: HostedEffort; // how much the hosted model thinks before it answers (ANTHROPIC_EFFORT)
+  modelTimeoutMs: number; // a model call that takes longer hands its fields to the rules (MODEL_TIMEOUT_MS)
+  modelRetryWaitMs: number; // the wait before the one retry of a rate-limited or overloaded hosted call, when the API names none
   hubspotLive: boolean;
   hubspotToken: string | null;
   crmRetryDelayMs: number; // first backoff step for a HubSpot delivery that threw or got a 429/5xx; it doubles per attempt
@@ -115,6 +118,10 @@ export function listDoorsFrom(value: string | undefined): string[] {
   return [...new Set(v.split(',').map(s => s.trim()).filter(Boolean))];
 }
 
+export const HOSTED_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type HostedEffort = (typeof HOSTED_EFFORTS)[number];
+const hostedEffort = (v: string | undefined): HostedEffort => (HOSTED_EFFORTS.find(e => e === v?.trim().toLowerCase()) ?? 'xhigh');
+
 /** `env` is the environment to read; tests pass {} to see the defaults with nothing set. */
 export function makeConfig(over: Partial<Config> = {}, env: Record<string, string | undefined> = loadEnv()): Config {
   const dataDir = join(ROOT, 'data');
@@ -138,7 +145,10 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     ollamaUrl: env.OLLAMA_URL ?? 'http://127.0.0.1:11434',
     ollamaModel: env.OLLAMA_MODEL ?? 'llama3.2:3b',
     anthropicKey: env.ANTHROPIC_API_KEY || null,
-    anthropicModel: env.ANTHROPIC_MODEL ?? 'claude-haiku-5-5',
+    anthropicModel: env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5',
+    anthropicEffort: hostedEffort(env.ANTHROPIC_EFFORT),
+    modelTimeoutMs: positiveInt(env.MODEL_TIMEOUT_MS, 8_000),
+    modelRetryWaitMs: 1_000,
     hubspotLive: env.HUBSPOT_LIVE === '1' && !!hubspotKey(env),
     hubspotToken: hubspotKey(env),
     crmRetryDelayMs: 2_000,
@@ -148,7 +158,8 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     leadMaxAttempts: 3, // runs at 0 s, 5 s and 15 s
     modelBeforeRoute: env.MODEL_BEFORE_ROUTE === 'all' ? 'all' : 'gated',
     prepareConcurrency: positiveInt(env.PREPARE_CONCURRENCY, 4),
-    modelConcurrency: positiveInt(env.MODEL_CONCURRENCY, 1), // one local model on one machine: parallel calls only queue inside Ollama, and its queue counts against the 8 s timeout
+    // one local model on one machine: parallel calls only queue inside Ollama, and its queue counts against the timeout; a hosted model takes several at once
+    modelConcurrency: positiveInt(env.MODEL_CONCURRENCY, provider === 'anthropic' ? 4 : 1),
     commitGraceMs: commitGrace(env.COMMIT_GRACE_MS),
     listDoors: listDoorsFrom(env.LIST_DOORS),
     listDoorModel: env.LIST_DOOR_MODEL === 'gated' ? 'gated' : 'after_alert',

@@ -22,7 +22,7 @@ export function testCtx(over: Parameters<typeof createCtx>[0] = {}, fetchImpl?: 
   after(() => rmSync(dir, { recursive: true, force: true }));
   return createCtx({
     appDb: ':memory:', registryDb: join(dir, 'no-registry.sqlite'), cacheDir: join(dir, 'cache'), outDir: join(dir, 'out'),
-    network: false, llmProvider: 'rules', calendlyKey: KEY, demoRoutes: false, anthropicKey: null,
+    network: false, llmProvider: 'rules', calendlyKey: KEY, demoRoutes: false, anthropicKey: null, modelRetryWaitMs: 0,
     // the synthetic rate file and its platform mapping, never the real export, which may or may not be on disk
     ratesCsv: RATES_MINI, outboundPlatforms: PLATFORMS_MINI,
     // no usage fixtures unless a test asks: the usage tests seed exactly the events and deals they mean to read

@@ -47,7 +47,7 @@ interface Figure { what: string; pattern: RegExp; expected: number | number[] }
 
 const FIGURES: Figure[] = [
   { what: 'doors', pattern: /\b(Eight) (?:sources|doors)\b/gi, expected: SOURCES.length },
-  { what: 'model call timeout (Ollama, src/qualify/llm.ts)', pattern: /temperature 0, (?:output held to a JSON schema|JSON-schema output), (\d+) s timeout|the model times out \((\d+) s\)/gi, expected: seconds(timeoutsIn('src/qualify/llm.ts')[0]) },
+  { what: 'model call timeout (the MODEL_TIMEOUT_MS default in src/config.ts)', pattern: /temperature 0, (?:output held to a JSON schema|JSON-schema output), (\d+) s timeout|the model times out \((\d+) s\)/gi, expected: seconds(makeConfig({}, {}).modelTimeoutMs) },
   { what: 'registry lookup timeout (NPPES and homepage title)', pattern: /each with a (\d+) s timeout|lookup that times out \((\d+) s\)/g, expected: [...new Set([...timeoutsIn('src/resolve/nppes.ts'), ...timeoutsIn('src/resolve/siteTitle.ts')].map(seconds))] },
   { what: 'HubSpot call timeout', pattern: /Plain fetch, (\d+) s timeout per call/g, expected: [...new Set(timeoutsIn('src/crm/hubspot.ts').map(seconds))] },
   { what: 'model-only disqualifier confidence', pattern: /under (0\.\d+)|at (0\.\d+) (?:confidence )?or above|at (0\.\d+) or more/g, expected: LLM_DISQUALIFY_CONFIDENCE },
@@ -85,7 +85,7 @@ const FIGURES: Figure[] = [
 const NAMES: [RegExp, string][] = [
   [/\bR(?:10|[1-9])\b/g, 'rule ids, checked against src/route.ts below'],
   [/\b(?:200|202|401|429|503)\b|\b[45]xx\b/g, 'HTTP statuses the handlers answer (test/pipeline.test.ts, test/signed-doors.test.ts, test/crm-failure.test.ts)'],
-  [/HMAC-SHA256|SHA-256|CRM v3|127\.0\.0\.1|Python 3\b/g, 'algorithm, API version, address and language names'],
+  [/HMAC-SHA256|SHA-256|CRM v3|127\.0\.0\.1|Python 3\b|Claude Sonnet 5\.5/g, 'algorithm, API version, address, language and model names'],
   [/\b(?:DEMO_ROUTES|HUBSPOT_LIVE)=1\b/g, 'a switch named by its on value'],
 ];
 
