@@ -34,6 +34,8 @@ D07 (Welsh Carson, a live diligence) and D08 (Vertex) go to the Payers, Life Sci
 
 D10, a practice manager on a free-mail address asking what Aetna pays for one code, goes to RevOps review in both runs. D11, a vendor pitch, is dropped and nobody is alerted, in both.
 
+When this day was first run, a review item could only be read: the tab said RevOps decides and nothing let anyone decide. Since then a person decides in Needs a person: they choose one of the candidates (or, for an unplaced company, an account the registry or the CRM holds), send the lead to nurture, rule it not a buyer, or clear the model's doubt, and the lead runs through the router again with that decision (`docs/DECISIONS.md` #33). The list's unplaced rows go to nurture in one step. `npm run day` itself still leaves the review items open, so its counts are the router's alone.
+
 D09 is the one nobody sees: six page views from kp.org, four of them on pricing and Network benchmarking, no person. It was an account signal and a research task before, and it still is. What is new is that the visits are read for the feature they point at: the pages are tagged as interest in Network benchmarking by visited path, and in Signal search.
 
 ## 3:10 pm to 4:30 pm: a referral, a second person, a customer, a broker (D12 to D15)
@@ -83,5 +85,6 @@ After the changes I repeated the first run's steps over HTTP against a running s
 - Referral capture is phrase-based: "Jane at Emory said we should call you" is missed. Interest cues are the same, and the aliases are mine to tune.
 - Usage and deals are invented, on twelve fictional accounts, and the attribution is influence, not cause: most win-rate comparisons rest on fewer than five closed deals on a side.
 - Twenty-eight probable links between rate groups and registry organizations need a person, and some candidates are wrong, so nothing is linked until someone confirms it.
+- A person's decision, on a review item or a link, records the name they typed: sign-in is not built. A review decision cannot be undone in the product; a second one is refused.
 - The scenario runs on a fixed clock, so its own timings read zero; the timed numbers are from the load record, which used the local model on one Mac. Health's queue-wait and time-to-alert figures in the brief cover every lead, not the window.
 - Nothing here is sent. HubSpot is dry-run and Slack is a recorder, so what the reps and customer success would do with it is not tested.

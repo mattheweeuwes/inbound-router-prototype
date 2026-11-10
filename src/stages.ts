@@ -2,13 +2,14 @@
 // The first three need nothing from earlier leads, so prepareLead runs them as soon as a lead is accepted, alongside other
 // leads, and keeps their results in memory. In the lead's turn, commitPrepared writes them and adds what does depend on
 // earlier leads (prior touches, the account) and the lead's deal signals and referral (src/leadSignals.ts, decisions 25 and
-// 26); the last four stages then run in order. Each writes its result on the lead in
-// one UPDATE, announces the new status on the bus for the cockpit, and returns what the later stages need. Every stage is
-// timed into stage_log and run.timings.
+// 26); the last four stages then run in order. Each writes its result on the lead in one UPDATE, announces the new status on
+// the bus for the cockpit, and returns what the later stages need. Every stage is timed into stage_log and run.timings.
+// A person's decision on the lead's review item (decision 33) is read in prepare: it stands in for the resolver, takes out
+// the model's doubt, or forces the route, on this run and every later one.
 // Decisions that need no database are in src/decisions.ts; the SQL is in src/store.
 import { alsoInLine, buildBrief, DOOR_TEXT, enterpriseLine, type AccountContact, type Brief, type BriefLines } from './brief';
 import type { Ctx } from './context';
-import { json } from './db';
+import { json, parse } from './db';
 import {
   accountIds, accountIntent, assignsRep, claimDetail, claimsAccount, DAY, DEDUPE_DAYS, hubspotOwnerIdOf, notesEnterprise, pickRoundRobin,
   reviewReason, summarizeTouches, wantsSlackAlert, webIntentDetail, webIntentPoints, type ModelTiming, type PriorTouch, type StoredAlert,
@@ -26,6 +27,8 @@ import { normalizeEvent } from './normalize';
 import { buildEnterpriseNote, buildSlackPayload, recordSlack } from './notify/slack';
 import { rateFactFor } from './outbound/fact';
 import { referralLine, referralScoreLabel, type Referral, type ReferrerAccount, type StoredReferral } from './referral';
+import { clearModelDoubt, forcedRoute, type ReviewDecision } from './review/decision';
+import { decidedResolution } from './review/resolution';
 import { inferEmployer, resolutionForAccount, resolve } from './resolve';
 import { registryLookups } from './resolve/domain';
 import { afterHours, decideRoute, type Rep } from './route';
@@ -107,6 +110,8 @@ export interface Prepared {
   readyMs: number;
   /** ms the work took from its start, a wait for a model slot included */
   workMs: number;
+  /** a person's decision on the lead's review item (decision 33), applied on this run and every later one */
+  decision: ReviewDecision | null;
 }
 
 /** prepareLead never throws: a failure is handed to the ordered section, which records it in the lead's turn. */
@@ -138,6 +143,7 @@ const direct: Slot = fn => fn();
  */
 export async function prepareLead(ctx: Ctx, input: LeadInputRow, lookupSlot: Slot = direct): Promise<PrepareOutcome> {
   const records: StageRecord[] = [];
+  const decision = parse<ReviewDecision>(input.review_decision_json);
   let startedMs = ctx.cfg.now();
   try {
     const { ev, n, resolved } = await lookupSlot(async () => {
@@ -145,18 +151,30 @@ export async function prepareLead(ctx: Ctx, input: LeadInputRow, lookupSlot: Slo
       const ev = adapt(input.source, JSON.parse(input.raw_json), input.received_at);
       ev.receivedAt = input.received_at;
       const n = await measure(ctx, records, 'normalize', () => normalizeEvent(ev, registryLookups(ctx.db)));
-      // an account in the CRM that no public registry knows keeps the CRM record's identity and segment (before anything stores or scores it)
-      const resolved = await measure(ctx, records, 'resolve', async () => crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror));
+      const resolved = await measure(ctx, records, 'resolve', () => resolveLead(ctx, ev, n, decision));
       return { ev, n, resolved };
     });
-    const { qual, timing } = await measure(ctx, records, 'qualify', () => qualifyForRoute(ctx, ev, n, resolved));
+    const asked = await measure(ctx, records, 'qualify', () => qualifyForRoute(ctx, ev, n, resolved));
+    // a person who said the lead is a buyer has answered the model's doubt: it is not raised again on this run
+    const qual = decision?.kind === 'is_buyer' ? clearModelDoubt(asked.qual) : asked.qual;
+    const timing = asked.timing;
     // the use case refines an unplaced resolution (a benefits contact at an unknown company)
     const res = inferEmployer(resolved, n, qual.final.useCase);
     const now = ctx.cfg.now();
-    return { ok: true, value: { ev, n, resolved, res, qual, timing, records, readyMs: now - Date.parse(input.created_at), workMs: now - startedMs } };
+    return { ok: true, value: { ev, n, resolved, res, qual, timing, records, readyMs: now - Date.parse(input.created_at), workMs: now - startedMs, decision } };
   } catch (error) {
     return { ok: false, error, records };
   }
+}
+
+/**
+ * The lead's organization: the account a person chose in review when there is one (the resolver is not asked again, so a
+ * re-run keeps their choice), otherwise the resolver's answer. An account in the CRM that no public registry knows keeps
+ * the CRM record's identity and segment (before anything stores or scores it).
+ */
+async function resolveLead(ctx: Ctx, ev: LeadEvent, n: Normalized, decision: ReviewDecision | null): Promise<Resolution> {
+  if (decision?.kind === 'use_account' && decision.account) return decidedResolution(ctx, decision);
+  return crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror);
 }
 
 /** Writes the prepare stages' times to stage_log, and into run.timings when there is a run. */
@@ -172,7 +190,11 @@ export function logPrepared(ctx: Ctx, id: string, records: StageRecord[], run?: 
 /** What the router reads about a lead beyond the classifier (decisions 25 and 26): the deal signals and a named referral. */
 export interface LeadSignals { deal: DealSignals; referral: Referral | null }
 
-export interface Committed { n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary; signals: LeadSignals }
+export interface Committed {
+  n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary; signals: LeadSignals;
+  /** a person's decision on the lead's review item, which can force the route (decision 33) */
+  decision: ReviewDecision | null;
+}
 
 /**
  * The prepared lead's turn: the parts that depend on earlier leads (its prior touches from the same contact, the account
@@ -206,7 +228,7 @@ export function commitPrepared(run: Run, p: Prepared): Committed {
   // feature interest (decision 30): what the lead showed, stored as it is committed and read by nothing that scores or routes
   tagLead(ctx, id, ev, nowIso(ctx));
   announce(run, 'qualified');
-  return { n, res, qual, touches, signals };
+  return { n, res, qual, touches, signals, decision: p.decision };
 }
 
 /** The referral as stored, with the dry-run thank-you task for the referring account's owner when it has one. */
@@ -312,7 +334,8 @@ export function routeStage(run: Run, i: RouteInputs): Promise<Routed> {
     const { ctx, id, ev } = run;
     const mirror = matchMirror(ctx.mirror, i.n.companyDomain, i.res.accountName);
     const claimedOwner = i.res.accountId ? ctx.store.accounts.claimedOwner(i.res.accountId) : null;
-    const route = decideRoute({
+    // a person's not-for-sales or not-a-buyer decision is the route; any other decision runs the rules on what it settled
+    const route = (i.decision && forcedRoute(i.decision, { segment: i.res.segment, source: ev.source })) ?? decideRoute({
       ev, n: i.n, res: i.res, qual: i.qual, score: i.score, mirror, claimedOwner, owners: ctx.owners, duplicate: i.touches.duplicate,
       pickRep: team => pickRep(ctx, team, ev.receivedAt), deal: i.signals.deal, listDoor: !!run.listName,
     });

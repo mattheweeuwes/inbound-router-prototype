@@ -59,3 +59,12 @@ export function payer(db: Db, slug: string) {
 export function registryMeta(db: Db): Record<string, string> {
   return Object.fromEntries((db.prepare(`SELECT key, value FROM reg.meta`).all() as { key: string; value: string }[]).map(r => [r.key, r.value]));
 }
+
+/** What the registry holds, as the How it works tab states it: hospitals (CCN), health systems, payers and verified organization domains. */
+export interface RegistryCounts { hospitals: number; systems: number; payers: number; verifiedDomains: number }
+
+export function registryCounts(db: Db): RegistryCounts {
+  const r = db.prepare(`SELECT (SELECT COUNT(*) FROM reg.cms_hospitals) AS hospitals, (SELECT COUNT(*) FROM reg.ahrq_systems) AS systems,
+    (SELECT COUNT(*) FROM reg.payers) AS payers, (SELECT COUNT(*) FROM reg.org_domains) AS verified_domains`).get() as { hospitals: number; systems: number; payers: number; verified_domains: number };
+  return { hospitals: Number(r.hospitals), systems: Number(r.systems), payers: Number(r.payers), verifiedDomains: Number(r.verified_domains) };
+}

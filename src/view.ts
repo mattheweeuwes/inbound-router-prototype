@@ -7,6 +7,7 @@ import { afterHours } from './route';
 import type { DealSignals } from './enterprise';
 import type { RateFact } from './outbound/fact';
 import type { StoredReferral } from './referral';
+import type { StoredReviewDecision } from './review/decision';
 import type { Qualification, Resolution, Route, Source } from './schema';
 import type { StoredSecondOpinion } from './secondOpinion';
 
@@ -96,7 +97,8 @@ export function leadDetail(ctx: Ctx, id: string) {
     };
   }
   const stages = ctx.db.prepare(`SELECT stage, started_at AS startedAt, ms, ok, note FROM stage_log WHERE lead_id = ? ORDER BY rowid`).all(id);
-  const review = ctx.db.prepare(`SELECT reason, candidates_json, resolved FROM review_queue WHERE lead_id = ?`).get(id) as ReviewRow | undefined;
+  // the open item when there is one, otherwise the latest decided one
+  const review = ctx.db.prepare(`SELECT reason, candidates_json, resolved FROM review_queue WHERE lead_id = ? ORDER BY resolved, decided_at DESC, id DESC`).get(id) as ReviewRow | undefined;
   return {
     ...summary,
     raw: parse(r.raw_json),
@@ -120,5 +122,7 @@ export function leadDetail(ctx: Ctx, id: string) {
     stages,
     replays: r.replays,
     review: review ? { reason: review.reason, candidates: parse(review.candidates_json), resolved: !!review.resolved } : null,
+    // a person's decisions on its review items (decision 33), oldest first, each with the route it replaced; the route now is route above
+    decisions: ctx.store.review.decisionsFor(id).map(j => parse<StoredReviewDecision>(j)).filter((d): d is StoredReviewDecision => d != null),
   };
 }

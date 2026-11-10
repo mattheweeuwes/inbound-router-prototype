@@ -26,7 +26,7 @@ export function listStore(db: Db) {
     // the batch: rows accepted after the list's last digest, plus any folded row still owed one (a re-run of an older row)
     batch: p(`SELECT l.id, l.status, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.tier, l.score, l.route_action, l.route_team,
         l.sla_due_at, l.digest_team, l.digest_id, l.resolution_json, l.message, l.created_at, e.accepted_at, e.synthetic, l.enterprise,
-        (SELECT r.reason FROM review_queue r WHERE r.lead_id = l.id ORDER BY r.id LIMIT 1) AS review_reason
+        (SELECT r.reason FROM review_queue r WHERE r.lead_id = l.id AND r.resolved = 0 ORDER BY r.id LIMIT 1) AS review_reason
       FROM leads l JOIN lead_events e ON e.id = l.id
       WHERE e.list_name = ? AND (e.accepted_at > ? OR (l.digest_team IS NOT NULL AND l.digest_id IS NULL))
       ORDER BY e.accepted_at, e.rowid`),

@@ -27,8 +27,13 @@ export interface RouteInput {
   listDoor?: boolean;
 }
 
-const MARKETING = 'Marketing (Sam)';
+/** The marketing lead who owns every nurture, careers and press route, and a person's not-for-sales decision. */
+export const MARKETING_OWNER = 'Marketing (Sam)';
+const MARKETING = MARKETING_OWNER;
 const REVOPS = 'RevOps';
+
+/** A repeat touch inside this window of the contact's last alert never alerts again (R2). */
+export const REPEAT_ALERT_QUIET_MS = 24 * 3600_000;
 
 // minutes; B/C/D/review are business minutes. enterprise is a tier-B enterprise deal (R10), clocked like A from the next business open.
 export const SLA = { A: 5, enterprise: 15, B: 60, C: 540, D: 540, review: 60 } as const;
@@ -74,6 +79,8 @@ const SEGMENT_LABEL: Record<Segment, string> = {
   government: 'government employer', academic: 'academic institution', non_us: 'non-US organization', media: 'media organization', competitor: 'competitor',
 };
 const TRACK_LABEL: Record<string, string> = { provider_education: 'provider education', payer_lifesci_advisory: 'payer, life sciences and advisory', benefits_advisors: 'benefits advisors', developer_product: 'developer and product', research: 'research', out_of_territory: 'out-of-territory', general: 'general' };
+/** "provider education" for provider_education, and so on. */
+export const nurtureTrackLabel = (track: string) => TRACK_LABEL[track] ?? track.replace(/_/g, ' ');
 const NUMBER_WORD = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const STATUS_TEXT: Record<string, string> = { customer: 'Existing customer account', open_opportunity: 'Account with an open opportunity', partner: 'Partner account' };
 
@@ -119,7 +126,7 @@ export function decideRoute(i: RouteInput): Route {
   // R2 contact duplicate (an idempotent replay never reaches here: the inbound handler returns before a lead exists)
   if (i.duplicate) {
     const d = i.duplicate;
-    const recent = d.lastAlertAt != null && Date.parse(ev.receivedAt) - Date.parse(d.lastAlertAt) < 24 * 3600_000;
+    const recent = d.lastAlertAt != null && Date.parse(ev.receivedAt) - Date.parse(d.lastAlertAt) < REPEAT_ALERT_QUIET_MS;
     // Inside 24h of the last alert: always quiet. After that, only a tier-A touch re-alerts; everything else just lands on the record.
     const suppressed = recent || tier !== 'A';
     return {

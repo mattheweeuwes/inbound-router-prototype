@@ -68,7 +68,7 @@ function sizePoints(res: Resolution): { points: number; label: string } {
     return f.sizeClass === 'national' ? { points: 14, label: 'national broker/consultant' } : f.sizeClass === 'regional' ? { points: 8, label: 'regional broker/consultant' } : { points: 6, label: 'known broker/consultant' };
   }
   if (res.segment === 'media' || res.segment === 'competitor') return { points: 0, label: 'no size credit' };
-  if (res.status === 'resolved' && ['curated_domain', 'org_domain', 'company_name', 'site_title', 'nppes', 'crm'].includes(res.method)) return { points: 6, label: 'known organization' };
+  if (res.status === 'resolved' && ['curated_domain', 'org_domain', 'company_name', 'site_title', 'nppes', 'crm', 'person'].includes(res.method)) return { points: 6, label: 'known organization' };
   return { points: 0, label: 'unknown size' };
 }
 

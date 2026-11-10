@@ -123,7 +123,7 @@ describe('migration 009', () => {
     const db = new DatabaseSync(join(dir, 'app.sqlite'));
     migrate(db, old);
     db.prepare(`INSERT INTO features (feature, label, launched_at, team, preview_of_add_on) VALUES ('api', 'API', '2025-11-03T00:00:00.000Z', 'Platform', NULL)`).run();
-    assert.deepEqual(migrate(db, join(ROOT, 'sql', 'migrations')), ['009_feature_interest.sql']);
+    assert.deepEqual(migrate(db, join(ROOT, 'sql', 'migrations')), ['009_feature_interest.sql', '010_review_decisions.sql']);
     assert.deepEqual({ ...(db.prepare(`SELECT feature, status, launched_at FROM features`).get() as object) }, { feature: 'api', status: 'launched', launched_at: '2025-11-03T00:00:00.000Z' });
     // a feature in preview has no launch date, and a launched one must have one
     db.prepare(`INSERT INTO features (feature, label, status, launched_at, team) VALUES ('signal_ask', 'Signal Ask', 'preview', NULL, 'Signal')`).run();

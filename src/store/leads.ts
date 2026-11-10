@@ -5,7 +5,11 @@ import { allRows, getRow, tx, type Db } from '../db';
 import type { Source } from '../schema';
 
 /** What processLead needs to start a run. */
-export type LeadInputRow = { source: Source; received_at: string; raw_json: string; synthetic: number; created_at: string; attempts: number; list_name: string | null };
+export type LeadInputRow = {
+  source: Source; received_at: string; raw_json: string; synthetic: number; created_at: string; attempts: number; list_name: string | null;
+  /** a person's decision on its review item (decision 33), which every run of the lead applies; null when none */
+  review_decision_json: string | null;
+};
 
 /** A lead from the same contact accepted before this one, inside the dedupe window, in acceptance order. */
 export type PriorTouchRow = { id: string; owner: string | null; route_team: string | null; route_action: string | null; alert_json: string | null; received_at: string };
@@ -31,6 +35,8 @@ export type SecondOpinionInputRow = {
   source: Source; received_at: string; raw_json: string; synthetic: number; normalized_json: string | null; resolution_json: string | null;
   qualification_json: string | null; route_json: string | null; alert_json: string | null; timings_json: string | null; second_opinion_json: string | null;
   created_at: string;
+  /** a person's decision on the lead's review item, if any: a doubt they cleared is not raised again */
+  review_decision_json: string | null;
 };
 
 /** The deal signals and referral written when a lead is committed (decisions 25 and 26). */
@@ -56,7 +62,7 @@ export function leadStore(db: Db) {
     unfinished: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.status NOT IN ('done', 'failed') ORDER BY e.accepted_at, e.rowid`),
     dueRetries: p(`SELECT id FROM leads WHERE status = 'retrying' AND retry_at <= ? ORDER BY retry_at, rowid`),
     nextRetryAfter: p(`SELECT MIN(retry_at) AS at FROM leads WHERE status = 'retrying' AND retry_at > ?`),
-    input: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.created_at, l.attempts, e.list_name FROM lead_events e JOIN leads l ON l.id = e.id WHERE e.id = ?`),
+    input: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.created_at, l.attempts, e.list_name, l.review_decision_json FROM lead_events e JOIN leads l ON l.id = e.id WHERE e.id = ?`),
     // Earlier means accepted earlier (lead_events rowid), not an earlier source timestamp: a list arrives out of time order,
     // and its second scan of a badge often carries the earlier time. The window is the 30 days either side of this lead's time.
     priorTouches: p(`SELECT l.id, l.owner, l.route_team, l.route_action, l.alert_json, e.received_at FROM leads l JOIN lead_events e ON e.id = l.id
@@ -94,11 +100,16 @@ export function leadStore(db: Db) {
     nextSecondOpinion: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.second_opinion = 'pending' AND l.status = 'done' ORDER BY e.accepted_at, e.rowid LIMIT 1`),
     claimSecondOpinion: p(`UPDATE leads SET second_opinion = 'running' WHERE id = ? AND second_opinion = 'pending' AND status = 'done'`),
     secondOpinionInput: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.normalized_json, l.resolution_json, l.qualification_json, l.route_json,
-      l.alert_json, l.timings_json, l.second_opinion_json, l.created_at FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.id = ?`),
+      l.alert_json, l.timings_json, l.second_opinion_json, l.created_at, l.review_decision_json FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.id = ?`),
     // a re-run of the lead resets the column, so a call that was in flight for the earlier run is not stored over the new one
     saveSecondOpinion: p(`UPDATE leads SET second_opinion = 'done', second_opinion_json = ?, updated_at = ? WHERE id = ? AND second_opinion = 'running'`),
     requeueSecondOpinions: p(`UPDATE leads SET second_opinion = 'pending' WHERE second_opinion = 'running'`),
     followUpAlerts: p(`UPDATE leads SET alert_json = json_set(COALESCE(alert_json, '{"slack":null}'), '$.followUp', json(?)), updated_at = ? WHERE id = ?`),
+    reviewDecision: p(`UPDATE leads SET review_decision_json = ?, updated_at = ? WHERE id = ?`),
+    // only a finished lead goes back in the queue: one mid-run, or waiting for a retry, is refused before this is reached
+    requeue: p(`UPDATE leads SET status = 'received', updated_at = ?, retry_at = NULL WHERE id = ? AND status = 'done'`),
+    // later touches from the same contact that attached to this lead (R2), in acceptance order
+    attached: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.duplicate_of = ? AND l.status = 'done' ORDER BY e.accepted_at, e.rowid`),
     failureAlert: p(`UPDATE leads SET alert_json = json_set(COALESCE(alert_json, '{"slack":null}'), '$.failure', json(?)), updated_at = ? WHERE id = ?`),
   };
 
@@ -157,6 +168,12 @@ export function leadStore(db: Db) {
     requeueSecondOpinions: (): number => Number(s.requeueSecondOpinions.run().changes),
     /** Adds the follow-up a doubt after the alert sends, under alert_json.followUp, leaving the alert itself as it was. */
     addFollowUpAlerts: (id: string, at: string, payloadsJson: string) => { s.followUpAlerts.run(payloadsJson, at, id); },
+    /** Stores a person's decision on the lead's review item, which prepare and the route read on every later run. */
+    setReviewDecision: (id: string, at: string, decisionJson: string) => { s.reviewDecision.run(decisionJson, at, id); },
+    /** Puts a finished lead back to received so it can be run again. False when it was not finished (mid-run, retrying or failed). */
+    requeue: (id: string, at: string): boolean => Number(s.requeue.run(at, id).changes) > 0,
+    /** Finished leads that attached to this one as repeat touches from the same contact, oldest first. */
+    attachedTouches: (id: string): string[] => allRows<{ id: string }>(s.attached, id).map(r => r.id),
     /** Adds the RevOps give-up alert under alert_json.failure, leaving any rep alert in alert_json.slack as it was. */
     addFailureAlert: (id: string, at: string, payloadJson: string) => { s.failureAlert.run(payloadJson, at, id); },
   };

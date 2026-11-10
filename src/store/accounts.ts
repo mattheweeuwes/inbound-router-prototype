@@ -40,7 +40,8 @@ export function accountStore(db: Db) {
     deleteSignals: p(`DELETE FROM account_signals WHERE lead_id = ?`),
     deleteAssignments: p(`DELETE FROM assignments WHERE lead_id = ?`),
     addReview: p(`INSERT INTO review_queue (lead_id, reason, candidates_json, created_at, resolved) VALUES (?, ?, ?, ?, 0)`),
-    deleteReview: p(`DELETE FROM review_queue WHERE lead_id = ?`),
+    // an open item only: a decided one is the record of a person's decision and outlives the re-run it started (decision 33)
+    deleteReview: p(`DELETE FROM review_queue WHERE lead_id = ? AND resolved = 0`),
     webIntentBetween: p(`SELECT COUNT(*) AS n FROM account_signals WHERE account_id = ? AND type = 'web_intent' AND at >= ? AND at <= ?`),
     webIntentAll: p(`SELECT COUNT(*) AS n FROM account_signals WHERE account_id = ? AND type = 'web_intent'`),
     setIntentPoints: p(`UPDATE accounts SET intent_points = ? WHERE id = ?`),
@@ -73,7 +74,7 @@ export function accountStore(db: Db) {
         return true;
       });
     },
-    /** Undoes everything a lead wrote here, so a re-run starts clean: its claims (and the ownership they gave), signals, assignments and review item. */
+    /** Undoes everything a lead wrote here, so a re-run starts clean: its claims (and the ownership they gave), signals, assignments and open review item. */
     releaseLead(leadId: string) {
       s.releaseOwnership.run(leadId);
       s.deleteClaims.run(leadId);

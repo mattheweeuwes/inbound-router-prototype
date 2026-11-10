@@ -15,6 +15,8 @@ import leads from './api/leads';
 import metrics from './api/metrics';
 import outbound from './api/outbound';
 import quality from './api/quality';
+import review from './api/review';
+import how from './api/how';
 import stream from './api/stream';
 import usage from './api/usage';
 import { getCtx } from './src/context';
@@ -33,10 +35,10 @@ const TYPES: Record<string, string> = {
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: [RegExp, Handler][] = [
-  [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
+  [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads\/[^/]+\/review\/?$/, review], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
   [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+(\/link)?)?\/?$/, outbound],
   [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution], [/^\/api\/accounts(\/[^/]+)?\/?$/, accounts],
-  [/^\/api\/brief\/?$/, brief],
+  [/^\/api\/brief\/?$/, brief], [/^\/api\/review(\/list)?\/?$/, review], [/^\/api\/how\/?$/, how],
 ];
 
 async function toWebRequest(req: IncomingMessage, port: number): Promise<Request> {

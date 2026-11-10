@@ -37,7 +37,7 @@ const L = {
   disq: { none: 'None', job_seeker: 'Job seeker', vendor_pitch: 'Vendor pitch', student: 'Student', media: 'Media', spam: 'Spam', competitor: 'Competitor' },
   method: {
     curated_domain: 'Curated domain list', org_domain: 'Verified org domain', company_name: 'Company-name match',
-    site_title: 'Homepage-title match', nppes: 'NPPES organization NPI', tld_heuristic: 'Domain type', tld: 'Domain type (TLD)', inferred: 'Inferred employer', crm: 'CRM account', none: 'Not matched',
+    site_title: 'Homepage-title match', nppes: 'NPPES organization NPI', tld_heuristic: 'Domain type', tld: 'Domain type (TLD)', inferred: 'Inferred employer', crm: 'CRM account', person: 'Chosen by a person', none: 'Not matched',
   },
   fn: {
     managed_care_contracting: 'Managed care / contracting', network_strategy: 'Network strategy', benefits: 'Benefits',
@@ -75,6 +75,7 @@ const state = {
   known: new Set(),
   fresh: new Set(),
   dash: null,
+  reviewOpen: null, // open review items as Needs a person last counted them, or null to use the dashboard's count
   tableView: {},
   seenFeed: new Set(),
   evalData: null,
@@ -286,8 +287,9 @@ function select(id, { keepFollow = false } = {}) {
   loadDetail(id);
 }
 
+// the open review items: the tab's own count once it has read them, else the dashboard's, which counts the same rows
 function renderReviewTabCount() {
-  const n = state.leads.filter((l) => l.routeAction === 'review').length;
+  const n = state.reviewOpen ?? (state.dash ? state.dash.review.length : state.leads.filter((l) => l.routeAction === 'review').length);
   const el = $('#reviewCount');
   el.textContent = String(n);
   el.dataset.zero = n === 0 ? 'true' : 'false';
@@ -518,9 +520,12 @@ function renderDetail(d) {
     html += stage(stageState(d, 'scored', false), 'Scored', d.tier === 'X' ? 'Not for sales' : '', t.score, null);
   }
 
+  // a person's decision on the lead's review item: what they chose, and the route before and now
+  for (const dec of d.decisions || []) html += decisionStage(dec, { ...r, tier: d.tier });
+
   // 6 routed
   if (r.action) {
-    html += stage(stageState(d, 'routed', true, r.action === 'review'), 'Routed', `${lab('action', r.action)}${r.rule ? ` · rule ${r.rule}` : ''}`, t.route,
+    html += stage(stageState(d, 'routed', true, r.action === 'review'), 'Routed', `${lab('action', r.action)}${r.rule === 'person' ? " · a person's decision" : r.rule ? ` · rule ${r.rule}` : ''}`, t.route,
       kv([
         ['Action', esc(lab('action', r.action))],
         ['Owner', esc(r.owner || '—')],
@@ -569,6 +574,21 @@ function renderDetail(d) {
 }
 
 /** The outbound module's one line about this organization's own rate, with the way it was matched and a jump to its group. */
+const DECISION_TEXT = { use_account: 'Used an account', not_for_sales: 'Sent to nurture', not_a_buyer: 'Not a buyer', is_buyer: 'It is a buyer' };
+/** A route in a few words, for the decision step's before and now. */
+const routeWords = (x) => (x && x.action ? `${lab('action', x.action)} · ${x.owner || teamName(x.team) || '—'}${x.tier && x.tier !== 'X' ? ` · tier ${x.tier}` : ''}` : '—');
+/** The Decided by a person step: who chose what, when, and what it changed. */
+function decisionStage(dec, now) {
+  const what = DECISION_TEXT[dec.kind] || dec.kind;
+  return stage('done', 'Decided by a person', `${what} · ${dec.by}`, null, kv([
+    ['Decision', esc(what) + (dec.account ? `: ${esc(dec.account.name)} <span class="idkey">${esc(dec.account.key)}</span>` : '') + (dec.reason ? ` (${esc(dec.reason)})` : '')],
+    ['Who', `${esc(dec.by)}, ${esc(fmtFull(dec.at))}`],
+    dec.note ? ['Note', esc(dec.note)] : null,
+    ['Before', esc(routeWords(dec.before))],
+    ['Now', esc(dec.rerun ? routeWords(now) : `${routeWords(now)} (not run again)`)],
+  ]));
+}
+
 function rateFactStage(f) {
   const how = f.matchedBy === 'registry_link' ? 'linked to the account this lead resolved to' : 'same name and state as the lead\u2019s organization';
   return stage('done', 'Their rates', 'from the rate file, added to the brief, the alert and the task', null,
@@ -599,30 +619,17 @@ function renderSlack(slack) {
 }
 
 // ─── review tab ──────────────────────────────────────────────────────────────
-async function renderReview() {
-  const box = $('#reviewList');
-  const items = state.leads.filter((l) => l.routeAction === 'review');
-  if (!items.length) {
-    box.innerHTML = '<div class="none">Nothing is waiting for a person right now.</div>';
-    return;
-  }
-  const card = (l) => `<div class="rcard" data-id="${esc(l.id)}"><div class="rcard-top"><span class="rcard-name">${esc(l.person?.name || 'Account signal')}</span><span style="color:var(--muted)">${esc(l.person?.title || '')}${l.org?.name ? ` · said "${esc(l.org.name)}"` : ''}</span><button class="btn btn-ghost open" data-id="${esc(l.id)}">Open the trail</button></div><div class="rcard-why">Loading the reason…</div></div>`;
-  // rows from one uploaded list read as one thing: a collapsible heading per list, the other items as before
-  const lists = new Map();
-  for (const l of items) if (l.list) lists.set(l.list, [...(lists.get(l.list) || []), l]);
-  const single = items.filter((l) => !l.list);
-  box.innerHTML = [...lists.entries()].map(([name, rows]) => `<details class="rlist"><summary><b>${esc(name)}</b> · ${nf(rows.length)} row${rows.length === 1 ? '' : 's'} from this list need a person</summary>${rows.map(card).join('')}</details>`).join('')
-    + single.map(card).join('');
-  for (const l of items) {
-    try {
-      const d = state.details.get(l.id) || await getJSON(`/leads/${encodeURIComponent(l.id)}`);
-      state.details.set(l.id, d);
-      const card = box.querySelector(`.rcard[data-id="${CSS.escape(l.id)}"]`);
-      if (!card) continue;
-      const cands = d.resolution?.candidates || [];
-      card.querySelector('.rcard-why').innerHTML = `${esc(d.route?.reason || 'Sent to a person.')}${cands.length ? `<table class="cands"><thead><tr><th>Candidate</th><th>State</th><th>Account key</th><th class="num">Match</th></tr></thead><tbody>${cands.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.state || '—')}</td><td><span class="idkey">${esc(c.accountId || '—')}</span></td><td class="num">${esc(c.score != null ? Number(c.score).toFixed(2) : '—')}</td></tr>`).join('')}</tbody></table>` : ''}`;
-    } catch { /* leave the placeholder */ }
-  }
+// Needs a person is its own module (review.js), loaded and mounted the first time the tab opens.
+let reviewTab = null;
+function review() {
+  reviewTab ??= import('./review.js')
+    .then((m) => m.mountReview($('#reviewBody'), {
+      getJSON, postJSON, fmtTime: fmtFull,
+      onCount: (n) => { state.reviewOpen = n; renderReviewTabCount(); },
+      openLead: (id) => { state.follow = false; showTab('stream'); select(id); },
+    }))
+    .catch((e) => { $('#reviewBody').innerHTML = `<div class="card ob-empty"><h3>Needs a person is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
+  return reviewTab;
 }
 
 // ─── eval tab ────────────────────────────────────────────────────────────────
@@ -1285,6 +1292,8 @@ async function loadDashboard() {
   if (upd) upd.classList.add('is-busy');
   try {
     state.dash = await getJSON('/dashboard');
+    state.reviewOpen = null; // the dashboard is newer than the tab's last read
+    renderReviewTabCount();
     renderStrip();
     renderOverview();
   } catch (e) {
@@ -1483,11 +1492,7 @@ function today() {
 }
 /** Opens a review item's card in Needs a person, with its list's group open, and flashes it. */
 function openReviewCard(id) {
-  showTab('review');
-  const card = document.querySelector(`.rcard[data-id="${CSS.escape(id)}"]`);
-  const group = card?.closest('details.rlist');
-  if (group) group.open = true; // a list's rows sit under its collapsed heading
-  if (card) { card.scrollIntoView({ block: 'center' }); card.classList.add('is-flash'); setTimeout(() => card.classList.remove('is-flash'), 1700); }
+  showTab('review', { then: (r) => r.focusItem(id) });
 }
 /** Opens what a Today row points at, in the tab that holds its detail. */
 function goTo(t) {
@@ -1497,7 +1502,7 @@ function goTo(t) {
   if (t.tab === 'outbound' && t.ein) outbound().then((o) => o.open(t.ein)).catch(() => {});
   if (t.tab === 'feature-pipeline' && t.feature) featurePipeline().then((f) => f.select(t.feature)).catch(() => {});
 }
-function showTab(tab) {
+function showTab(tab, { then } = {}) {
   const changed = state.tab !== tab;
   state.tab = tab;
   document.body.classList.toggle('is-fixed', tab === 'stream');
@@ -1509,7 +1514,7 @@ function showTab(tab) {
   }
   for (const v of $$('.view')) v.classList.toggle('is-active', v.id === `view-${tab}`);
   if (tab === 'overview' && state.dash) renderOverview();
-  if (tab === 'review') renderReview();
+  if (tab === 'review') review().then((r) => r.show().then(() => then?.(r))).catch(() => {});
   if (tab === 'evals') loadEval();
   if (tab === 'quality') loadQuality();
   if (tab === 'today') today().then((t) => t.show()).catch(() => {});
@@ -1555,11 +1560,6 @@ function wire() {
       showTab('outbound');
       outbound().then((t) => t.open(g.dataset.ein)).catch(() => {});
     }
-    const o = e.target.closest('.rcard .open');
-    if (o) {
-      showTab('stream');
-      select(o.dataset.id);
-    }
   });
   $('#replayBtn').addEventListener('click', onReplay);
   $('#submitBtn').addEventListener('click', openDrawer);
@@ -1580,219 +1580,24 @@ function wire() {
   });
 }
 
+/** Keeps --topbar-h equal to the sticky top bar's height, so a bar that sticks under it (Needs a person's name field) sits flush. */
+function trackTopbar() {
+  const bar = $('.topbar');
+  if (!bar || typeof ResizeObserver === 'undefined') return;
+  new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${bar.offsetHeight}px`)).observe(bar);
+}
+
 async function boot() {
   wire();
+  trackTopbar();
   showTab('overview');
   const live = await probeLive();
   setMode(live ? 'live' : 'sample');
+  // How it works is its own module (how.js): the click-to-explain panel, and the registry counts once the mode is known
+  import('./how.js').then((m) => m.mountHow($('#view-how'), { getJSON })).catch(() => {});
   await Promise.all([loadList(), loadDashboard(), loadEval()]);
   if (live) connectStream();
   else startProbing();
 }
 boot();
 
-// How it works: click a box in the topology to see what it is built with and how it works.
-(() => {
-  const TOPO = {
-    doors: {
-      title: `Inbound doors`, files: `src/sources/*.ts`,
-      sum: `Eight sources, each with its own adapter. An adapter turns that tool's webhook payload into one canonical lead event, so nothing after this point knows which vendor sent it.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `One file per source. Each is a pure function from the vendor payload to the canonical LeadEvent type declared in schema.ts.`], [`Dependencies`, `None. No vendor SDKs.`]],
-      sections: [
-        { h: `The adapters`, items: [`Calendly-style demo request: the signed door.`, `HubSpot-form-style gated guide and Signal Ask waitlist.`, `Product events for the Try Signal sign-up and API / MCP key creation, with usage counts.`, `Marketplace inquiry, event badge scan, and account-level web intent (no person).`] },
-        { h: `Why this shape`, items: [`Vendor quirks stay at the edge.`, `A new door is one adapter and a fixture. The pipeline does not change.`] },
-      ],
-      prod: `Point each adapter at the live tool's webhook.`,
-    },
-    webhook: {
-      title: `Webhook`, files: `api/inbound.ts · src/sources/calendly.ts · src/pipeline.ts`,
-      sum: `One endpoint, POST /api/inbound?source=<door>. It verifies the request, records the event exactly once, answers 202, and does the work after the response.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `A Web-standard handler (Request in, Response out), so it can run on a serverless platform. Locally a small node:http server sits in front of it, bound to 127.0.0.1 unless HOST says otherwise.`], [`Crypto`, `node:crypto: HMAC-SHA256 and a constant-time compare.`]],
-      sections: [
-        { h: `Each request`, ordered: true, items: [`A signed door with no key configured answers 503. It fails closed.`, `Signature: HMAC-SHA256 over the timestamp and the raw body. A timestamp more than 5 minutes old is rejected, which stops replays. A bad signature gets 401.`, `The payload is adapted to the canonical event.`, `Insert, in one transaction, with a unique key on (source, source event id). The id comes from the payload's own timestamp, or from a SHA-256 of the body when there is none, never from server time. A re-delivery hits the key and gets 200 with no work done.`, `A new event gets 202 Accepted and is processed off the request path.`] },
-        { h: `After the 202`, items: [`Each lead's order-independent work (normalize, resolve with its lookups, the rules and, when the route needs it, the model) starts at once, four leads at a time.`, `An ordered section then takes one lead at a time, in the order they were accepted, for everything that depends on earlier leads: dedupe, the account, score, route, round-robin, the alert and the HubSpot plan. Round-robin and dedupe never race, and the alert never waits on HubSpot.`, `Leads commit in the order they were accepted within a lane (the email's domain, or the address on free mail). A lead still waiting for the model or a lookup holds only its lane: after a 250 ms grace, a ready lead from another organization goes ahead of it.`, `An uploaded list (conference badge scans) is routed on the rules, with the model after the alert, and its queue, owner-task, nurture and review rows go out as one Slack digest per list and team once the list has settled. A rep alert still goes out on its own.`, `Each stage writes its result and its duration to a stage log in SQLite (node:sqlite, WAL).`, `Re-running a lead replaces its derived rows, so a restart re-runs anything unfinished. A re-run can repeat an alert.`, `Time to route is measured from the 202. CI replays the 40-event day (39 leads) and fails if the p90 goes over 150 ms with the model off.`] },
-      ],
-      prod: `Parallel workers with a per-account lock instead of the one ordered section, and a dead-letter queue for events that keep failing.`,
-    },
-    normalize: {
-      title: `Normalize`, files: `src/normalize.ts`,
-      sum: `Turns the raw event into fields that compare cleanly across doors.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `Pure functions with no network calls, driven by lookup tables.`]],
-      sections: [
-        { h: `What it derives`, items: [`A lower-cased email and a contact key, which catches the same person arriving through another door.`, `First and last name, with casing fixed.`, `Job function and seniority, read from the title. Both feed the score and the buying role.`, `Clean UTM tags, and a channel derived from the door, the UTMs and the referrer.`, `The email domain, kept only if it is a plain DNS hostname. A port, a path, an IP address or a bare name like localhost counts as no domain.`, `Free-mail and disposable-mail flags.`] },
-      ],
-      prod: `Also check HubSpot for the same contact or account touched in the last 30 days.`,
-    },
-    resolve: {
-      title: `Resolve`, files: `src/resolve/*.ts`,
-      sum: `Places the lead on a real organization by ID, so three people from one health system become one account. Every answer carries its evidence as one sentence.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `An ordered list of resolvers. The first confident answer wins.`], [`Data`, `The registry database, attached read-only. NPPES and homepage titles are fetched live, with timeouts.`]],
-      sections: [
-        { h: `Resolution order`, ordered: true, items: [`A curated domain list, payers included.`, `Organization domains from the registry.`, `Company-name match, using one name-normalization rule shared with the Python ETL.`, `The homepage title of an unknown corporate domain (at most 64 KB read; .edu, .gov and non-US endings are skipped). The name must resolve to public addresses only, and a redirect must stay on https and a DNS name, at most 3 deep.`, `NPPES Registry API for provider groups (organization NPIs only).`, `Top-level-domain rules.`, `Otherwise unknown. An HR or benefits title at an unknown company is labelled a probable self-funded employer, with low confidence.`] },
-        { h: `Keys`, items: [`Hospitals: the CMS certification number (CCN).`, `Health systems: the AHRQ health-system id.`, `No match, or a tie between candidates: held for a person (R6). The exception is a benefits or HR contact at an unknown company: it is resolved as a low-confidence inferred employer and routed by tier.`] },
-      ],
-      prod: `Match on existing HubSpot company records first, then the registries.`,
-    },
-    qualify: {
-      title: `Qualify`, files: `src/qualify/rules.ts · when.ts · llm.ts · prompt.ts · combine.ts`,
-      sum: `Reads the message for use case, buying role, urgency and disqualifiers. Rules go first, a date parser owns urgency, and the model fills the gaps.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `Three classifiers and a combiner (the guard rails, version 4) that decides which one wins each field.`], [`Model call`, `Ollama /api/chat at temperature 0, output constrained to a JSON schema, 8 s timeout.`]],
-      sections: [
-        { h: `Rules`, items: [`Weighted keyword tables, run on every lead, with the matched words kept as evidence.`, `A clear winner stands without asking the model.`] },
-        { h: `Date parser`, items: [`A regex grammar for month names, weekdays, number words, quarters and ASAP.`, `Each phrase becomes a calendar date relative to receipt, in Eastern time. The earliest future date wins.`, `Within 92 days is now, within 183 is this quarter, beyond that is exploring. No timing language is unknown.`] },
-        { h: `When the model runs`, items: [`Before the route only when its answer can change it: free text and no clear keyword use case, since the use case can change the team.`, `Every other free-text lead is routed and alerted on the rules in milliseconds, and the same call runs after the alert as a second opinion. A disqualifier only the model raised then opens a review item and a follow-up to the alert's channel and RevOps; the lead is not quietly un-routed.`, `MODEL_BEFORE_ROUTE=all puts the model before every free-text route, as before.`] },
-        { h: `Model call`, items: [`The prompt is versioned, so eval runs stay comparable.`, `The JSON schema puts reasons first, so the model quotes the prospect before it decides.`, `Enum validation: one off-list value invalidates the answer. A timeout, error or invalid answer falls back to the rules.`] },
-        { h: `Who decides each field`, items: [`Use case: a clear keyword winner, else the model at 0.6 confidence or more, else the rules.`, `Buying role: title seniority, else the model.`, `Urgency: the date parser only.`, `Route: rules only. The model cannot override a rule or write alert text, but its use-case label can change the team for API-type leads.`, `Disqualifier: a rule hit counts. A model-only call for spam or a vendor pitch always goes to a person. For any other disqualifier the model alone counts at 0.8 or more, and below that a person reviews it.`] },
-      ],
-      prod: `The model slot is filled by whichever model clears the eval floors on labelled production leads.`,
-    },
-    score: {
-      title: `Score`, files: `src/score.ts`,
-      sum: `An explainable score out of 100: fit up to 50 plus intent up to 50. Every point is an itemized line stored with the lead.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `A pure function that returns the line items, the total and a tier.`], [`Weights`, `A points table in score.ts.`]],
-      sections: [
-        { h: `Fit, up to 50`, items: [`Segment.`, `Size: hospitals in the system, or beds.`, `Persona: job function times seniority.`] },
-        { h: `Intent, up to 50`, items: [`The door: a demo request outweighs a guide download.`, `Urgency, from the date parser.`, `Product usage: sessions and searches, capped at 10.`, `Repeat touches in the last 30 days, and other activity at the same account.`] },
-        { h: `Tiers`, items: [`A at 70 or more, B at 50, C at 30, D below that.`] },
-      ],
-      prod: `Refit the weights on closed-won outcomes once there are enough, and keep the line items.`,
-    },
-    route: {
-      title: `Route`, files: `src/route.ts · src/time.ts`,
-      sum: `Ordered rules, first match wins. Each decision stores the rule, a one-line reason and an SLA due time in business hours.`,
-      facts: [[`Language`, `TypeScript`], [`Shape`, `One function that walks the rules in order and returns a decision object.`], [`SLA clock`, `Business-hours math in Eastern time, written without a time-zone library.`]],
-      sections: [
-        { h: `Rules, in evaluation order`, items: [`R1 spam by rule, or a disposable email: drop.`, `R2 the same person already went to sales in the last 30 days: attach to that record. A touch that only went to nurture does not count here.`, `R9 web intent (account-level): an account signal, never a rep alert.`, `R3 competitor: flag to marketing.`, `R4 disqualified or out of scope: careers, press, drop, the research track or out of territory.`, `R5 the account already has an owner: the owner gets it, ahead of round-robin.`, `R6 unresolved (a benefits or HR contact at an unknown company is inferred as a low-confidence employer and routed by tier instead), a tie, or a model-only non-buyer call (spam or vendor pitch at any confidence, anything else under 0.8): RevOps review.`, `R7 and R8 team by segment, then tier: A alerts a named rep, B goes to the team queue, C and D go to nurture.`] },
-        { h: `No double assignment`, items: [`When round-robin names a rep, the account is claimed in the same database transaction as the assignment.`] },
-      ],
-      prod: `Territories and tier cut-offs move into config that RevOps can edit. The rules keep their tests.`,
-    },
-    registries: {
-      title: `Public registries`, files: `etl/build_registry.py → data/registry.sqlite`,
-      sum: `A local lookup database built from public sources, so resolution is instant and the data is versioned with the code.`,
-      facts: [[`Language`, `Python 3, standard library only.`], [`Output`, `One SQLite file with indexed tables, opened read-only by the app.`], [`Live lookups`, `NPPES Registry API and homepage titles, each with a timeout.`]],
-      sections: [
-        { h: `Sources`, items: [`CMS Hospital General Information: every Medicare hospital, keyed by CCN.`, `AHRQ Compendium of US Health Systems (2023): systems and their member hospitals.`, `Serif's public payer inventory, plus a hand-verified domain list.`] },
-        { h: `Build checks`, items: [`One name-normalization rule, identical in the Python ETL and the TypeScript matcher.`, `A fixture check resolves every test organization against the fresh build.`] },
-      ],
-      prod: `Rebuild on CMS's release schedule, and add the company's own account tables.`,
-    },
-    model: {
-      title: `Model slot`, files: `src/qualify/llm.ts · src/qualify/prompt.ts`,
-      sum: `The model sits behind one provider interface, so it can be swapped without touching the pipeline. This demo runs a small local model as the baseline.`,
-      facts: [[`Interface`, `Three providers: Ollama (local), rules only (no model), and a hosted provider that is written but switched off.`], [`Demo model`, `Llama 3.2 3B through Ollama on this machine. The model call stays on this machine.`], [`Call`, `Temperature 0, JSON-schema output, 8 s timeout. Plain fetch, no SDK.`]],
-      sections: [
-        { h: `What decides the slot`, items: [`The eval: dev, held-out and sealed sets, with a floor per field.`, `A manifest hashes the sealed set and every classifier file, so each result is tied to the exact code behind it.`, `CI runs the gate with the model off, so the result is the same every time.`] },
-      ],
-      prod: `Run candidate models, open-weights or hosted, against labelled production leads. The one that clears the floors takes the slot.`,
-    },
-    hubspot: {
-      title: `HubSpot`, files: `src/crm/hubspot.ts · scripts/hubspot-setup.ts`,
-      sum: `Writes each routed lead to HubSpot: the contact, the company, and a task for the owner. It runs after the alert, so a slow HubSpot never delays the rep.`,
-      facts: [[`Language`, `TypeScript`], [`API`, `HubSpot CRM v3 REST with a service key. Plain fetch, no SDK.`], [`Modes`, `Dry-run by default, with request bodies written to files. Live only when a key and the live flag are both set. CI cannot write.`]],
-      sections: [
-        { h: `Writes`, items: [`Contacts: batch upsert keyed by email.`, `Companies: batch upsert keyed by the router's account key, so one system is always one company.`, `A task for the owner, associated to the contact and the company.`, `Owners come from the portal's owners API. The demo's reps are synthetic, so in a test portal every task goes to the portal's first owner. If that read fails, the owner is left empty, never invented.`, `A failed write is flagged on the lead. A call that throws (a network error or the 10 s timeout) is retried once, then marked to retry at the next boot.`] },
-        { h: `Setup`, items: [`A one-time script creates the router's property group and properties. It is safe to re-run.`] },
-      ],
-      prod: `Map to the portal's own properties, queue the writes with backoff on rate limits, and push account scores back in batches from a database view (reverse ETL).`,
-    },
-    alert: {
-      title: `Alert`, files: `src/notify/slack.ts · src/brief.ts`,
-      sum: `Tells the owner, with an SLA due time and a brief they can act on in a minute. It goes out before the HubSpot write, so Slack never waits on HubSpot.`,
-      facts: [[`Language`, `TypeScript`], [`Format`, `A Slack Block Kit payload, stored on the lead (dry-run in this demo).`], [`SLA`, `A due time computed in business hours, Eastern time.`]],
-      sections: [
-        { h: `Order`, items: [`The alert is built from the brief, the score and the route. Nothing in it comes from the HubSpot write, which is why it can go first.`] },
-        { h: `The rep brief`, items: [`Extractive: the prospect's own words, quoted, plus facts inserted from the registry.`, `No model writes any of it, so it cannot state something the prospect did not say.`] },
-      ],
-      prod: `Post to the owner's Slack channel. The link to the HubSpot record comes in a follow-up once the write returns an id, so the first alert never waits on HubSpot.`,
-    },
-    review: {
-      title: `Needs a person`, files: `src/route.ts (rule R6)`,
-      sum: `When a step cannot decide, the lead stops for a person instead of guessing. RevOps decides before any rep is alerted, unless the account already has an owner: then the owner gets it, with the doubt in the alert.`,
-      facts: [[`Triggers`, `No organization match (except a benefits or HR contact at an unknown company, which is resolved as a low-confidence inferred employer and routed by tier), a tie between candidates, or a model-only non-buyer call: spam or vendor pitch at any confidence, any other kind under 0.8.`], [`Stored`, `The candidates, the reason and the rule, on the lead.`], [`SLA`, `A due time in business hours, like any other route.`]],
-      sections: [
-        { h: `What keeps going without a person`, items: [`A model timeout (8 s), an off-list answer or low confidence: the rules decide and the reason is recorded.`, `A registry lookup timeout (4 s) is recorded as no answer. If nothing else places the company, it comes here.`, `At the door, a bad signature gets 401 and a missing signing key gets 503. Nothing is stored.`] },
-      ],
-      prod: `Watch the review volume and the rate at which the model and the rules disagree, week to week.`,
-    },
-    ratefile: {
-      title: `Rate file and patterns`, files: `src/outbound/csv.ts · rateFile.ts · load.ts · patterns.ts · sql/models/v_rate_groups.sql`,
-      sum: `Serif's public rate export, one CSV row per negotiated rate, is read at start and turned into tables in the app database. The two contract forms in it are found by search, not written in by hand.`,
-      facts: [[`Language`, `TypeScript`], [`Input`, `RATES_CSV, default data/rates/mrf_rate_search_export.csv. npm run rates:fetch downloads it; the file is public and never committed.`], [`Reloads`, `Only when the file's SHA-256, the platform mapping, the registry or the derivation version changes.`]],
-      sections: [
-        { h: `What it reads`, items: [`A strict RFC 4180 reader with no dependency. A file with a missing column, a bad amount, or mixed payers, networks, months or codes is refused whole.`, `State and city come from the contracting entity's street address.`, `One rate per group (EIN): the row the file flags as covering the most NPIs, then the payer's largest NPI list, then the most psychiatrists, then the higher rate.`] },
-        { h: `The two patterns`, items: [`The rate card: every distinct rate from $100 to $200 is tried as a base, and a rate counts when it is a whole percent of it, 50% to 300%, to the cent.`, `The conversion factor: every amount from $2.00 to $10.00 is tried as a unit, and a rate counts when it is an exact whole multiple of it.`, `A pattern needs at least three distinct rates. Its hit counts and runners-up are stored, so a reader can judge it.`] },
-        { h: `With no file`, items: [`The tables are emptied, and the Outbound tab says why and shows the command that fetches it.`] },
-      ],
-      prod: `Fetch each new monthly file on a schedule and keep the old ones.`,
-    },
-    findings: {
-      title: `One finding per EIN`, files: `src/outbound/findings.ts · targeting.ts · src/resolve/index.ts (resolveByName)`,
-      sum: `For each group: its rate, where that sits against Medicare, which contract form it fits, how it compares with the top rate in its city and the median of its size band.`,
-      facts: [[`Language`, `TypeScript`], [`Key`, `ein:<EIN>, the file's own id for the contracting entity, never its name.`], [`Link`, `Each group is matched to a registry organization by name and state, through the router's own matcher. Only a unique, strong match links; a tie or a weak match is stored unlinked, with its candidates.`]],
-      sections: [
-        { h: `Fit`, items: [`Behavioral health platforms are the target. Hospital systems and small independent groups are not, each with a one-line reason.`, `Which EIN belongs to which platform is a hand-made mapping with a confirmed flag, because the file names entities, not their parents.`] },
-        { h: `Where to see it`, items: [`The Outbound tab: a chart of every group's rate against its size, a table, and one panel per group with its source rows.`] },
-      ],
-      prod: `Match groups to the CRM's own company records before the registry.`,
-    },
-    drafts: {
-      title: `Fit, draft and HubSpot`, files: `src/outbound/draft.ts · campaign.ts · src/crm/hubspot.ts (buildOutboundCompanyUpsert)`,
-      sum: `A target group gets a drafted email and LinkedIn line, and a HubSpot company upsert is built for it. Code inserts every figure, and nothing is sent.`,
-      facts: [[`Language`, `TypeScript`], [`Templates`, `Fixed text with no digits in it. Each placeholder is filled from a named field and returned with where it came from.`], [`HubSpot`, `A company upsert keyed on serif_account_key = ein:<EIN>, built with the router's own request builder.`]],
-      sections: [
-        { h: `The draft`, items: [`The panel marks every inserted figure and lists each with its source field.`, `{first_name} stays open: the file names organizations, not people.`, `A draft is ready only when its platform mapping is confirmed. Otherwise it is blocked, with the reason. Any other group renders only as a labelled preview.`, `Each EIN gets one of two hooks, chosen by a hash of the EIN, so replies can be compared by hook.`] },
-        { h: `Nothing is sent`, items: [`There is no email code in the project.`, `The upsert is never put in the outbox, even with HUBSPOT_LIVE=1: a write to a CRM from outbound wants a person's approval first.`] },
-      ],
-      prod: `A rep adds the contact and sends from their own sequencing tool after review. The company upsert goes through the outbox once someone approves it.`,
-    },
-    loop: {
-      title: `The loop back into the router`, files: `src/outbound/fact.ts · src/stages.ts (notify)`,
-      sum: `When an inbound lead's organization has a rate group, the rep brief, the Slack alert and the CRM task carry one line about that group's own rate. The rep sees what the prospect is paid before the first call.`,
-      facts: [[`Language`, `TypeScript`], [`Match`, `The groups linked to the account the lead resolved to, else the groups with the same normalized name in the same state.`], [`Effect`, `None on the score or the route. The line is stored on the lead and read after the route.`]],
-      sections: [
-        { h: `What the line says`, items: [`The rate, its percent of Medicare, the contract form and the top rate in the city, all from the stored finding.`, `When several groups match, the largest is described and the line says how many matched.`] },
-        { h: `Try it`, items: [`With the real rate file loaded, send a test lead with the preset Organization in the rate file. The lead's trail then has a Their rates step with a link to the group.`] },
-      ],
-      prod: `List every matching group, not only the largest.`,
-    },
-  };
-
-  const svg = document.querySelector('#view-how .diagram svg');
-  const box = document.getElementById('topoDetail');
-  if (!svg || !box) return;
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  let openId = null;
-
-  const mark = (id) => svg.querySelectorAll('[data-node]').forEach((g) => g.classList.toggle('is-active', g.dataset.node === id));
-  const render = (n) => {
-    const facts = n.facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
-    const secs = n.sections.map((s) => {
-      const t = s.ordered ? 'ol' : 'ul';
-      return `<div class="topo-sec"><h4>${esc(s.h)}</h4><${t}>${s.items.map((i) => `<li>${esc(i)}</li>`).join('')}</${t}></div>`;
-    }).join('');
-    box.innerHTML = `<div class="topo-head"><div><div class="topo-kicker">How it's built</div><h3>${esc(n.title)}</h3><div class="topo-files">${esc(n.files)}</div></div><button type="button" class="topo-close">Close</button></div>`
-      + `<p class="topo-sum">${esc(n.sum)}</p><dl class="topo-facts">${facts}</dl><div class="topo-cols">${secs}</div>`
-      + `<p class="topo-prod"><b>In production:</b> ${esc(n.prod)}</p>`;
-  };
-  const show = (id) => {
-    const n = TOPO[id];
-    if (!n) return;
-    openId = id;
-    render(n);
-    box.hidden = false;
-    mark(id);
-    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    box.scrollIntoView({ block: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
-  };
-  const hide = () => { openId = null; box.hidden = true; box.innerHTML = ''; mark(null); };
-
-  svg.addEventListener('click', (e) => { const g = e.target.closest('[data-node]'); if (g) show(g.dataset.node); });
-  svg.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const g = e.target.closest('[data-node]');
-    if (g) { e.preventDefault(); show(g.dataset.node); }
-  });
-  box.addEventListener('click', (e) => { if (e.target.closest('.topo-close')) hide(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openId) hide(); });
-})();

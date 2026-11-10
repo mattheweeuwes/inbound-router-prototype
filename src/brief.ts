@@ -5,7 +5,8 @@ import type { LeadEvent, Normalized, Qualification, Resolution, Source } from '.
 
 const METHOD_TEXT: Record<string, string> = {
   curated_domain: 'matched on domain (curated list)', org_domain: 'matched on domain', company_name: 'matched on company name',
-  site_title: 'matched on homepage title', nppes: 'matched in NPPES', tld: 'placed by domain ending', inferred: 'inferred from title', crm: 'matched to an account already in the CRM', none: 'not matched',
+  site_title: 'matched on homepage title', nppes: 'matched in NPPES', tld: 'placed by domain ending', inferred: 'inferred from title', crm: 'matched to an account already in the CRM',
+  person: 'chosen by a person in review', none: 'not matched',
 };
 
 export function orgFacts(res: Resolution): string {

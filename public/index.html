@@ -99,8 +99,9 @@
       <div class="page">
         <div class="page-head">
           <h2>Needs a person</h2>
+          <p class="page-sub">Each item is a lead the router would not guess about. Choose the account, send it to nurture, or say whether it is a buyer, and it runs through the router again with your decision.</p>
         </div>
-        <div id="reviewList" class="review-list"></div>
+        <div id="reviewBody"></div>
       </div>
     </section>
 
@@ -144,21 +145,23 @@
       </div>
     </section>
 
-    <!-- HOW -->
+    <!-- HOW (the drawing and these cards are checked against the code by test/how-it-works.test.ts) -->
     <section class="view" id="view-how" role="tabpanel" aria-label="How it works">
       <div class="page">
         <div class="page-head">
           <h2>How it works</h2>
+          <p class="page-sub">Click any box to see how it is built and the tests that prove what it claims.</p>
         </div>
         <figure class="diagram">
-          <svg viewBox="0 0 1180 596" role="group" aria-label="Pipeline: inbound doors to a webhook, then normalize, resolve, qualify, score and route, then out to a rep alert and, after it, HubSpot. Qualify calls a model slot: a small local model in this demo, and at Serif whichever open-weights or hosted model beats it on the eval. A request with a bad or missing signature is refused and a repeat delivery is ignored. A company the router cannot place, or a lead only the model calls spam or a vendor pitch (at any confidence) or another kind of non-buyer (under 0.8 confidence), is held for a person: RevOps decides before any rep is alerted, unless the account already has an owner, who gets it with the doubt in the alert. A failed HubSpot write is flagged on the lead; the alert has already gone out. A second path, outbound, reads Serif's public rate file into one finding per group, drafts an email for target groups with every figure inserted by code, and builds a HubSpot company upsert that is never sent. A line from the same finding goes into the rep brief, the alert and the task of an inbound lead from that organization.">
+          <svg viewBox="0 0 1240 840" role="group" aria-label="Three rows. Inbound: eight doors to a webhook that verifies, stores once and answers 202; leads prepare at once (normalize, resolve, qualify) and commit one at a time in order per lane (score, route, alert, HubSpot). Qualify runs the rules first and asks the model before the route only when the rules cannot settle the use case. Score adds referral points. Route applies the owner rule, the review rule, the enterprise rule R10 and then the tier. The alert goes out first, with one digest per uploaded list and team and a note to the enterprise deals channel, then the HubSpot outbox, retried and marked dead after 8 attempts. A company the router cannot place, a model-only non-buyer call, or the model's second opinion after the alert opens an item in Needs a person, where a person chooses the account, sends it to nurture, or says whether it is a buyer, and the lead runs again with that decision. Outbound: the public rate file to patterns, one finding per EIN with link review by a person, two plays, drafts with suppression and a CSV export, and a HubSpot upsert that is never sent; a line from the finding goes into the inbound alert. Beside the route: referral capture into the score and the referring account, feature interest tags and invented usage events and deals into Feature to pipeline, and the Today brief, which reads the same read models and decides nothing.">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrowhead"/></marker>
               <marker id="arr-loop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrowhead-loop"/></marker>
               <marker id="arr-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrowhead-warn"/></marker>
             </defs>
-            <!-- doors -->
-            <text x="20" y="28" class="d-cap">INBOUND DOORS</text>
+
+            <!-- INBOUND -->
+            <text x="20" y="28" class="d-cap">INBOUND</text>
             <g class="d-doors" data-node="doors" tabindex="0" role="button" aria-label="Inbound doors: how it is built">
               <rect x="20" y="42" width="170" height="30" rx="7"/><text x="34" y="62">Demo request (Calendly)</text>
               <rect x="20" y="80" width="170" height="30" rx="7"/><text x="34" y="100">Gated guides</text>
@@ -166,37 +169,50 @@
               <rect x="20" y="156" width="170" height="30" rx="7"/><text x="34" y="176">Signal Ask waitlist</text>
               <rect x="20" y="194" width="170" height="30" rx="7"/><text x="34" y="214">Marketplace inquiry</text>
               <rect x="20" y="232" width="170" height="30" rx="7"/><text x="34" y="252">API / MCP key</text>
-              <rect x="20" y="270" width="170" height="30" rx="7"/><text x="34" y="290">Event badge scan</text>
+              <rect x="20" y="270" width="170" height="30" rx="7"/><text x="34" y="290">Event badge scan (a list)</text>
               <rect x="20" y="308" width="170" height="30" rx="7"/><text x="34" y="328">Web intent (account)</text>
             </g>
             <path d="M190 190 H232" class="d-line" marker-end="url(#arr)"/>
-            <!-- webhook -->
             <g class="d-box d-key" data-node="webhook" tabindex="0" role="button" aria-label="Webhook: how it is built">
               <rect x="236" y="130" width="166" height="120" rx="10"/>
               <text x="252" y="158" class="d-title">Webhook</text>
               <text x="252" y="182">verify signature</text>
               <text x="252" y="202">store once (idempotent)</text>
-              <text x="252" y="222">reply 202, work async</text>
+              <text x="252" y="222">reply 202, work after</text>
             </g>
             <path d="M402 190 H418" class="d-line" marker-end="url(#arr)"/>
-            <!-- stages -->
+
+            <!-- prepare at once, commit one at a time in lanes -->
+            <g class="d-band" data-node="lanes" tabindex="0" role="button" aria-label="Prepare at once, commit in lanes: how it is built">
+              <rect x="420" y="110" width="802" height="32" rx="6"/>
+              <text x="428" y="124" class="d-band-text">prepare at once: 4 leads' lookups at a time</text>
+              <path d="M424 136 V132 H810 V136" class="d-bracket"/>
+              <text x="838" y="124" class="d-band-text">commit one at a time, in order per lane</text>
+              <path d="M836 136 V132 H1218 V136" class="d-bracket"/>
+            </g>
+
             <g class="d-box" data-node="normalize" tabindex="0" role="button" aria-label="Normalize: how it is built"><rect x="422" y="150" width="110" height="80" rx="10"/><text x="438" y="178" class="d-title">Normalize</text><text x="438" y="200">email, title,</text><text x="438" y="217">UTM, channel</text></g>
             <path d="M532 190 H552" class="d-line" marker-end="url(#arr)"/>
             <g class="d-box d-key" data-node="resolve" tabindex="0" role="button" aria-label="Resolve: how it is built"><rect x="556" y="150" width="120" height="80" rx="10"/><text x="572" y="178" class="d-title">Resolve</text><text x="572" y="200">to a stable ID,</text><text x="572" y="217">not a name</text></g>
             <path d="M676 190 H696" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box" data-node="qualify" tabindex="0" role="button" aria-label="Qualify: how it is built"><rect x="700" y="150" width="110" height="80" rx="10"/><text x="716" y="178" class="d-title">Qualify</text><text x="716" y="200">model slot</text><text x="716" y="217">+ rules guard</text></g>
+            <g class="d-box" data-node="qualify" tabindex="0" role="button" aria-label="Qualify: how it is built"><rect x="700" y="150" width="110" height="80" rx="10"/><text x="716" y="178" class="d-title">Qualify</text><text x="716" y="200">rules first,</text><text x="716" y="217">model if needed</text></g>
             <path d="M810 190 H830" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box" data-node="score" tabindex="0" role="button" aria-label="Score: how it is built"><rect x="834" y="150" width="96" height="80" rx="10"/><text x="850" y="178" class="d-title">Score</text><text x="850" y="200">fit + intent,</text><text x="850" y="217">itemized</text></g>
+            <g class="d-box" data-node="score" tabindex="0" role="button" aria-label="Score: how it is built"><rect x="834" y="150" width="96" height="80" rx="10"/><text x="850" y="178" class="d-title">Score</text><text x="850" y="200">fit + intent,</text><text x="850" y="217">+ referral</text></g>
             <path d="M930 190 H950" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box d-key" data-node="route" tabindex="0" role="button" aria-label="Route: how it is built"><rect x="954" y="150" width="96" height="80" rx="10"/><text x="970" y="178" class="d-title">Route</text><text x="970" y="200">owner first,</text><text x="970" y="217">then team</text></g>
-            <!-- registries above resolve -->
+            <g class="d-box d-key" data-node="route" tabindex="0" role="button" aria-label="Route: how it is built"><rect x="954" y="150" width="110" height="80" rx="10"/><text x="970" y="178" class="d-title">Route</text><text x="970" y="200">owner, review,</text><text x="970" y="217">R10, then tier</text></g>
+            <path d="M1064 190 H1088" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-out" data-node="alert" tabindex="0" role="button" aria-label="Alert: how it is built"><rect x="1092" y="150" width="128" height="80" rx="9"/><text x="1106" y="172" class="d-title">Alert, first</text><text x="1106" y="192">rep + SLA, or one</text><text x="1106" y="208">digest per list;</text><text x="1106" y="224">enterprise note</text></g>
+            <path d="M1156 230 V258" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-out" data-node="hubspot" tabindex="0" role="button" aria-label="HubSpot outbox: how it is built"><rect x="1092" y="262" width="128" height="84" rx="9"/><text x="1106" y="284" class="d-title">HubSpot, after</text><text x="1106" y="304">an outbox: retried</text><text x="1106" y="320">with backoff, dead</text><text x="1106" y="336">after 8 attempts</text></g>
+
+            <!-- registries and the model slot, above the stages they serve -->
             <g class="d-reg" data-node="registries" tabindex="0" role="button" aria-label="Public registries: how it is built">
               <rect x="470" y="34" width="292" height="72" rx="10"/>
               <text x="486" y="58" class="d-title">Public registries</text>
-              <text x="486" y="79">5,419 CMS hospitals (CCN) · 639 AHRQ systems</text>
-              <text x="486" y="97">246 payers · 679 verified domains · NPPES live</text>
+              <text x="486" y="79"><tspan data-fact="hospitals">5,419</tspan> CMS hospitals (CCN) · <tspan data-fact="systems">639</tspan> AHRQ systems</text>
+              <text x="486" y="97"><tspan data-fact="payers">246</tspan> payers · <tspan data-fact="verifiedDomains">679</tspan> verified domains · NPPES live</text>
             </g>
-            <path d="M616 106 V148" class="d-line d-dash"/>
+            <path d="M660 106 V148" class="d-line d-dash"/>
             <g class="d-reg" data-node="model" tabindex="0" role="button" aria-label="Model slot: how it is built">
               <rect x="776" y="34" width="286" height="72" rx="10"/>
               <text x="792" y="58" class="d-title">Model slot, filled by the eval</text>
@@ -204,12 +220,7 @@
               <text x="792" y="97">Serif: open-weights or hosted, if it wins</text>
             </g>
             <path d="M790 106 V148" class="d-line d-dash"/>
-            <!-- outputs -->
-            <path d="M1050 190 H1072 V70 H1088" class="d-line" marker-end="url(#arr)"/>
-            <path d="M1050 190 H1088" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-out" data-node="hubspot" tabindex="0" role="button" aria-label="HubSpot: how it is built"><rect x="1092" y="44" width="82" height="52" rx="9"/><text x="1102" y="66" class="d-title">HubSpot</text><text x="1102" y="84">upserts</text></g>
-            <g class="d-flag" data-node="hubspot" tabindex="0" role="button" aria-label="HubSpot write failures: how it is built"><rect x="1092" y="102" width="82" height="52" rx="9"/><text x="1102" y="120">write fails:</text><text x="1102" y="134">flagged on</text><text x="1102" y="148">the lead</text></g>
-            <g class="d-out" data-node="alert" tabindex="0" role="button" aria-label="Alert: how it is built"><rect x="1092" y="164" width="82" height="52" rx="9"/><text x="1102" y="186" class="d-title">Alert</text><text x="1102" y="204">rep + SLA</text></g>
+
             <!-- when a step cannot decide -->
             <path d="M319 250 V272" class="d-line d-dash"/>
             <g class="d-auto" data-node="webhook" tabindex="0" role="button" aria-label="At the door: how it is built"><rect x="236" y="276" width="166" height="72" rx="10"/><text x="252" y="298" class="d-title">At the door</text><text x="252" y="318">bad signature: 401</text><text x="252" y="336">no signing key: 503</text></g>
@@ -217,31 +228,57 @@
             <g class="d-flag" data-node="review" tabindex="0" role="button" aria-label="Can't place it: how it is built"><rect x="546" y="276" width="140" height="58" rx="10"/><text x="562" y="298" class="d-title">Can't place it</text><text x="562" y="318">no match, or a tie</text></g>
             <path d="M755 230 V272" class="d-line-warn d-dash"/>
             <g class="d-flag" data-node="review" tabindex="0" role="button" aria-label="Not a buyer: how it is built"><rect x="700" y="276" width="150" height="76" rx="10"/><text x="716" y="298" class="d-title">Not a buyer?</text><text x="716" y="318">model only: spam or</text><text x="716" y="336">vendor, or under 0.8</text></g>
+            <path d="M1092 214 H1078 V314 H1072" class="d-line-warn d-dash" marker-end="url(#arr-warn)"/>
+            <g class="d-flag d-flag-dash" data-node="secondopinion" tabindex="0" role="button" aria-label="Second opinion: how it is built"><rect x="872" y="276" width="196" height="76" rx="10"/><text x="888" y="298" class="d-title">Second opinion</text><text x="888" y="318">the model, after the alert;</text><text x="888" y="336">a doubt opens an item</text></g>
             <path d="M616 334 V388" class="d-line-warn" marker-end="url(#arr-warn)"/>
-            <path d="M765 352 V388" class="d-line-warn" marker-end="url(#arr-warn)"/>
+            <path d="M775 352 V388" class="d-line-warn" marker-end="url(#arr-warn)"/>
+            <path d="M970 352 V388" class="d-line-warn d-dash" marker-end="url(#arr-warn)"/>
             <g class="d-person" data-node="review" tabindex="0" role="button" aria-label="Needs a person: how it is built">
-              <rect x="470" y="392" width="636" height="62" rx="10"/>
-              <text x="490" y="418" class="d-title">Needs a person: RevOps decides before any rep is alerted (rule R6)</text>
-              <text x="490" y="439">The lead waits in the review queue with its candidates and the reason. Nothing is guessed silently.</text>
+              <rect x="470" y="392" width="750" height="78" rx="10"/>
+              <text x="490" y="417" class="d-title">Needs a person (R6): a person decides, and the lead runs again with the decision</text>
+              <text x="490" y="438">use one of the candidates · send to nurture · not a buyer, with the reason · it is a buyer</text>
+              <text x="490" y="456">The decision, who made it and when are stored with the lead. Nothing is guessed silently.</text>
             </g>
+            <path d="M470 431 H446 V234" class="d-line-warn d-dash" marker-end="url(#arr-warn)"/>
+            <text x="438" y="452" text-anchor="end" class="d-note">a decision runs</text>
+            <text x="438" y="466" text-anchor="end" class="d-note">the lead again</text>
 
-            <!-- outbound: the rate file to a finding per group to a drafted email, and the loop back into the alert -->
-            <text x="20" y="486" class="d-cap">OUTBOUND, FROM THE RATE FILE</text>
-            <g class="d-reg" data-node="ratefile" tabindex="0" role="button" aria-label="Rate file: how it is built"><rect x="20" y="500" width="190" height="80" rx="10"/><text x="36" y="526" class="d-title">Public rate file</text><text x="36" y="546">Serif's rate export,</text><text x="36" y="563">one CSV, read at start</text></g>
-            <path d="M210 540 H234" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box" data-node="ratefile" tabindex="0" role="button" aria-label="Patterns: how it is built"><rect x="238" y="500" width="200" height="80" rx="10"/><text x="254" y="526" class="d-title">Find the patterns</text><text x="254" y="546">rate card and factor,</text><text x="254" y="563">found by search</text></g>
-            <path d="M438 540 H462" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box d-key" data-node="findings" tabindex="0" role="button" aria-label="Findings: how it is built"><rect x="466" y="500" width="210" height="80" rx="10"/><text x="482" y="526" class="d-title">One finding per EIN</text><text x="482" y="546">rate, % of Medicare, form,</text><text x="482" y="563">size band, registry link</text></g>
-            <path d="M676 540 H700" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box" data-node="drafts" tabindex="0" role="button" aria-label="Fit and draft: how it is built"><rect x="704" y="500" width="200" height="80" rx="10"/><text x="720" y="526" class="d-title">Fit and draft</text><text x="720" y="546">platforms are targets;</text><text x="720" y="563">code fills every figure</text></g>
-            <path d="M904 540 H928" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-out" data-node="drafts" tabindex="0" role="button" aria-label="Outbound HubSpot upsert: how it is built"><rect x="932" y="500" width="174" height="80" rx="10"/><text x="948" y="526" class="d-title">HubSpot company</text><text x="948" y="546">upsert, dry run:</text><text x="948" y="563">nothing is sent</text></g>
             <!-- the loop: the stored finding becomes one line in the inbound brief -->
             <g class="d-loop" data-node="loop" tabindex="0" role="button" aria-label="The loop back into the alert: how it is built">
-              <path d="M571 500 V474 H1140 V222" class="d-hit"/>
-              <path d="M571 500 V474 H1140 V222" class="d-line-loop" marker-end="url(#arr-loop)"/>
-              <text x="858" y="468" text-anchor="middle" class="d-loop-text">their own rate, one line, into the brief, the alert and the task</text>
+              <path d="M503 524 V494 H1234 V200 H1222" class="d-hit"/>
+              <path d="M503 524 V494 H1234 V200 H1222" class="d-line-loop" marker-end="url(#arr-loop)"/>
+              <text x="868" y="488" text-anchor="middle" class="d-loop-text">their own rate, one line, into the brief, the alert and the task</text>
             </g>
+
+            <!-- OUTBOUND -->
+            <text x="20" y="512" class="d-cap">OUTBOUND, FROM THE RATE FILE</text>
+            <g class="d-reg" data-node="ratefile" tabindex="0" role="button" aria-label="Rate file: how it is built"><rect x="20" y="524" width="170" height="80" rx="10"/><text x="34" y="550" class="d-title">Public rate file</text><text x="34" y="570">Serif's rate export,</text><text x="34" y="587">one CSV, read at start</text></g>
+            <path d="M190 564 H210" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="ratefile" tabindex="0" role="button" aria-label="Patterns: how it is built"><rect x="214" y="524" width="170" height="80" rx="10"/><text x="228" y="550" class="d-title">Find the patterns</text><text x="228" y="570">rate card and factor,</text><text x="228" y="587">found by search</text></g>
+            <path d="M384 564 H404" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box d-key" data-node="findings" tabindex="0" role="button" aria-label="Findings: how it is built"><rect x="408" y="524" width="190" height="80" rx="10"/><text x="422" y="550" class="d-title">One finding per EIN</text><text x="422" y="570">rate, % of Medicare, form,</text><text x="422" y="587">size band, registry link</text></g>
+            <path d="M598 564 H618" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="plays" tabindex="0" role="button" aria-label="Two plays: how it is built"><rect x="622" y="524" width="190" height="80" rx="10"/><text x="636" y="550" class="d-title">Two plays</text><text x="636" y="570">platform, and system gap</text><text x="636" y="587">for Health Systems</text></g>
+            <path d="M812 564 H832" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="drafts" tabindex="0" role="button" aria-label="Drafts and export: how it is built"><rect x="836" y="524" width="200" height="80" rx="10"/><text x="850" y="550" class="d-title">Drafts and export</text><text x="850" y="570">none if someone has it;</text><text x="850" y="587">ready drafts to a CSV</text></g>
+            <path d="M1036 564 H1056" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-out" data-node="drafts" tabindex="0" role="button" aria-label="Outbound HubSpot upsert: how it is built"><rect x="1060" y="524" width="160" height="80" rx="10"/><text x="1074" y="550" class="d-title">HubSpot company</text><text x="1074" y="570">upsert, dry run:</text><text x="1074" y="587">nothing is sent</text></g>
+            <path d="M503 604 V618" class="d-line d-dash"/>
+            <g class="d-person" data-node="findings" tabindex="0" role="button" aria-label="Link review: how it is built"><rect x="408" y="620" width="190" height="48" rx="10"/><text x="422" y="640" class="d-title">Link review</text><text x="422" y="658">a person confirms a link</text></g>
+            <path d="M598 644 H717 V608" class="d-line d-dash" marker-end="url(#arr)"/>
+
+            <!-- BESIDE THE ROUTE -->
+            <text x="20" y="700" class="d-cap">BESIDE THE ROUTE, BY RULES</text>
+            <path d="M135 712 V690 H300" class="d-line d-dash" marker-end="url(#arr)"/>
+            <g class="d-box" data-node="referral" tabindex="0" role="button" aria-label="Referral capture: how it is built"><rect x="20" y="712" width="230" height="114" rx="10"/><text x="34" y="738" class="d-title">Referral capture</text><text x="34" y="758">a named referrer, resolved</text><text x="34" y="774">to its organization: points</text><text x="34" y="790">into Score, and a signal</text><text x="34" y="806">on the referring account</text></g>
+            <text x="306" y="694" class="d-note">into Score, above</text>
+            <g class="d-box" data-node="interest" tabindex="0" role="button" aria-label="Feature interest tags: how it is built"><rect x="290" y="712" width="230" height="46" rx="10"/><text x="304" y="731" class="d-title">Feature interest tags</text><text x="304" y="748">words, door, guide, pages; at commit</text></g>
+            <g class="d-reg" data-node="usage" tabindex="0" role="button" aria-label="Usage events and deals: how it is built"><rect x="290" y="768" width="230" height="58" rx="10"/><text x="304" y="788" class="d-title">Usage events and deals</text><text x="304" y="806">invented in this prototype</text></g>
+            <path d="M520 735 H558" class="d-line" marker-end="url(#arr)"/>
+            <path d="M520 797 H558" class="d-line" marker-end="url(#arr)"/>
+            <g class="d-box d-key" data-node="pipeline" tabindex="0" role="button" aria-label="Feature to pipeline: how it is built"><rect x="562" y="712" width="220" height="114" rx="10"/><text x="576" y="738" class="d-title">Feature to pipeline</text><text x="576" y="758">deals each feature was around,</text><text x="576" y="774">with the counts they rest on,</text><text x="576" y="790">and who asked for it</text></g>
+            <path d="M782 769 H808" class="d-line d-dash" marker-end="url(#arr)"/>
+            <g class="d-out" data-node="today" tabindex="0" role="button" aria-label="Today brief: how it is built"><rect x="812" y="712" width="408" height="114" rx="10"/><text x="828" y="738" class="d-title">Today brief</text><text x="828" y="758">reads the same read models as the Overview: what needs</text><text x="828" y="774">a person, enterprise, referrals, lists, expansion,</text><text x="828" y="790">outbound and feature interest</text><text x="828" y="808">It decides nothing and sends nothing.</text></g>
           </svg>
           <div class="topo-detail" id="topoDetail" aria-live="polite" hidden></div>
         </figure>
@@ -250,9 +287,12 @@
           <h3>When it doesn't go cleanly</h3>
           <ul class="decisions how-exceptions">
             <li><b>Refused at the door.</b> A signed door answers 401 to a bad signature and 503 when its signing key isn't set, and stores nothing. A re-delivered event is a no-op.</li>
-            <li><b>Held for a person.</b> The company matches no known organization (a benefits or HR contact at an unknown company is the exception: it is resolved as a low-confidence inferred employer and routed by tier), or matches two or more about equally, or only the model calls the lead a non-buyer. For spam and vendor pitch that always holds it, at any confidence, because they would otherwise be dropped unseen. For any other non-buyer call under 0.8 confidence it holds it too (at 0.8 or above the call counts, recorded as the model's). It waits in Needs a person with its candidates and the reason, and RevOps decides before any rep is alerted. If the account already has an owner, it goes to that owner instead (R5), and the alert says the model doubted it.</li>
+            <li><b>Held for a person.</b> The company matches no known organization (a benefits or HR contact at an unknown company is the exception: it is resolved as a low-confidence inferred employer and routed by tier), or matches two or more about equally, or, when the model ran before the route, only the model calls the lead a non-buyer. For spam and vendor pitch that always holds it, at any confidence, because they would otherwise be dropped unseen. For any other non-buyer call under 0.8 confidence it holds it too (at 0.8 or above the call counts, recorded as the model's). It waits in Needs a person with its candidates and the reason, and nothing is alerted to a rep until a person decides. If the account already has an owner, it goes to that owner instead (R5), and the alert says the model doubted it.</li>
+            <li><b>Doubted after the alert.</b> Most leads are routed and alerted on the rules, and the model reads them afterwards as a second opinion. A disqualifier only the model raised does not un-route the lead: a review item opens and a follow-up goes to whoever was alerted and to RevOps (for an owner route and a round-robin route; a repeat touch is recorded only). The rep keeps the lead unless a person rules it not a buyer.</li>
+            <li><b>Decided by a person.</b> In Needs a person, someone chooses the account, sends the lead to nurture, rules it not a buyer, or clears the model's doubt. The decision is stored with the lead, the lead runs through the router again with it, and every later run keeps it. A decided item cannot be decided again, and a lead still running cannot be decided.</li>
             <li><b>Keeps going on the rules.</b> If the model times out (8 s), answers off-list or isn't confident, the rules decide and the reason is recorded. A registry lookup that times out (4 s) is recorded as no answer; if nothing else places the company, it goes to a person.</li>
-            <li><b>Flagged, not hidden.</b> The rep alert goes out before the HubSpot write, so a slow or failing CRM never delays it. A HubSpot write that fails is marked on the lead's trail with its status; one that throws (a network error or the 10 s timeout) is retried once, then retried again at the next boot. A step that errors stops that lead and shows as Step failed in the activity feed.</li>
+            <li><b>Flagged, not hidden.</b> The rep alert goes out before the HubSpot write, so a slow or failing CRM never delays it. With a live portal, each lead's writes wait in an outbox: a network error, a 429 or a 5xx is retried with backoff, honoring Retry-After, and after 8 attempts the plan is marked dead and counted on the Overview. In dry-run, the default, the requests are written to files.</li>
+            <li><b>Retried, then given up.</b> A lead whose run throws is retried twice, after 5 s and then 10 s. After that it is given up, shown as failed, and RevOps gets an alert. A stopped process picks up unfinished leads at the next boot.</li>
             <li><b>Never to a rep.</b> Disposable emails, competitors, job seekers, press, vendor pitches, students and non-US organizations go to marketing or are dropped by rule.</li>
           </ul>
         </div>
@@ -264,24 +304,32 @@
               <li><b>IDs, not names.</b> Accounts are keyed on the AHRQ health-system ID, CMS certification number, NPI or payer, so one system is one account in the CRM.</li>
               <li><b>Resolve before you score.</b> A lead the router can't place goes to a person with candidates. It guesses one thing, a probable self-funded employer, and labels it low confidence.</li>
               <li><b>The model classifies; code writes the facts.</b> Alerts quote the prospect's own words and insert registry facts. Nothing generated reaches a prospect. The model can't set urgency, override a rule, write alert text or get a lead dropped on its word alone, but its use-case label can change the team for API-type leads.</li>
+              <li><b>The model waits only when it matters.</b> The rules run on every lead. A lead waits for the model before its route only when the rules cannot settle its use case; every other lead is alerted on the rules and gets the model's second opinion afterwards.</li>
               <li><b>The model alone never drops a lead.</b> A spam or vendor-pitch call the rules don't share always goes to a person. Any other disqualifier the rules don't share counts only at 0.8 confidence or above, recorded as the model's call; below that, a person decides.</li>
               <li><b>Owner first.</b> An account that already has an owner goes to that owner, so two reps never work one account.</li>
+              <li><b>Enterprise deals skip the queue.</b> A person at an enterprise account, or at a known organization whose message has a deal-size cue, at tier B or better, goes to a named rep (R10), with 15 minutes for tier B; the first such lead of an account in 30 days also tells the enterprise deals channel.</li>
+              <li><b>A referral is credited.</b> A named referrer is resolved to its organization, adds intent points and leaves a signal on the referring account.</li>
               <li><b>Alert first, then CRM.</b> The rep is told before HubSpot is written. Nothing in the alert depends on the CRM, so a slow or failing CRM never delays it.</li>
+              <li><b>A list alerts once per team.</b> An uploaded list is routed on the rules, and its queue, owner-task, nurture and review rows go out as one digest per list and team once the list is quiet. A rep alert still goes out on its own.</li>
+              <li><b>Prepare at once, commit in lanes.</b> Each lead's lookups start when it is accepted; what depends on earlier leads commits one lead at a time, in order within its organization's lane, so round-robin and dedupe never race and one slow lead holds only its own lane.</li>
               <li><b>Idempotent by design.</b> A re-delivered webhook is a no-op, a repeat contact attaches to the first lead that went to sales (a guide download that only went to nurture does not swallow the demo request after it), and repeat alerts are suppressed for 24 hours.</li>
-              <li><b>One finding, two uses.</b> The rate file becomes one finding per group, keyed on its EIN. It drives outbound drafts, and it adds a line about the prospect's own rate to an inbound brief. Code inserts every figure, and nothing outbound is sent.</li>
+              <li><b>A person's decision is kept.</b> A review decision and an outbound link decision are stored with who made them (the typed name: sign-in is not built) and survive every re-run and reload.</li>
+              <li><b>One finding, two uses.</b> The rate file becomes one finding per group, keyed on its EIN. It drives two outbound plays, and it adds a line about the prospect's own rate to an inbound brief. Code inserts every figure, a group someone already has is left alone, and nothing outbound is sent.</li>
               <li><b>Gated by an eval.</b> The classifier is scored on a sealed set of 24 synthetic leads and fails below set floors, and each run records hashes of the set and the classifier. CI runs the rules-only gate on every push.</li>
             </ol>
           </div>
           <div class="how-card">
             <h3>On Serif's real stack</h3>
             <ul class="stack-list">
-              <li><span>HubSpot</span>Companies upserted on a unique account-key property; contacts by email; tasks carry the SLA.</li>
+              <li><span>HubSpot</span>Companies upserted on a unique account-key property; contacts by email; tasks carry the SLA. Writes go through an outbox with retries.</li>
+              <li><span>Slack</span>Rep alerts, list digests, the enterprise deals note and the doubt follow-ups as Block Kit payloads; recorded in this prototype, not sent.</li>
               <li><span>Calendly</span>Signed <code>invitee.created</code> webhooks, UTMs passed through to first- and last-touch fields.</li>
               <li><span>Clay web intent</span>Account visits raise account intent and create a research task, not an alert.</li>
-              <li><span>PostHog / product</span>Try Signal sessions and searches become product-qualified signals on the account.</li>
+              <li><span>PostHog / product</span>Try Signal sessions and searches become product signals on the account. Feature events joined to deals drive Feature to pipeline; in this prototype the events and deals are invented.</li>
               <li><span>Databricks + Hightouch</span>Account scores modeled in SQL, synced to HubSpot by reverse ETL.</li>
               <li><span>Classifier model</span>A slot behind one interface, filled by evidence. The demo's small model is the baseline; a larger open-weights model such as Qwen or GLM on Serif's hardware, or a hosted model under Serif's data terms (an Anthropic provider is in the code, off here), takes the slot only by beating it on Serif's own labelled leads.</li>
-              <li><span>Closed-won / lost</span>Outcomes feed back into the weights; conversion by tier is the check that the model is right.</li>
+              <li><span>Sign-in</span>Not built. A person's decision records the name they type, and the routes that take decisions are served only with the demo actions on.</li>
+              <li><span>Closed-won / lost</span>Outcomes would feed back into the weights; conversion by tier is the check that the model is right.</li>
             </ul>
           </div>
         </div>

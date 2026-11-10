@@ -3,7 +3,7 @@
 // through the same combine and guard rails. It stores what the model said, whether the full combine agrees with the route,
 // which fields it would have changed and the buying role it fills. A disqualifier only the model raised does not un-route
 // the lead: on a route the old order would have changed (R5, R8) it opens a review item (model_doubt_after_alert) and sends
-// a follow-up to where the alert went and to RevOps. The queue is the leads table itself (second_opinion = 'pending'), so a
+// a follow-up to where the alert went and to RevOps, unless a person already said the lead is a buyer. The queue is the leads table itself (second_opinion = 'pending'), so a
 // stopped process leaves nothing behind: boot asks again.
 import { buildBrief } from './brief';
 import type { Ctx } from './context';
@@ -14,6 +14,7 @@ import { buildDoubtFollowUp, recordSlack, type SlackPayload } from './notify/sla
 import { doubtAfterAlert } from './route';
 import type { Classification, LeadEvent, Normalized, Qualification, Resolution, Route, Segment } from './schema';
 import { adapt } from './sources';
+import type { ReviewDecision } from './review/decision';
 import type { SecondOpinionInputRow } from './store/leads';
 
 /** The stage_log name of a second opinion's row. It is not one of STAGES: it runs after the lead is done. */
@@ -35,6 +36,8 @@ export interface SecondOpinion extends SecondOpinionFinding {
   shownSegment: Segment;
   /** a review item was opened and the follow-up sent */
   followedUp: boolean;
+  /** a person had already said the lead is a buyer (decision 33), so a doubt is recorded and nothing is opened or sent */
+  clearedBy?: string;
 }
 
 /** What second_opinion_json holds once done: the result, or the error that stopped the call (a bug, not a model failure; those are results). */
@@ -119,6 +122,8 @@ interface StoredLead {
   /** the alert's time on the server clock (epoch ms), when it is known */
   alertAt: number | null;
   synthetic: boolean;
+  /** who said the lead is a buyer in review, when someone did: their answer stands over a later doubt */
+  buyerSaidBy: string | null;
 }
 
 function readLead(row: SecondOpinionInputRow): StoredLead {
@@ -132,8 +137,11 @@ function readLead(row: SecondOpinionInputRow): StoredLead {
     shownSegment: parse<{ shownSegment: Segment }>(row.second_opinion_json)?.shownSegment ?? res.segment,
     alertAt: typeof alerted === 'number' ? Date.parse(row.created_at) + alerted : null,
     synthetic: !!row.synthetic,
+    buyerSaidBy: buyerSaidBy(parse<ReviewDecision>(row.review_decision_json)),
   };
 }
+
+const buyerSaidBy = (d: ReviewDecision | null) => (d?.kind === 'is_buyer' ? d.by : null);
 
 /** Makes the call the route would have waited for, and compares the answer with what the route used. */
 async function ask(ctx: Ctx, lead: StoredLead): Promise<SecondOpinion> {
@@ -150,7 +158,8 @@ async function ask(ctx: Ctx, lead: StoredLead): Promise<SecondOpinion> {
  * follow-up, in one transaction. Returns false when the lead was re-run while the call was in flight; nothing is written then.
  */
 function settle(ctx: Ctx, id: string, lead: StoredLead, result: SecondOpinion): boolean {
-  const followUp = result.doubt && doubtNeedsFollowUp(lead.route) ? followUpPayloads(lead, result.doubt) : null;
+  if (result.doubt && lead.buyerSaidBy) result.clearedBy = lead.buyerSaidBy;
+  const followUp = result.doubt && !lead.buyerSaidBy && doubtNeedsFollowUp(lead.route) ? followUpPayloads(lead, result.doubt) : null;
   if (followUp) result.followedUp = true;
   const at = nowIso(ctx);
   const saved = tx(ctx.db, () => {

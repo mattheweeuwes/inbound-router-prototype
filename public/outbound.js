@@ -8,6 +8,7 @@ import {
   FILTERS, FILTER_KEYS, PLAY_WORDS, SORTS, chartGeometry, fileTitle, filterGroups, formCounts, formLabel, headline, linksToConfirm, sortGroups,
   statesOf, statusLabel, workCounts,
 } from './outbound-model.js';
+import { readDecider, saveDecider } from './decider.js';
 
 /**
  * What app.js hands over: its API reader (live API or sample files), its API writer and its JSON highlighter.
@@ -65,7 +66,7 @@ const STATUS_BADGE = { ready: 'ok', blocked: 'warn', link_to_confirm: 'warn', su
 /** @type {State} */
 const S = {
   status: 'idle', error: '', data: null, filter: 'in_play', state: '', query: '', sort: { key: 'clinicians', dir: 'desc' },
-  selected: null, sheetOpen: false, details: new Map(), detailError: '', by: '', linkMsg: null, deciding: null,
+  selected: null, sheetOpen: false, details: new Map(), detailError: '', by: readDecider(), linkMsg: null, deciding: null,
 };
 
 /** @type {Host} */
@@ -650,7 +651,8 @@ function onInput(/** @type {Event} */ e) {
   if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
   const ctl = t.dataset.ctl;
   if (!ctl) return;
-  if (ctl === 'by') { S.by = t.value; return; }
+  // the name is shared with Needs a person and remembered in this browser (decider.js)
+  if (ctl === 'by') { S.by = t.value; saveDecider(t.value); return; }
   if (ctl === 'state') S.state = t.value;
   else if (ctl === 'query') S.query = t.value;
   else if (ctl === 'sort') S.sort = { key: t.value, dir: SORTS[t.value].first };

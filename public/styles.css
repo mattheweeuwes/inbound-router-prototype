@@ -578,6 +578,33 @@ body.is-fixed .foot { padding: 8px var(--gutter) 12px; }
 .rlist[open] > summary { border-bottom: 1px solid var(--line); }
 .rlist .rcard { border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .rlist .rcard:first-of-type { border-top: 0; }
+/* Needs a person (review.js): the name field stays in view while a person works down the list */
+.page-sub { color: var(--muted); margin-top: 6px; max-width: 760px; }
+.rv-bar { position: sticky; top: var(--topbar-h, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 18px; max-width: 1120px; margin: 0 0 14px; padding: 10px 0; background: rgba(240, 248, 255, .96); border-bottom: 1px solid var(--line); }
+.rv-count { font-weight: 600; color: var(--ink); padding-bottom: 6px; }
+.rv-off { flex-basis: 100%; color: var(--warn); font-size: 12.5px; margin: 0; }
+.rv-msg { flex-basis: 100%; margin: 0; font-size: 12.5px; color: var(--body); }
+.rv-msg:empty { display: none; }
+.rcard-top { flex-wrap: wrap; }
+.rcard-sub { color: var(--muted); }
+.rcard-acts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.rcard-msg { margin: 8px 0 0; color: var(--bad, #b42318); font-size: 12.5px; }
+.rcard-msg:empty { display: none; }
+.rcard.is-busy { opacity: .7; }
+.rcard.is-decided { border-left-color: var(--ok); padding: 10px 18px; }
+.rcard.is-decided .rcard-top { align-items: center; }
+.rv-done { color: var(--ok); font-weight: 700; }
+.rv-outcome { color: var(--body); }
+.rv-nb { display: inline-flex; gap: 6px; align-items: center; }
+.rv-nb select { font: 12.5px var(--sans); color: var(--ink); border: 1px solid var(--line); background: #f5f6f8; padding: 5px 6px; max-width: 190px; }
+.rv-key input { width: 200px; }
+.rv-use { text-align: right; white-space: nowrap; }
+.rlist > summary .rv-all { margin-left: 14px; vertical-align: middle; }
+.rv-hint, .rv-sub { color: var(--muted); font-size: 12px; }
+.rdecided { max-width: 1120px; margin-top: 22px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ok); }
+.rdecided > summary { cursor: pointer; padding: 12px 18px; color: var(--ink); font-weight: 500; }
+.rdecided .rv-scroll { overflow-x: auto; padding: 0 18px 14px; }
+.rcard:focus-visible, .rlist > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .eval-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; max-width: 1240px; align-items: start; }
 .page .card { padding: 18px 20px; }
 .page .card h3 { font-size: 16px; margin-bottom: 10px; }
@@ -617,6 +644,12 @@ body.is-fixed .foot { padding: 8px var(--gutter) 12px; }
 .d-auto rect { fill: #fafbfc; stroke: var(--line-2); stroke-dasharray: 4 3; }
 .d-line-warn { stroke: var(--warn); stroke-width: 1.5; fill: none; }
 .d-arrowhead-warn { fill: var(--warn); }
+/* prepare at once, commit in lanes: a band over the stages it groups */
+.d-band rect { fill: #f7f9fc; stroke: transparent; }
+.diagram .d-band-text { font-size: 10.5px; fill: var(--muted); letter-spacing: .01em; }
+.d-bracket { stroke: var(--line-2); stroke-width: 1.2; fill: none; }
+.d-flag-dash rect { stroke-dasharray: 4 3; stroke: var(--warn); }
+.diagram .d-note { font-size: 10.5px; fill: var(--muted); }
 .how-wide { max-width: 1240px; margin-bottom: 20px; }
 .how-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; max-width: 1240px; }
 .how-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); }
@@ -694,6 +727,7 @@ body.is-fixed .foot { padding: 8px var(--gutter) 12px; }
 .topo-close { flex: none; border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 5px 11px; font-size: 13px; color: var(--body); cursor: pointer; }
 .topo-close:hover { border-color: var(--blue); color: var(--ink); }
 .topo-detail[hidden] { display: none; }
+.topo-tests code { font-size: 12px; }
 
 
 /* ── Outbound tab (public/outbound.js) ──────────────────────────────────── */
@@ -942,7 +976,7 @@ a.jump-outbound:hover { text-decoration: underline; }
   body { min-width: 0; --gutter: 16px; }
   /* every other tab is still the 1240px console: it scrolls sideways inside its own region, never the page */
   .views { overflow-x: auto; }
-  .view:not(#view-outbound):not(#view-feature-pipeline):not(#view-today) { min-width: 1240px; }
+  .view:not(#view-outbound):not(#view-feature-pipeline):not(#view-today):not(#view-review) { min-width: 1240px; }
   .strip-in { justify-content: flex-start; padding: 8px 0; }
   .strip .item { white-space: normal; line-height: 1.35; }
   .topbar-row { flex-wrap: wrap; gap: 10px; padding-top: 10px; }
@@ -1052,6 +1086,17 @@ a.jump-outbound:hover { text-decoration: underline; }
 .td-note { max-width: 980px; }
 @media (max-width: 900px) {
   #view-today .page { padding: 20px 16px 28px; }
+  /* Needs a person reflows to a phone: the name bar scrolls with the page, a candidate keeps its name, state and button */
+  #view-review .page { padding: 20px 16px 28px; }
+  .rv-bar { position: static; }
+  .rv-bar .ob-field input { width: 100%; }
+  .rv-by { flex: 1 1 100%; }
+  .rcard { padding: 14px 14px; }
+  .rcard .open { margin-left: 0; }
+  .cands .rv-key-col, .cands .num { display: none; }
+  .rv-nb { flex-wrap: wrap; }
+  .rlist > summary { padding: 12px 14px; }
+  .rlist > summary .rv-all { display: flex; margin: 8px 0 0; }
   .td-grid { grid-template-columns: minmax(0, 1fr); }
   .td-refresh { margin-left: 0; }
   .td .td-card { padding: 14px 12px; }

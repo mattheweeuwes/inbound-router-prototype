@@ -241,9 +241,10 @@ function startRun(ctx: Ctx, id: string, input: LeadInputRow, p: Prepared, turnMs
 
 /**
  * Clears what an earlier run of this lead wrote outside its own row: the account it claimed (if still held by the rep it
- * named), its signals, assignment, review items, a HubSpot plan still waiting to go out, a second opinion due or done, its
- * place in a list digest, and the timings of its stages. Rows that record history (re-deliveries, failed runs, HubSpot
- * delivery attempts, a digest already recorded) stay.
+ * named), its signals, assignment, open review items, a HubSpot plan still waiting to go out, a second opinion due or done,
+ * its place in a list digest, and the timings of its stages. Rows that record history (re-deliveries, failed runs, HubSpot
+ * delivery attempts, a digest already recorded, a review item a person decided) stay, and so does a person's decision on
+ * the lead, which the re-run applies (src/review/).
  */
 function wipeDerived(ctx: Ctx, id: string) {
   tx(ctx.db, () => {
