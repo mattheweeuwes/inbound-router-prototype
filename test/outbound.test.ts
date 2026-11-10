@@ -175,6 +175,18 @@ describe('outbound: drafts', () => {
       }
     }
   });
+  it('the runs of each text join back to the text, and mark exactly the inserted values and the open placeholder', () => {
+    for (const hook of HOOKS) {
+      const d = draftFor('900000008', hook);
+      const texts = { subject: d.subject, body: d.body, linkedin: d.linkedin };
+      for (const key of ['subject', 'body', 'linkedin'] as const) assert.equal(d.parts[key].map(p => p.text).join(''), texts[key], `${hook} ${key}`);
+      const all = [...d.parts.subject, ...d.parts.body, ...d.parts.linkedin];
+      const marked = new Map(all.filter(p => p.placeholder && !p.open).map(p => [p.placeholder, p.text]));
+      assert.deepEqual([...marked].sort(), d.inserted.map(v => [v.placeholder, v.value] as [string, string]).sort(), `${hook}: every marked run is an inserted value and every inserted value is marked`);
+      assert.deepEqual(all.filter(p => p.open).map(p => p.text), ['{first_name}', '{first_name}'], 'the greeting and the follow-up leave the first name open');
+      assert.ok(all.filter(p => !p.placeholder).every(p => !/\d/.test(p.text)), 'plain runs carry no figure');
+    }
+  });
   it('the templates carry no figures of their own', () => {
     for (const t of TEMPLATES) assert.doesNotMatch(t, /\d/, t);
   });

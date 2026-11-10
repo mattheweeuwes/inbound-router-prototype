@@ -63,3 +63,47 @@ test('a lead sent through the cockpit is routed, with its decision trail and a d
 
   expect(problems, problems.join('\n')).toEqual([]);
 });
+
+// The loop: a lead from an organization that is in the rate file carries that group's rate line in its trail, with a way into the
+// Outbound tab. The server's invented rate file has Northwind Psychiatry PLLC in Oklahoma; it is matched by name and state.
+test('a lead from an organization in the rate file shows the rate line the router added, and the preset for it is in the form', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error') problems.push(`console error: ${m.text()} (${m.location().url})`); });
+  page.on('pageerror', e => problems.push(`page error: ${e.message}`));
+  page.on('requestfailed', r => problems.push(`request failed: ${r.method()} ${r.url()} (${r.failure()?.errorText})`));
+  page.on('response', r => { if (r.status() >= 400) problems.push(`HTTP ${r.status()}: ${r.request().method()} ${r.url()}`); });
+
+  await page.goto('/');
+  await expect(page.getByText('Live API')).toBeVisible();
+  await page.getByRole('button', { name: 'Send a test lead' }).click();
+  const form = page.getByRole('complementary', { name: 'Send a test lead' });
+
+  // the drawer has a preset for an organization in the real rate file; it fills a synthetic person
+  await form.getByRole('button', { name: 'Organization in the rate file' }).click();
+  await expect(form.getByLabel('Company')).toHaveValue('INTEGRIS Health');
+  await expect(form.getByLabel('Name', { exact: true })).toHaveValue('Morgan Reyes');
+
+  await form.getByLabel('Name', { exact: true }).fill('Pat Okafor-E2E');
+  await form.getByLabel('Work email').fill('pokafor.e2e@northwind-psych.example');
+  await form.getByLabel('Title', { exact: true }).fill('Director of Payer Contracting');
+  await form.getByLabel('Company').fill('Northwind Psychiatry PLLC');
+  await form.getByLabel('State').fill('OK');
+  await form.getByLabel('What are they hoping to solve?').fill('We renegotiate with UnitedHealthcare next quarter and want peer rates.');
+  await form.getByRole('button', { name: 'Send through the router' }).click();
+
+  const row = page.getByRole('listbox', { name: 'Leads' }).getByRole('option', { name: /Pat Okafor-E2E/i });
+  await row.click();
+  const step = page.locator('.stage', { has: page.locator('.stage-name', { hasText: /^Their rates$/ }) });
+  await expect(step).toBeVisible();
+  await expect(step.getByText(/Their UHC Choice Plus rate for 90837 \(Aug 2026\): \$\d+\.\d\d, \d+% of Medicare/)).toBeVisible();
+  // the Slack preview in the Alert step carries the same line as its own field
+  await expect(page.locator('.chat-fields').getByText('Their rates')).toBeVisible();
+
+  // the link opens that group in the Outbound tab
+  await page.getByRole('link', { name: 'Open in Outbound' }).click();
+  await expect(page.getByRole('tab', { name: 'Outbound' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('complementary', { name: 'Group detail' }).getByText('NORTHWIND PSYCHIATRY PLLC').first()).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Group detail' }).getByText('Not a target').first()).toBeVisible();
+
+  expect(problems, problems.join('\n')).toEqual([]);
+});

@@ -46,6 +46,13 @@ export const OPEN_PLACEHOLDERS = ['{first_name}'];
 
 export interface InsertedValue { placeholder: string; value: string; field: string }
 
+/**
+ * One run of a rendered text. Plain text has only `text`; a value code inserted names its `placeholder`; a placeholder left
+ * for a person to fill (`{first_name}`) also has `open`. The cockpit marks inserted values from these runs, so it never has
+ * to find a figure in the finished text by searching for it.
+ */
+export interface Part { text: string; placeholder?: string; open?: boolean }
+
 export interface Draft {
   /** a draft is for a target; a preview is any other group, for reading only */
   kind: 'draft' | 'preview';
@@ -59,6 +66,8 @@ export interface Draft {
   subject: string;
   body: string;
   linkedin: string;
+  /** the same three texts as runs, so each inserted value can be marked where it stands */
+  parts: { subject: Part[]; body: Part[]; linkedin: Part[] };
   inserted: InsertedValue[];
   placeholders: string[];
 }
@@ -120,15 +129,26 @@ function valuesFor(f: Finding, platform: string | null, c: Campaign): Values {
 }
 
 /** Fills each {placeholder} from values and records it once, in order of first use. {first_name} is left as it is. */
-function fill(template: string, values: Values, used: Map<string, InsertedValue>): string {
-  return template.replace(/\{(\w+)\}/g, (whole, key: string) => {
-    if (OPEN_PLACEHOLDERS.includes(whole)) return whole;
-    const v = values[key];
+function fill(template: string, values: Values, used: Map<string, InsertedValue>): Part[] {
+  const parts: Part[] = [];
+  let at = 0;
+  for (const m of template.matchAll(/\{(\w+)\}/g)) {
+    const whole = m[0];
+    if (m.index > at) parts.push({ text: template.slice(at, m.index) });
+    at = m.index + whole.length;
+    if (OPEN_PLACEHOLDERS.includes(whole)) { parts.push({ text: whole, placeholder: whole, open: true }); continue; }
+    const v = values[m[1]];
     if (!v) throw new Error(`no value for ${whole}`);
-    if (!used.has(key)) used.set(key, { placeholder: whole, value: v.value, field: v.field });
-    return v.value;
-  });
+    if (!used.has(m[1])) used.set(m[1], { placeholder: whole, value: v.value, field: v.field });
+    parts.push({ text: v.value, placeholder: whole });
+  }
+  if (at < template.length) parts.push({ text: template.slice(at) });
+  return parts;
 }
+
+const textOf = (parts: Part[]): string => parts.map(p => p.text).join('');
+/** The runs of several pieces with a separator run between them. */
+const joinParts = (pieces: Part[][], separator: string): Part[] => pieces.flatMap((p, i) => (i ? [{ text: separator }, ...p] : p));
 
 const LABELS: Record<DraftStatus, string> = {
   ready: 'Draft: the platform mapping is confirmed. A rep reviews it and adds the contact; nothing is sent from here.',
@@ -145,10 +165,11 @@ export function renderDraft(i: DraftInput): Draft {
   const used = new Map<string, InsertedValue>();
   const subject = fill(SUBJECT, values, used);
   const sentences = [FACT, ...HOOK_SENTENCES[hook], PRODUCT, ASK].map(t => fill(t, values, used));
-  const body = `${fill(GREETING, values, used)}\n\n${sentences.join(' ')}`;
+  const body = joinParts([fill(GREETING, values, used), joinParts(sentences, ' ')], '\n\n');
   const linkedin = fill(LINKEDIN[hook], values, used);
   return {
     kind: i.status === 'none' ? 'preview' : 'draft', status: i.status === 'none' ? 'preview' : i.status, label: LABELS[i.status],
-    reason: i.reason, hook, hookNote, subject, body, linkedin, inserted: [...used.values()], placeholders: OPEN_PLACEHOLDERS,
+    reason: i.reason, hook, hookNote, subject: textOf(subject), body: textOf(body), linkedin: textOf(linkedin), parts: { subject, body, linkedin },
+    inserted: [...used.values()], placeholders: OPEN_PLACEHOLDERS,
   };
 }

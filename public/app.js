@@ -540,6 +540,8 @@ function renderDetail(d) {
   } else {
     html += stage(stageState(d, 'notified', false), 'Alert', '', t.notify, null);
   }
+  // the rate line the outbound module adds to the brief, the alert and the task (only when the organization is in the rate file)
+  if (d.rateFact) html += rateFactStage(d.rateFact);
   // 8 crm
   const crm = d.crm;
   if (crm) {
@@ -562,6 +564,14 @@ function renderDetail(d) {
     </ul></div>`;
   }
   pane.innerHTML = html;
+}
+
+/** The outbound module's one line about this organization's own rate, with the way it was matched and a jump to its group. */
+function rateFactStage(f) {
+  const how = f.matchedBy === 'registry_link' ? 'linked to the account this lead resolved to' : 'same name and state as the lead\u2019s organization';
+  return stage('done', 'Their rates', 'from the rate file, added to the brief, the alert and the task', null,
+    `<div class="quote"><span class="quote-lbl">${esc(f.name)}</span>${esc(f.line)}</div>` +
+    kv([['Matched', `${esc(how)}${f.groups > 1 ? ` (${esc(f.groups)} groups matched)` : ''}`], ['Group', `<a class="jump-outbound" data-ein="${esc(f.ein)}" href="#">Open in Outbound</a> <span class="idkey">EIN ${esc(f.ein)}</span>`]]));
 }
 
 function renderSlack(slack) {
@@ -1348,6 +1358,7 @@ const PRESETS = [
   { label: 'Consultant at an owned account', v: { name: 'Robin Hale', email: 'rhale@alderfinch.example', title: 'Senior Vice President, Health & Benefits', company: 'Alder & Finch Benefits', state: 'NY', source: 'calendly_demo', utmPreset: 'google_brand', message: 'Several self-funded clients renew in Q1. Looking at network benchmarking for their RFPs.' } },
   { label: 'Payer network team', v: { name: 'Robin Ellis', email: 'rellis@ibx.com', title: 'Director, Provider Network Strategy', company: 'Independence Blue Cross', state: 'PA', source: 'calendly_demo', utmPreset: 'newsletter', message: 'Comparing our facility rates with other plans in Philadelphia before budget planning next month.' } },
   { label: 'Free-mail, ambiguous company', v: { name: 'Jesse Lin', email: 'jesse.lin@gmail.com', title: 'Director of Managed Care', company: 'Baptist Health', state: '', source: 'calendly_demo', utmPreset: 'none', message: 'Need commercial rate benchmarks.' } },
+  { label: 'Organization in the rate file', v: { name: 'Morgan Reyes', email: 'mreyes@integrisok.com', title: 'Director, Managed Care Contracting', company: 'INTEGRIS Health', state: 'OK', source: 'calendly_demo', utmPreset: 'none', message: 'We are preparing for our UnitedHealthcare behavioral health renewal and want to see peer rates before we sit down.' } },
   { label: 'Job seeker', v: { name: 'Pat Kim', email: 'pat.kim@gmail.com', title: 'Data Analyst', company: '', state: '', source: 'calendly_demo', utmPreset: 'none', message: "Not a buyer, but I'd love to work at Serif. Are you hiring analysts?" } },
 ];
 function openDrawer() {
@@ -1394,6 +1405,14 @@ async function onSubmit(ev) {
 }
 
 // tabs
+// The Outbound tab is its own module (outbound.js), loaded and mounted the first time the tab opens.
+let outboundTab = null;
+function outbound() {
+  outboundTab ??= import('./outbound.js')
+    .then((m) => m.mountOutbound($('#outboundBody'), { getJSON, jsonHTML }))
+    .catch((e) => { $('#outboundBody').innerHTML = `<div class="card ob-empty"><h3>Outbound is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
+  return outboundTab;
+}
 function showTab(tab) {
   const changed = state.tab !== tab;
   state.tab = tab;
@@ -1409,6 +1428,7 @@ function showTab(tab) {
   if (tab === 'review') renderReview();
   if (tab === 'evals') loadEval();
   if (tab === 'quality') loadQuality();
+  if (tab === 'outbound') outbound().then((t) => t.show()).catch(() => {});
 }
 
 // ─── wiring ──────────────────────────────────────────────────────────────────
@@ -1442,6 +1462,12 @@ function wire() {
       e.preventDefault();
       showTab('stream');
       select(j.dataset.id);
+    }
+    const g = e.target.closest('.jump-outbound');
+    if (g) {
+      e.preventDefault();
+      showTab('outbound');
+      outbound().then((t) => t.open(g.dataset.ein)).catch(() => {});
     }
     const o = e.target.closest('.rcard .open');
     if (o) {
@@ -1606,6 +1632,47 @@ boot();
         { h: `What keeps going without a person`, items: [`A model timeout (8 s), an off-list answer or low confidence: the rules decide and the reason is recorded.`, `A registry lookup timeout (4 s) is recorded as no answer. If nothing else places the company, it comes here.`, `At the door, a bad signature gets 401 and a missing signing key gets 503. Nothing is stored.`] },
       ],
       prod: `Watch the review volume and the rate at which the model and the rules disagree, week to week.`,
+    },
+    ratefile: {
+      title: `Rate file and patterns`, files: `src/outbound/csv.ts · rateFile.ts · load.ts · patterns.ts · sql/models/v_rate_groups.sql`,
+      sum: `Serif's public rate export, one CSV row per negotiated rate, is read at start and turned into tables in the app database. The two contract forms in it are found by search, not written in by hand.`,
+      facts: [[`Language`, `TypeScript`], [`Input`, `RATES_CSV, default data/rates/mrf_rate_search_export.csv. npm run rates:fetch downloads it; the file is public and never committed.`], [`Reloads`, `Only when the file's SHA-256, the platform mapping, the registry or the derivation version changes.`]],
+      sections: [
+        { h: `What it reads`, items: [`A strict RFC 4180 reader with no dependency. A file with a missing column, a bad amount, or mixed payers, networks, months or codes is refused whole.`, `State and city come from the contracting entity's street address.`, `One rate per group (EIN): the row the file flags as covering the most NPIs, then the payer's largest NPI list, then the most psychiatrists, then the higher rate.`] },
+        { h: `The two patterns`, items: [`The rate card: every distinct rate from $100 to $200 is tried as a base, and a rate counts when it is a whole percent of it, 50% to 300%, to the cent.`, `The conversion factor: every amount from $2.00 to $10.00 is tried as a unit, and a rate counts when it is an exact whole multiple of it.`, `A pattern needs at least three distinct rates. Its hit counts and runners-up are stored, so a reader can judge it.`] },
+        { h: `With no file`, items: [`The tables are emptied, and the Outbound tab says why and shows the command that fetches it.`] },
+      ],
+      prod: `Fetch each new monthly file on a schedule and keep the old ones.`,
+    },
+    findings: {
+      title: `One finding per EIN`, files: `src/outbound/findings.ts · targeting.ts · src/resolve/index.ts (resolveByName)`,
+      sum: `For each group: its rate, where that sits against Medicare, which contract form it fits, how it compares with the top rate in its city and the median of its size band.`,
+      facts: [[`Language`, `TypeScript`], [`Key`, `ein:<EIN>, the file's own id for the contracting entity, never its name.`], [`Link`, `Each group is matched to a registry organization by name and state, through the router's own matcher. Only a unique, strong match links; a tie or a weak match is stored unlinked, with its candidates.`]],
+      sections: [
+        { h: `Fit`, items: [`Behavioral health platforms are the target. Hospital systems and small independent groups are not, each with a one-line reason.`, `Which EIN belongs to which platform is a hand-made mapping with a confirmed flag, because the file names entities, not their parents.`] },
+        { h: `Where to see it`, items: [`The Outbound tab: a chart of every group's rate against its size, a table, and one panel per group with its source rows.`] },
+      ],
+      prod: `Match groups to the CRM's own company records before the registry.`,
+    },
+    drafts: {
+      title: `Fit, draft and HubSpot`, files: `src/outbound/draft.ts · campaign.ts · src/crm/hubspot.ts (buildOutboundCompanyUpsert)`,
+      sum: `A target group gets a drafted email and LinkedIn line, and a HubSpot company upsert is built for it. Code inserts every figure, and nothing is sent.`,
+      facts: [[`Language`, `TypeScript`], [`Templates`, `Fixed text with no digits in it. Each placeholder is filled from a named field and returned with where it came from.`], [`HubSpot`, `A company upsert keyed on serif_account_key = ein:<EIN>, built with the router's own request builder.`]],
+      sections: [
+        { h: `The draft`, items: [`The panel marks every inserted figure and lists each with its source field.`, `{first_name} stays open: the file names organizations, not people.`, `A draft is ready only when its platform mapping is confirmed. Otherwise it is blocked, with the reason. Any other group renders only as a labelled preview.`, `Each EIN gets one of two hooks, chosen by a hash of the EIN, so replies can be compared by hook.`] },
+        { h: `Nothing is sent`, items: [`There is no email code in the project.`, `The upsert is never put in the outbox, even with HUBSPOT_LIVE=1: a write to a CRM from outbound wants a person's approval first.`] },
+      ],
+      prod: `A rep adds the contact and sends from their own sequencing tool after review. The company upsert goes through the outbox once someone approves it.`,
+    },
+    loop: {
+      title: `The loop back into the router`, files: `src/outbound/fact.ts · src/stages.ts (notify)`,
+      sum: `When an inbound lead's organization has a rate group, the rep brief, the Slack alert and the CRM task carry one line about that group's own rate. The rep sees what the prospect is paid before the first call.`,
+      facts: [[`Language`, `TypeScript`], [`Match`, `The groups linked to the account the lead resolved to, else the groups with the same normalized name in the same state.`], [`Effect`, `None on the score or the route. The line is stored on the lead and read after the route.`]],
+      sections: [
+        { h: `What the line says`, items: [`The rate, its percent of Medicare, the contract form and the top rate in the city, all from the stored finding.`, `When several groups match, the largest is described and the line says how many matched.`] },
+        { h: `Try it`, items: [`With the real rate file loaded, send a test lead with the preset Organization in the rate file. The lead's trail then has a Their rates step with a link to the group.`] },
+      ],
+      prod: `List every matching group, not only the largest.`,
     },
   };
 
