@@ -1,0 +1,535 @@
+{
+ "synthetic": true,
+ "note": "One working day of inbound for the day-in-the-life scenario (docs/day-in-the-life.md). Every person is invented. Organizations are real ones from the registry, or fictional on the reserved .example domain when they stand for a customer or an unknown company.",
+ "clock": "2026-11-10T23:30:00.000Z",
+ "events": [
+  {
+   "id": "D01",
+   "ts": "2026-11-10T14:30:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Enterprise health system (145 hospitals), referred by a customer: tier A, HSP, enterprise handling, referral credited to Wrenfield",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d01/invitees/d01",
+     "email": "hmarsh@commonspirit.org",
+     "name": "Helena Marsh",
+     "first_name": "Helena",
+     "last_name": "Marsh",
+     "created_at": "2026-11-10T14:30:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "SVP, Managed Care"
+      },
+      {
+       "question": "Company",
+       "answer": "CommonSpirit Health"
+      },
+      {
+       "question": "State",
+       "answer": "IL"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "We renegotiate with UnitedHealthcare and Aetna in Q1 across 21 states and need service-line benchmarks against peer systems. The contracting VP at Wrenfield Health recommended you."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D02",
+   "ts": "2026-11-10T15:10:00.000Z",
+   "source": "calendly_demo",
+   "expect": "National benefits consultant: tier A, Benefits & Workforce",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d02/invitees/d02",
+     "email": "ocastellano@mercer.com",
+     "name": "Owen Castellano",
+     "first_name": "Owen",
+     "last_name": "Castellano",
+     "created_at": "2026-11-10T15:10:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Principal, Health & Benefits"
+      },
+      {
+       "question": "Company",
+       "answer": "Mercer"
+      },
+      {
+       "question": "State",
+       "answer": "NY"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "We advise about 40 self-funded employers. Looking at Network Benchmarking ahead of January renewals."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D03",
+   "ts": "2026-11-10T15:40:00.000Z",
+   "source": "guide_download",
+   "expect": "Self-funded employer from the benefits playbook: Benefits & Workforce, nurture or queue, never dropped",
+   "payload": {
+    "synthetic": true,
+    "form_id": "gd_cost_intelligence",
+    "guide": "Cost Intelligence Playbook for Benefits Advisors",
+    "fields": {
+     "email": "praman@shawinc.com",
+     "firstname": "Priya",
+     "lastname": "Raman",
+     "jobtitle": "Director, Total Rewards",
+     "company": "Shaw Industries",
+     "state": "GA"
+    },
+    "page_url": "https://example.org/prototype/resources",
+    "utm": {},
+    "submitted_at": "2026-11-10T15:40:00.000Z"
+   }
+  },
+  {
+   "id": "D04",
+   "ts": "2026-11-10T16:20:00.000Z",
+   "source": "marketplace",
+   "expect": "National payer asking for the whole data lake: an enterprise data deal, a named rep within minutes",
+   "payload": {
+    "synthetic": true,
+    "marketplace": "Snowflake",
+    "listing": "Price transparency dataset (prototype listing)",
+    "requester": {
+     "email": "tokafor@humana.com",
+     "name": "Tobias Okafor",
+     "title": "VP, Network Analytics",
+     "company": "Humana",
+     "state": "KY"
+    },
+    "message": "Evaluating a bulk license of the full negotiated-rate data lake for national network strategy. All payers, all states, monthly refresh. Budget is approved for 2027.",
+    "received_at": "2026-11-10T16:20:00.000Z"
+   }
+  },
+  {
+   "id": "D05",
+   "ts": "2026-11-10T16:50:00.000Z",
+   "source": "api_key",
+   "expect": "Developer at a navigation company creating an API key: Data & API team, self-serve",
+   "payload": {
+    "synthetic": true,
+    "developer": {
+     "email": "jlindqvist@transcarent.com",
+     "name": "Jonas Lindqvist",
+     "title": "Staff Engineer",
+     "company": "Transcarent"
+    },
+    "product": "api",
+    "created_at": "2026-11-10T16:50:00.000Z",
+    "message": "Prototyping provider search by procedure and network for our care navigation app."
+   }
+  },
+  {
+   "id": "D06",
+   "ts": "2026-11-10T17:10:00.000Z",
+   "source": "signal_ask_waitlist",
+   "expect": "Existing customer asks about Signal Ask: goes to the account owner (Taylor), marked as expansion",
+   "payload": {
+    "synthetic": true,
+    "form_id": "signal_ask",
+    "guide": null,
+    "fields": {
+     "email": "moyelaran@brindlewoodhealth.example",
+     "firstname": "Marguerite",
+     "lastname": "Oyelaran",
+     "jobtitle": "Director, Provider Network",
+     "company": "Brindlewood Mutual Health",
+     "state": "OH",
+     "message": "We use Signal weekly. Would Signal Ask cover our out-of-network exposure by market?"
+    },
+    "page_url": "https://example.org/prototype/resources",
+    "utm": {},
+    "submitted_at": "2026-11-10T17:10:00.000Z"
+   }
+  },
+  {
+   "id": "D07",
+   "ts": "2026-11-10T17:40:00.000Z",
+   "source": "calendly_demo",
+   "expect": "PE value-creation lead with a live diligence: PLS team, a rep today",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d07/invitees/d07",
+     "email": "gwhitlock@welshcarson.com",
+     "name": "Graham Whitlock",
+     "first_name": "Graham",
+     "last_name": "Whitlock",
+     "created_at": "2026-11-10T17:40:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Managing Director, Value Creation"
+      },
+      {
+       "question": "Company",
+       "answer": "Welsh, Carson, Anderson & Stowe"
+      },
+      {
+       "question": "State",
+       "answer": "NY"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "Diligence on a behavioral health platform this month, and we want to benchmark three portfolio MSOs' payer contracts."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D08",
+   "ts": "2026-11-10T18:10:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Life sciences market access: PLS team",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d08/invitees/d08",
+     "email": "adeshmukh@vrtx.com",
+     "name": "Anjali Deshmukh",
+     "first_name": "Anjali",
+     "last_name": "Deshmukh",
+     "created_at": "2026-11-10T18:10:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Director, Market Access Analytics"
+      },
+      {
+       "question": "Company",
+       "answer": "Vertex Pharmaceuticals"
+      },
+      {
+       "question": "State",
+       "answer": "MA"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "Need site-of-care reimbursement by payer for infused therapies across ten states."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D10",
+   "ts": "2026-11-10T18:50:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Solo practice on a free-mail address asking for one rate: not a rep's time, self-serve or nurture",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d10/invitees/d10",
+     "email": "dale.pruitt.practice@gmail.com",
+     "name": "Dale Pruitt",
+     "first_name": "Dale",
+     "last_name": "Pruitt",
+     "created_at": "2026-11-10T18:50:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Practice Manager"
+      },
+      {
+       "question": "Company",
+       "answer": "Willowmere Counseling"
+      },
+      {
+       "question": "State",
+       "answer": "GA"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "I want to know what Aetna pays for 90837 near me."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D09",
+   "ts": "2026-11-10T19:05:00.000Z",
+   "source": "web_intent",
+   "expect": "Account-level web visits from a large payer with no person: account intent, visible to the PLS team",
+   "payload": {
+    "synthetic": true,
+    "domain": "kp.org",
+    "company": "Kaiser Foundation Health Plan",
+    "visitors": 4,
+    "window_days": 7,
+    "visits": [
+     {
+      "path": "/platform/products/network-benchmarking/",
+      "at": "2026-11-10T18:30:00.000Z"
+     },
+     {
+      "path": "/pricing/",
+      "at": "2026-11-10T18:37:00.000Z"
+     },
+     {
+      "path": "/platform/products/network-benchmarking/",
+      "at": "2026-11-10T18:44:00.000Z"
+     },
+     {
+      "path": "/platform/products/signal/",
+      "at": "2026-11-10T18:51:00.000Z"
+     },
+     {
+      "path": "/pricing/",
+      "at": "2026-11-10T18:58:00.000Z"
+     },
+     {
+      "path": "/contact/",
+      "at": "2026-11-10T19:05:00.000Z"
+     }
+    ]
+   }
+  },
+  {
+   "id": "D11",
+   "ts": "2026-11-10T19:10:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Vendor pitch: never reaches a rep",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d11/invitees/d11",
+     "email": "trent@rankrocket-seo.example",
+     "name": "Trent Vosburgh",
+     "first_name": "Trent",
+     "last_name": "Vosburgh",
+     "created_at": "2026-11-10T19:10:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Growth Partner"
+      },
+      {
+       "question": "Company",
+       "answer": "RankRocket SEO"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "We help data companies like Serif triple organic traffic with our link-building packages. Do you have 15 minutes this week?"
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D12",
+   "ts": "2026-11-10T20:10:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Regional system with a deadline, heard about Serif from a peer system: tier A, HSP, referral noted",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d12/invitees/d12",
+     "email": "rabernathy@piedmont.org",
+     "name": "Renee Abernathy",
+     "first_name": "Renee",
+     "last_name": "Abernathy",
+     "created_at": "2026-11-10T20:10:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "Director, Payer Contracting"
+      },
+      {
+       "question": "Company",
+       "answer": "Piedmont Healthcare"
+      },
+      {
+       "question": "State",
+       "answer": "GA"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "Our CFO heard about you from the managed care team at Emory. Our Anthem contract expires March 31."
+      },
+      {
+       "question": "How did you hear about us?",
+       "answer": "Referral from a colleague at Emory Healthcare"
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D13",
+   "ts": "2026-11-10T20:30:00.000Z",
+   "source": "calendly_demo",
+   "expect": "Second person at CommonSpirit two hours later: same account and same rep as D01, and the rep is told both are in",
+   "payload": {
+    "event": "invitee.created",
+    "synthetic": true,
+    "payload": {
+     "uri": "https://api.calendly.com/scheduled_events/day-d13/invitees/d13",
+     "email": "valmeida@commonspirit.org",
+     "name": "Victor Almeida",
+     "first_name": "Victor",
+     "last_name": "Almeida",
+     "created_at": "2026-11-10T20:30:00.000Z",
+     "questions_and_answers": [
+      {
+       "question": "Job title",
+       "answer": "System Director, Decision Support"
+      },
+      {
+       "question": "Company",
+       "answer": "CommonSpirit Health"
+      },
+      {
+       "question": "State",
+       "answer": "CO"
+      },
+      {
+       "question": "What would you like to see in the demo?",
+       "answer": "Joining Helena Marsh's evaluation. I own the rate analytics for our western markets."
+      }
+     ],
+     "tracking": {},
+     "scheduled_event": {
+      "name": "Signal demo (30 min)",
+      "start_time": "2026-11-12T23:30:00.000Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "D14",
+   "ts": "2026-11-10T21:00:00.000Z",
+   "source": "guide_download",
+   "expect": "Customer contact downloads a guide: owner (Avery) hears, no new-business alert",
+   "payload": {
+    "synthetic": true,
+    "form_id": "gd_health_system_exec",
+    "guide": "Health System Executive Guide",
+    "fields": {
+     "email": "cfairweather@wrenfieldhealth.example",
+     "firstname": "Colm",
+     "lastname": "Fairweather",
+     "jobtitle": "VP, Payer Strategy",
+     "company": "Wrenfield Health",
+     "state": "MN"
+    },
+    "page_url": "https://example.org/prototype/resources",
+    "utm": {},
+    "submitted_at": "2026-11-10T21:00:00.000Z"
+   }
+  },
+  {
+   "id": "D15",
+   "ts": "2026-11-10T21:30:00.000Z",
+   "source": "sample_signup",
+   "expect": "National broker analyst with real product usage: Benefits & Workforce, flagged as product-qualified",
+   "payload": {
+    "synthetic": true,
+    "user": {
+     "email": "sbrandt@lockton.com",
+     "name": "Sofia Brandt",
+     "title": "Senior Analyst, Health Risk Solutions",
+     "company": "Lockton",
+     "state": "MO"
+    },
+    "signed_up_at": "2026-11-10T21:30:00.000Z",
+    "utm": {},
+    "usage": [
+     {
+      "event": "session_start",
+      "at": "2026-11-10T20:40:00.000Z"
+     },
+     {
+      "event": "session_start",
+      "at": "2026-11-10T20:48:00.000Z"
+     },
+     {
+      "event": "session_start",
+      "at": "2026-11-10T20:56:00.000Z"
+     },
+     {
+      "event": "session_start",
+      "at": "2026-11-10T21:04:00.000Z"
+     },
+     {
+      "event": "session_start",
+      "at": "2026-11-10T21:12:00.000Z"
+     },
+     {
+      "event": "session_start",
+      "at": "2026-11-10T21:20:00.000Z"
+     },
+     {
+      "event": "search",
+      "code": "CPT 27447",
+      "market": "MO",
+      "at": "2026-11-10T21:25:00.000Z"
+     },
+     {
+      "event": "search",
+      "code": "CPT 45378",
+      "market": "KS",
+      "at": "2026-11-10T21:28:00.000Z"
+     }
+    ]
+   }
+  }
+ ]
+}
