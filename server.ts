@@ -110,7 +110,9 @@ export function start(port = getCtx().cfg.port) {
     console.log(`interest: ${ctx.interest.checked} lead(s) checked for feature cues, ${ctx.interest.tagged} tagged (${ctx.interest.ms} ms)`);
     const resumed = resumePending(ctx);
     if (resumed) console.log(`resumed ${resumed} unfinished lead(s)`);
-    void warmOllama(ctx).then(ok => console.log(ok ? 'ollama warm' : 'ollama not available (rules only)'));
+    // only the local model needs warming; with a hosted model or none there is nothing to wait for
+    if (ctx.cfg.llmProvider === 'ollama') void warmOllama(ctx).then(ok => console.log(ok ? 'ollama warm' : 'ollama not available (rules only)'));
+    else console.log(ctx.cfg.llmProvider === 'anthropic' ? `model: ${ctx.cfg.anthropicModel} at ${ctx.cfg.anthropicEffort} effort (hosted)${ctx.cfg.anthropicKey ? '' : ', but no key is set, so the rules decide'}` : 'model: none (rules only)');
   });
   const stop = () => server.close(() => process.exit(0));
   process.on('SIGTERM', stop);

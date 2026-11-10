@@ -462,3 +462,14 @@ Found by the first live write from the current code, on Nov 10. I sent a lead on
 - **The refused contact still counts as a failed write.** The lead's record and the dashboard show the 400 and HubSpot's reason.
 - **Not changed.** The fictional customers stay on `.example`, so with HubSpot live their contacts are refused. A lead on a real organization's domain writes all four records, which the same check confirmed (`docs/TESTING-LOG.md`, entry 8).
 
+## 43. A hosted copy sits behind one password, sends nothing to HubSpot, and runs a pinned commit
+
+A reviewer who can click through the cockpit learns more than one who has to clone it, so one copy is reachable from outside. The server has no sign-in, its webhook doors other than Calendly take unsigned posts, and the cockpit follows the look of Serif's site. None of that may be open to the internet.
+
+- **One gate, in the server** (`src/access.ts`, `ACCESS_PASSWORD`). With the password set, every request needs it as HTTP Basic: pages, the API, the doors and the event stream. Without it the answer is a 401 that asks for it. The comparison is on digests in constant time, and every answer tells crawlers to index nothing. Unset, the server behaves as before, so local use and the tests are unchanged.
+- **Why a shared password and not single sign-on in front.** I could not test a reviewer's login myself, and a reviewer locked out is the worst outcome for a copy that exists to be looked at. A password I can check from outside before I send it. The cost is that it is shared: it says who may open the copy, not who decided what, so decisions still record the name a person types.
+- **It never sends to HubSpot.** The hosted copy runs with `HUBSPOT_LIVE=0`, whatever its settings file holds. A reviewer cannot see my test portal, so live writes there would show them nothing and leave records behind.
+- **It does call the hosted model**, because that is the system being shown. The bound on that is the password and a spend limit on the key, not anything in this code. A cap on model calls per day in the server would be the next thing to build if this copy stayed up.
+- **A pinned commit, on its own data.** It runs from a separate checkout at one commit, so work in progress never reaches it, on a snapshot of the working day in `docs/hosted-model-record-2026-11-10.md`. `BRIEF_WINDOW_HOURS` is set to 14 days there, so the Today tab does not empty the morning after the day was loaded.
+- **Not built.** Per-person accounts, a rate limit, and a reset of the data. Reviewers share one database, so one person's decision on a review item is gone for the next.
+
