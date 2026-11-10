@@ -62,7 +62,7 @@ Free-mail leads whose company can't be matched, and ambiguous leads, get no acco
 |---|---|---|
 | `mode` | `dry_run` | `live` |
 | `requests`, `skipped` | the plan (section 5) | the plan |
-| `ok`, `responses`, `ownerMapped` | absent | filled when delivery settles: `ok` is true only when every response was 2xx; `responses` has each status and HubSpot's error text; `ownerMapped` lists synthetic owner ids swapped for a portal owner. `ok` is false while delivery is pending |
+| `ok`, `responses`, `ownerMapped` | absent | filled when delivery settles: `ok` is true only when every response was 2xx; `responses` has each status and HubSpot's error text, and a request that was not sent because the record it attaches to was refused is listed with status 424 and that reason (decision 42); `ownerMapped` lists synthetic owner ids swapped for a portal owner. `ok` is false while delivery is pending |
 | `delivery` | absent | `pending` (stored, not yet tried), `retrying` (an attempt threw or got a 429 or 5xx), `delivered` (HubSpot answered; a 4xx is recorded here and not retried), `dead` (gave up after the last attempt) |
 | `attempts`, `error`, `nextAttemptAt` | absent | attempts so far, the last error, and when the next attempt is due while `retrying` |
 

@@ -113,6 +113,47 @@ describe('HubSpot request shape', () => {
     assert.equal(out.responses?.[0].status, 400);
     assert.match(out.responses?.[0].error ?? '', /not valid/);
   });
+  it('a contact HubSpot refuses does not cost the task: the association is not sent, and the task is created on the company', async () => {
+    const sent: { call: string; body: any }[] = [];
+    const ctx = testCtx({ hubspotLive: true, hubspotToken: 'tok' }, async (url: any, init: any) => {
+      const u = String(url).replace('https://api.hubapi.com', '');
+      sent.push({ call: `${init.method} ${u}`, body: init.body ? JSON.parse(init.body) : null });
+      if (u.includes('contacts/batch/upsert')) return new Response('{"message":"Email address x@alderfinch.example is invalid"}', { status: 400 });
+      if (u.endsWith('/tasks/search')) return new Response(JSON.stringify({ total: 0, results: [] }), { status: 200 });
+      return new Response(JSON.stringify({ results: [{ id: '22' }] }), { status: u.endsWith('/tasks') ? 201 : 200 });
+    });
+    const assoc = (id: string, type: number) => ({ to: { id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: type }] });
+    const out = await executeCrm(ctx, [
+      { method: 'POST', path: '/crm/v3/objects/companies/batch/upsert', body: {} }, { method: 'POST', path: '/crm/v3/objects/contacts/batch/upsert', body: {} },
+      { method: 'PUT', path: '/crm/v4/objects/contacts/{{contact_id}}/associations/default/companies/{{company_id}}', body: null },
+      { method: 'POST', path: '/crm/v3/objects/tasks', body: { properties: { hs_task_subject: 'Existing-account lead: Casey Monroe' }, associations: [assoc('{{contact_id}}', 204), assoc('{{company_id}}', 192)] } },
+    ]);
+    assert.deepEqual(out.responses?.map(r => r.status), [200, 400, 424, 201]);
+    assert.match(out.responses?.[2].error ?? '', /not sent: the contact it attaches to was not written/);
+    assert.equal(out.ok, false, 'the refused contact still shows as a failed write');
+    assert.ok(sent.every(s => !s.call.includes('{{') && !JSON.stringify(s.body).includes('{{')), 'nothing is posted with a placeholder in it');
+    assert.equal(sent.filter(s => s.call.includes('/associations/')).length, 0);
+    const task = sent.find(s => s.call === 'POST /crm/v3/objects/tasks');
+    assert.deepEqual(task?.body.associations.map((a: any) => a.to.id), ['22'], 'the task keeps the company it can attach to');
+    // the open-task check looks on the company when there is no contact to look on
+    assert.equal(sent.find(s => s.call.endsWith('/tasks/search'))?.body.filterGroups[0].filters[2].propertyName, 'associations.company');
+  });
+  it('when every record a task hangs off was written, its associations are left as planned', async () => {
+    const sent: any[] = [];
+    const ctx = testCtx({ hubspotLive: true, hubspotToken: 'tok' }, async (url: any, init: any) => {
+      const u = String(url).replace('https://api.hubapi.com', '');
+      if (u.endsWith('/tasks')) sent.push(JSON.parse(init.body));
+      if (u.endsWith('/tasks/search')) return new Response(JSON.stringify({ total: 0, results: [] }), { status: 200 });
+      return new Response(JSON.stringify({ results: [{ id: u.includes('companies') ? '22' : '11' }] }), { status: u.endsWith('/tasks') ? 201 : 200 });
+    });
+    const assoc = (id: string) => ({ to: { id }, types: [] });
+    const out = await executeCrm(ctx, [
+      { method: 'POST', path: '/crm/v3/objects/companies/batch/upsert', body: {} }, { method: 'POST', path: '/crm/v3/objects/contacts/batch/upsert', body: {} },
+      { method: 'POST', path: '/crm/v3/objects/tasks', body: { properties: { hs_task_subject: 's' }, associations: [assoc('{{contact_id}}'), assoc('{{company_id}}')] } },
+    ]);
+    assert.equal(out.ok, true);
+    assert.deepEqual(sent[0].associations.map((a: any) => a.to.id), ['11', '22']);
+  });
   it('a repeat lead keeps the open task already on the contact instead of stacking a second one', async () => {
     const calls: string[] = [];
     let filters: any[] = [];

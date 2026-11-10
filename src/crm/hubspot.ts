@@ -406,6 +406,19 @@ async function withRealOwners(ctx: Ctx, body: unknown): Promise<{ body: unknown;
  * retries the whole plan later, which is safe because every step upserts or checks first. A network error or the 10 s
  * timeout throws. Any other 4xx is recorded and the plan goes on, as a retry would get the same answer.
  */
+/** The record ids a request still needs, by placeholder name, that no earlier answer in this run supplied. */
+const unwritten = (text: string, ids: Record<string, string>) => [...new Set([...text.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]))].filter(k => !ids[k]);
+
+/**
+ * A task planned on a contact and a company keeps the association that exists when HubSpot refused the other record. A refused
+ * contact must not cost the rep their task: a task on the company alone is worth more than no task.
+ */
+function keepWrittenAssociations(body: unknown, ids: Record<string, string>): unknown {
+  if (!isObject(body) || !Array.isArray(body.associations)) return body;
+  const kept = body.associations.filter(a => unwritten(JSON.stringify(a), ids).length === 0);
+  return kept.length === body.associations.length ? body : { ...body, associations: kept };
+}
+
 export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<CrmExecution> {
   if (crmMode(ctx.cfg) === 'dry_run') return { mode: 'dry_run' };
   const ids: Record<string, string> = {};
@@ -415,10 +428,17 @@ export async function executeCrm(ctx: Ctx, requests: CrmRequest[]): Promise<CrmE
     mode: 'live', ok: !transient && responses.every(x => x.status < 300), responses, ...(ownerMapped.length ? { ownerMapped } : {}), ...(transient ? { transient } : {}),
   });
   for (const r of requests) {
-    const { body, mapped } = await withRealOwners(ctx, r.body);
+    const { body: mappedBody, mapped } = await withRealOwners(ctx, r.body);
     ownerMapped.push(...mapped);
     const sub = (s: string) => s.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => ids[k] ?? `{{${k}}}`);
     const path = sub(r.path);
+    // A request addressed to a record HubSpot refused cannot be sent: its id never came back. It is recorded as not sent, never posted with the placeholder in it.
+    const missing = unwritten(r.path, ids);
+    if (missing.length) {
+      responses.push({ path, status: 424, error: `not sent: the ${missing.map(k => k.replace(/_id$/, '')).join(' and ')} it attaches to was not written` });
+      continue;
+    }
+    const body = keepWrittenAssociations(mappedBody, ids);
     if (r.method === 'POST' && r.path === PATHS.tasks) {
       const subject = isObject(body) && isObject(body.properties) ? body.properties.hs_task_subject : undefined;
       const to = ids.contact_id ? { prop: 'associations.contact', id: ids.contact_id } : ids.company_id ? { prop: 'associations.company', id: ids.company_id } : null;

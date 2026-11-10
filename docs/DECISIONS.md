@@ -452,3 +452,13 @@ Decision 39 kept the local model as the default after the hosted one had beaten 
 - **The working day was run again on this default**, with nothing set but the key. The figures are in `docs/hosted-model-record-2026-11-10.md`.
 
 Not changed: the rules still go first on use case. That is the open question from decision 39, and it still needs a fresh sealed set.
+
+## 42. A contact HubSpot refuses does not cost the task
+
+Found by the first live write from the current code, on Nov 10. I sent a lead on one of the fictional `.example` customers with HubSpot live. HubSpot took the company and refused the contact, because it does not accept an address on a reserved test domain. The next two requests then went out with the placeholder for the contact's id still in them, so the association and the task failed too. The rep's alert had already gone, but the task never reached the CRM.
+
+- **A request addressed to a record that was not written is not sent.** It is recorded as not sent, with status 424 and the reason, and is never posted with a placeholder in it (`executeCrm` in `src/crm/hubspot.ts`).
+- **A task keeps the association that exists.** Planned on a contact and a company, it is created on the company alone when the contact was refused, and the check for an open task looks on the company. A task on the company is worth more than no task.
+- **The refused contact still counts as a failed write.** The lead's record and the dashboard show the 400 and HubSpot's reason.
+- **Not changed.** The fictional customers stay on `.example`, so with HubSpot live their contacts are refused. A lead on a real organization's domain writes all four records, which the same check confirmed (`docs/TESTING-LOG.md`, entry 8).
+

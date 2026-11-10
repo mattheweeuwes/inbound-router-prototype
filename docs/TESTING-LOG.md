@@ -72,6 +72,13 @@ The eval with a model in the loop is not in CI. It needs the local model, or a k
 - **Not changed.** The rules still go first on use case, for the reason in entry 6.
 - **Record.** `docs/hosted-model-record-2026-11-10.md`, the sections "Low effort, three runs" and "The working day on the default", with the eval records and manifests it names.
 
+### 8. Does the current code write to HubSpot? (Nov 10)
+
+- **How.** Until now only Sunday's code had written to HubSpot. I created the 32 properties the current code adds in the developer test portal (`npm run hubspot:setup`), started the server with live sending on and a full day already loaded, sent invented leads through the cockpit's own form, and read the records back through the portal's API.
+- **Found.** Turning live sending on sent nothing from the day already loaded, because those writes had been recorded as planned. A lead on a fictional `.example` customer: the company was written, the contact was refused because HubSpot does not accept that test domain, and the association and the task then failed with it. A lead at a real health system with an invented person: company, contact, association and task all written, the company carrying the new enterprise flag and its fact, and the portal's API returned all three records. The same lead sent again attached to the first and created nothing new.
+- **Changed.** A refused contact no longer costs the task (decision 42).
+- **Record.** This entry and the test in `test/crm.test.ts`. I took the check leads out of the demo database afterwards. Their records are still in the test portal.
+
 ## What these tests do not show
 
 - Every person, lead, deal and usage event is invented. No result here is a result on Serif's traffic.
