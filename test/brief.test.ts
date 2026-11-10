@@ -56,7 +56,7 @@ describe('the team brief', () => {
     const b = buildBrief(await day(['D01', 'D12']));
     assert.deepEqual(items(b, 'referrals').map(i => i.title), ['Emory Healthcare referred Renee Abernathy at Piedmont Healthcare', 'Wrenfield Health referred Helena Marsh at CommonSpirit Health']);
     const wren = items(b, 'referrals')[1];
-    assert.match(wren.detail, /a customer owned by Avery\. Tier A\. A thank-you task for the owner is planned, not sent\./);
+    assert.match(wren.detail, /a customer owned by Avery\. Tier A\. A thank-you task for the owner is planned\.$/);
     assert.deepEqual([wren.tab, wren.ids.accountKey], ['stream', 'crm:mirror-wrenfield']);
     assert.deepEqual(b.sections.referrals.figures.map(f => f.value), [2, 1]);
   });

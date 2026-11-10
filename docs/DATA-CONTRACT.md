@@ -82,7 +82,7 @@ Required means the inbound handler answers 422 without it. Everything else is op
 
 Every door but `event_scan` and `web_intent` also carries an optional answer to "How did you hear about us?": a form field `referred_by`, `referral`, `how_did_you_hear` or `how_did_you_hear_about_us` (on `fields`, `user`, `requester` or `developer`, or the payload itself), or for Calendly a booking question matching "hear about", "how did you find", "referr" or "who sent you". It is carried as `ev.context.referral` (`{field, answer}`) and read after normalize (DECISIONS #26); the model never sees it.
 
-With no timestamp in the payload, the id is a SHA-256 of the canonical JSON body (keys sorted), never the server's clock, so a re-delivery of the same body is still a duplicate. `(source, source_event_id)` is unique. A repeat delivery answers `200 {leadId, duplicate: true}` and changes nothing. Every payload may carry `"synthetic": true`; the fixtures all do, and the cockpit badges them.
+With no timestamp in the payload, the id is a SHA-256 of the canonical JSON body (keys sorted), never the server's clock, so a re-delivery of the same body is still a duplicate. `(source, source_event_id)` is unique. A repeat delivery answers `200 {leadId, duplicate: true}` and changes nothing. Every payload may carry `"synthetic": true`; the fixtures all do. The flag is stored and served, and the cockpit does not show it.
 
 Calendly signature: `Calendly-Webhook-Signature: t=<unix seconds>,v1=<hex hmac_sha256(key, t + "." + body)>`, five-minute tolerance, constant-time compare.
 

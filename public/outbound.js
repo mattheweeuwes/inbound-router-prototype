@@ -214,34 +214,32 @@ function topHTML(/** @type {Loaded} */ d) {
   const p = d.patterns;
   const bands = d.summary.bands;
   const tile = (/** @type {string} */ label, /** @type {string} */ value, /** @type {string} */ sub) =>
-    `<div class="card ob-stat"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${value}</div><div class="ob-stat-sub">${sub}</div></div>`;
+    `<div class="ob-stat"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${value}</div><div class="ob-stat-sub">${sub}</div></div>`;
   const bandCells = bands.map((b) => `<div><div class="ob-band-name">${esc(b.band.replace('-', '–'))}</div><div class="ob-band-val">${b.medianPctOfMedicare == null ? '—' : `${b.medianPctOfMedicare}%`}</div><div class="ob-band-n">${nf(b.groups)} groups</div></div>`).join('');
   return `
-    <div class="ob-finding">
-      ${line ? `<p class="ob-line">${esc(line)}</p>` : ''}
-      <p class="ob-scope">${esc(fileTitle(d.file))}. ${nf(d.file.rows)} rate rows, one rate per group.</p>
-    </div>
-    <div class="ob-stats">
-      ${tile('Groups', nf(d.file.groups), `${nf(d.summary.plays.platform.groups + d.summary.plays.system_gap.groups)} in a play, ${nf(d.summary.statuses.ready)} with a draft ready`)}
-      ${tile('On the rate card', nf(c.card), p.card ? `a whole percent of ${usd(p.card.base)}; ${nf(p.card.hits)} of ${nf(p.card.distinctRates)} distinct rates` : 'no card found in this file')}
-      ${tile('On a conversion factor', nf(c.factor), p.factor ? `a whole multiple of ${usd(p.factor.unit)}; ${nf(p.factor.hits)} of ${nf(p.factor.distinctRates)} distinct rates${c.both ? `; ${nf(c.both)} fit both` : ''}` : 'no factor found in this file')}
-      <div class="card ob-stat ob-stat-bands"><div class="ob-stat-label">Median % of Medicare, by size</div><div class="ob-bands" role="group" aria-label="Median percent of Medicare by size band">${bandCells}</div><div class="ob-stat-sub">clinicians in the group</div></div>
-    </div>
-    ${workHTML(d)}`;
+    <div class="ob-finding">${line ? `<p class="ob-line">${esc(line)}</p>` : ''}</div>
+    <div class="figs ob-figs">
+      <div class="figs-group" role="group" aria-label="The rate file">
+        ${tile('Groups', nf(d.file.groups), `${nf(d.summary.plays.platform.groups + d.summary.plays.system_gap.groups)} in a play`)}
+        ${tile('On the rate card', nf(c.card), p.card ? `whole % of ${usd(p.card.base)}` : 'no card found')}
+        ${tile('On a conversion factor', nf(c.factor), p.factor ? `multiples of ${usd(p.factor.unit)}${c.both ? `, ${nf(c.both)} both` : ''}` : 'no factor found')}
+        <div class="ob-stat ob-stat-bands"><div class="ob-stat-label">Median % of Medicare, by clinicians</div><div class="ob-bands" role="group" aria-label="Median percent of Medicare by size band">${bandCells}</div></div>
+      </div>
+      ${workHTML(d)}
+    </div>`;
 }
 
-/** The work row: drafts ready by play, groups someone already has, links waiting for a person, and the export. */
+/** The work: drafts ready by play, groups someone already has, links waiting for a person, and the export. */
 function workHTML(/** @type {Loaded} */ d) {
   const w = workCounts(d);
   const tile = (/** @type {string} */ label, /** @type {number} */ value, /** @type {string} */ sub, /** @type {string} */ extra = '') =>
-    `<div class="card ob-stat ob-work-tile"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${nf(value)}</div><div class="ob-stat-sub">${esc(sub)}</div>${extra}</div>`;
-  return `<div class="ob-stats ob-work" role="group" aria-label="Outbound work">
-      ${tile('Drafts ready: Platform', w.ready.platform, 'behavioral health platforms, confirmed')}
-      ${tile('Drafts ready: System gap', w.ready.system_gap, 'health systems paid under their city’s top rate')}
-      ${tile('Suppressed', w.suppressed, 'a customer, an owner or an inbound lead has it')}
-      ${tile('Links to confirm', w.linksWaiting, 'probable registry links waiting for a person', w.linksWaiting ? '<button type="button" class="btn-link ob-jump" data-jump-links>Go to them</button>' : '')}
-    </div>
-    <p class="ob-export"><a class="ob-export-link" href="${esc(d.actions.export)}" download>Export the ${nf(w.ready.total)} ready drafts (CSV)</a> <span class="muted">One row per draft, with {first_name} left open. Nothing is sent.</span></p>`;
+    `<div class="ob-stat ob-work-tile"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${nf(value)}</div><div class="ob-stat-sub">${sub}${extra}</div></div>`;
+  return `<div class="figs-group ob-work" role="group" aria-label="Outbound work">
+      ${tile('Drafts ready: Platform', w.ready.platform, 'platforms')}
+      ${tile('Drafts ready: System gap', w.ready.system_gap, `<a class="ob-export-link" href="${esc(d.actions.export)}" download>Export the ${nf(w.ready.total)} ready drafts (CSV)</a>`)}
+      ${tile('Suppressed', w.suppressed, 'someone has it')}
+      ${tile('Links to confirm', w.linksWaiting, '', w.linksWaiting ? '<button type="button" class="btn-link ob-jump" data-jump-links>Go to them</button>' : 'none waiting')}
+    </div>`;
 }
 
 // ─── links to confirm ────────────────────────────────────────────────────────
@@ -253,7 +251,7 @@ function renderLinks() {
   if (!d || !d.loaded) return;
   const probable = linksToConfirm(d.groups);
   const rows = panelRows(probable, S.lines, S.linksAll);
-  const off = d.actions.linkDecisions ? '' : '<p class="ob-links-off"><b>Demo actions are off on this server,</b> so a decision cannot be recorded here. Start it with <code>npm run dev</code> (it sets <code>DEMO_ROUTES=1</code>).</p>';
+  const off = d.actions.linkDecisions ? '' : '<p class="ob-links-off">Decisions are off on this server. Start it with <code>npm run dev</code> (it sets <code>DEMO_ROUTES=1</code>).</p>';
   const items = rows.map((r) => (r.kind === 'link' ? linkItem(r.group) : lineItem(r.line))).join('');
   const showAll = probable.length > 1
     ? `<button type="button" class="btn-link ob-links-all" data-links-all data-fk="links-all" aria-expanded="${S.linksAll}">${S.linksAll ? 'Show fewer' : `Show all ${nf(probable.length)}`}</button>`
@@ -263,7 +261,6 @@ function renderLinks() {
       <h3 id="obLinksTitle">Links to confirm <span class="chip-n">${nf(probable.length)}</span></h3>
       <label class="ob-field ob-by">Deciding as<input data-ctl="by" data-fk="by" type="text" value="${esc(S.by)}" placeholder="Your name" autocomplete="name"></label>
     </div>
-    <p class="ob-links-note">A group is linked to a registry organization only on a unique, strong name match. These are the near misses: the best candidate in the group's state, the ones that would put a group in a play first. Until a person confirms one, no draft and no record names the organization. Sign-in is not built, so the name you type is stored as who decided.</p>
     ${off}
     ${items ? `<ul class="ob-link-list">${items}</ul>` : '<p class="none ob-none">No probable link is waiting.</p>'}
     ${showAll}
@@ -283,7 +280,7 @@ function linkItem(/** @type {Group} */ g) {
         <span class="ob-city">${esc(g.link.why)}.</span>
         <span class="ob-link-tag is-v${value}">${esc(LINK_VALUE_WORDS[value])}</span> <span class="ob-city">${esc(confirmWords(g))}.</span></div>
       <div class="ob-link-acts">
-        <button type="button" class="btn btn-sm" data-link-act="confirm" data-ein="${esc(g.ein)}" data-account="${esc(c.accountId)}"${busy}>Confirm</button>
+        <button type="button" class="btn btn-primary btn-sm" data-link-act="confirm" data-ein="${esc(g.ein)}" data-account="${esc(c.accountId)}"${busy}>Confirm</button>
         <button type="button" class="btn btn-secondary btn-sm" data-link-act="reject" data-ein="${esc(g.ein)}"${busy}>Reject</button>
       </div>
       ${msg}
@@ -364,7 +361,7 @@ async function decide(/** @type {string} */ ein, /** @type {'confirm' | 'reject'
     S.data = await host.getJSON('/outbound');
   } catch (e) {
     const text = e instanceof Error ? e.message : String(e);
-    S.linkMsg = { ein, error: true, text: /demo actions are off/.test(text) ? `Not recorded: the server has demo actions off. ${text}` : `Not recorded: ${text}` };
+    S.linkMsg = { ein, error: true, text: `Not recorded: ${text}` };
   }
   S.deciding = null;
   keepScroll(renderAll);
@@ -423,10 +420,9 @@ function renderChart() {
   const box = byId('obChart');
   if (!d || !d.loaded) return;
   box.innerHTML = `<div class="card ob-chart-card">
-    <div class="card-head"><h3 id="obChartTitle">Rate against size</h3><span class="sub">each mark is one group; its shape is its contract form</span></div>
+    <div class="card-head"><h3 id="obChartTitle">Rate against size</h3></div>
     ${legendHTML(d)}
     <div class="ob-chart-wrap"></div>
-    <p class="ob-chart-note">The figures above the chart are each size band's median percent of Medicare. Dotted lines are the rate card's tiers; the dashed line is Medicare's 100%, the median of the groups' own baselines. Click a mark or pick a row to open the group.</p>
   </div>`;
   const wrap = byId('obChart').querySelector('.ob-chart-wrap');
   if (!(wrap instanceof HTMLElement)) return;
@@ -501,7 +497,7 @@ function renderList() {
   const narrowed = [FILTERS[S.want.filter].label, STATUS_CHIPS.find((c) => c.key === S.want.status)?.label, S.want.state, S.want.query.trim() && `“${S.want.query.trim()}”`].filter(Boolean);
   byId('obList').innerHTML = `
     <div class="ob-tools">
-      <h3 id="obListTitle">Groups</h3>
+      <h3 id="obListTitle">Groups <span class="sub">${esc(fileTitle(d.file))} · ${nf(d.file.rows)} rate rows</span></h3>
       <div class="chips" role="group" aria-label="Filter groups">${chips}</div>
       <div class="chips ob-status-chips" role="group" aria-label="Filter by status">${statusChips}</div>
       <div class="ob-fields">
@@ -598,7 +594,6 @@ function detailHTML(/** @type {any} */ p, /** @type {Loaded} */ d) {
       <div class="ob-d-sub">${esc(place(g))} · <span class="idkey">EIN ${esc(g.ein)}</span> <span class="idkey">${esc(g.accountKey)}</span></div>
       <div class="ob-d-badges">${fitBadge}${draft ? draftBadge(draft) : ''}</div>
     </header>
-    <p class="ob-nothing"><b>Nothing is sent from here.</b> There is no email code in this project, and the HubSpot request below is shown, not made.</p>
     ${findingSection(p, d)}
     ${rowsSection(p, d)}
     ${holderSection(p)}
@@ -645,14 +640,14 @@ function rowsSection(/** @type {any} */ p, /** @type {Loaded} */ d) {
       <td>${r.chosen ? '<span class="badge ok">Used</span>' : ''}${r.most_npis && !r.chosen ? '<span class="badge">Flagged</span>' : ''}</td></tr>`).join('');
   return section('Source rate rows', `
     <table class="ob-rows"><thead><tr><th class="num">Rate</th><th class="num">% of Medicare</th><th class="num">Psychiatrists on the row</th><th class="num">Payer’s NPI list</th><th></th></tr></thead><tbody>${body}</tbody></table>
-    <p class="meta-line">${rows.length === 1 ? 'One row in the file for this group.' : `${rows.length} rows in the file for this group.`} The rate used is the row the file flags as covering the most NPIs, then the payer’s largest NPI list, then the most psychiatrists, then the higher rate.</p>`, `${rows.length}`);
+    <p class="meta-line">${rows.length === 1 ? 'One row in the file for this group.' : `${rows.length} rows in the file for this group.`}</p>`, `${rows.length}`);
 }
 
 /** Who already has the account, when someone does: the reason it is not prospected, and whose talking point it is. */
 function holderSection(/** @type {any} */ p) {
   const h = p.work.holder;
   if (!h) return '';
-  return `<section class="ob-sec ob-held"><h4>Not prospected</h4><p><b>${esc(h.owner)} has it.</b> ${esc(h.detail)}. The finding below is a talking point for them, not a draft.</p></section>`;
+  return `<section class="ob-sec ob-held"><h4>Not prospected</h4><p><b>${esc(h.owner)} has it.</b> ${esc(h.detail)}.</p></section>`;
 }
 
 function identitySection(/** @type {any} */ p) {
@@ -661,11 +656,11 @@ function identitySection(/** @type {any} */ p) {
   if (!l || !r) return section('Registry', '<p>No link was stored for this group.</p>');
   const decided = r.decision ? ` ${esc(sentenceCase(r.decision.decision))} by ${esc(r.decision.decidedBy)} on ${timeTag(r.decision.decidedAt)}${r.decision.note ? ` (“${esc(r.decision.note)}”)` : ''}.` : '';
   let head;
-  if (r.status === 'exact') head = `<p><span class="badge ok">Exact</span> Linked to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>, matched on company name (score ${Number(l.score).toFixed(2)}; ${esc(l.reason)}). A lead from that organization gets this group’s rate line in its brief.</p>`;
-  else if (r.status === 'confirmed') head = `<p><span class="badge ok">Confirmed</span> Belongs to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>.${decided} A lead from that organization gets this group’s rate line in its brief.</p>`;
-  else if (r.status === 'probable') head = `<p><span class="badge warn">Probable</span> The best candidate is <b>${esc(r.probable?.name)}</b> (${esc(r.why)}). Nothing names it as this group’s organization until a person confirms it in Links to confirm.</p>`;
+  if (r.status === 'exact') head = `<p><span class="badge ok">Exact</span> Linked to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>, matched on company name (score ${Number(l.score).toFixed(2)}; ${esc(l.reason)}).</p>`;
+  else if (r.status === 'confirmed') head = `<p><span class="badge ok">Confirmed</span> Belongs to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>.${decided}</p>`;
+  else if (r.status === 'probable') head = `<p><span class="badge warn">Probable</span> The best candidate is <b>${esc(r.probable?.name)}</b> (${esc(r.why)}). Confirm or reject it in Links to confirm.</p>`;
   else if (r.status === 'rejected') head = `<p><span class="badge">Rejected</span>${r.probable ? ` Not part of <b>${esc(r.probable.name)}</b>.` : ''}${decided}</p>`;
-  else head = `<p>Stands on its EIN: <span class="idkey">${esc(p.finding.accountKey)}</span>. It is not linked to a registry organization (${esc(l.reason)}). A link is made only on a unique, strong name match; a weak one is never guessed.</p>`;
+  else head = `<p>Stands on its EIN: <span class="idkey">${esc(p.finding.accountKey)}</span>. It is not linked to a registry organization (${esc(l.reason)}).</p>`;
   const cands = r.status !== 'exact' && (l.candidates || []).length
     ? `<table class="cands"><thead><tr><th>Closest registry name</th><th>State</th><th class="num">Match</th></tr></thead><tbody>${l.candidates.map((/** @type {any} */ c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.state || '—')}</td><td class="num">${Number(c.score).toFixed(2)}</td></tr>`).join('')}</tbody></table>`
     : '';
@@ -715,7 +710,7 @@ function draftSection(/** @type {any} */ p) {
       <div class="ob-mail-label">LinkedIn line</div>
       <div class="ob-mail-body">${runsHTML(draft.parts.linkedin)}</div>
     </div>
-    <p class="ob-key"><mark class="ins">Figure</mark> inserted by code from the file. <span class="ph-open">{first_name}</span> left open: the file names organizations, not people.</p>
+    <p class="ob-key"><mark class="ins">Figure</mark> inserted from the file · <span class="ph-open">{first_name}</span> left open</p>
     <table class="ob-ins"><caption>Every inserted value and where it came from</caption><thead><tr><th>Value</th><th>Placeholder</th><th>Where it came from</th></tr></thead><tbody>${table}</tbody></table>`);
 }
 
@@ -723,7 +718,7 @@ function hubspotSection(/** @type {any} */ p) {
   const h = p.hubspot;
   const reqs = (h.requests || []).map((/** @type {any} */ r) => `<details class="req"><summary><span class="verb">${esc(r.method)}</span>${esc(r.path)}</summary>${r.note ? `<div class="meta-line ob-pad">${esc(r.note)}</div>` : ''}<pre class="json">${host.jsonHTML(r.body)}</pre></details>`).join('');
   const none = h.skipped ? `<p class="meta-line">No request for this group: ${esc(h.skipped)}.</p>` : '';
-  return `<section class="ob-sec"><details class="ob-hs"><summary>HubSpot request that would be sent <span class="ob-sec-sub">dry run, never sent</span></summary>${reqs}${none}</details></section>`;
+  return `<section class="ob-sec"><details class="ob-hs"><summary>HubSpot request</summary>${reqs}${none}</details></section>`;
 }
 
 // ─── events ──────────────────────────────────────────────────────────────────

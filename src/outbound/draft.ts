@@ -120,7 +120,7 @@ function valuesFor(f: Finding, platform: string | null, c: Campaign): Values {
 }
 
 const LABELS: Record<DraftStatus, string> = {
-  ready: 'Draft: the platform mapping is confirmed. A rep reviews it and adds the contact; nothing is sent from here.',
+  ready: 'Draft: the platform mapping is confirmed. A rep reviews it and adds the contact.',
   blocked: 'Draft, blocked: the platform mapping is not confirmed, so it cannot go out under the platform\'s name.',
   none: 'Preview only: this group is not a target. For reading, not for sending.',
 };

@@ -12,17 +12,15 @@ function watch(page: Page): string[] {
   return problems;
 }
 
-test('the Feature to pipeline tab says it is influence on synthetic data, shows counts beside rates, and lists the expansion signals', async ({ page }) => {
+test('the Feature to pipeline tab says it is influence, not cause, shows counts beside rates, and lists the expansion signals', async ({ page }) => {
   const problems = watch(page);
   await page.goto('/');
   await expect(page.getByText('Live API')).toBeVisible();
   await page.getByRole('tab', { name: 'Feature to pipeline' }).click();
   await expect(page.getByRole('tab', { name: 'Feature to pipeline' })).toHaveAttribute('aria-selected', 'true');
 
-  // the caveat and the synthetic badge are on the page before any number is read
-  // two kinds of data sit on this page and each says what it is: usage and deals are invented on fictional accounts, interest is the lead stream
-  await expect(page.locator('.fp-syn-usage')).toHaveText('SYNTHETIC: USAGE AND DEALS');
-  await expect(page.locator('.fp-syn-interest')).toHaveText('LEAD STREAM: NO PEOPLE YET');
+  // the one-line caveat is on the page before any number is read, and no fixture banner is
+  await expect(page.locator('.fp-syn-usage, .fp-syn-interest')).toHaveCount(0);
   await expect(page.getByRole('note').filter({ hasText: 'Influence, not proof of cause.' })).toBeVisible();
   await expect(page.locator('.ob-line')).toContainText('22 of 22 deals had an account using at least one tracked feature');
   await expect(page.getByRole('group', { name: 'The data behind the tab' }).locator('.ob-stat').first().locator('.ob-stat-value')).toHaveText('22');
@@ -53,13 +51,13 @@ test('the Feature to pipeline tab says it is influence on synthetic data, shows 
   await expect(page.getByRole('heading', { name: 'Who asked for Signal Ask' })).toBeVisible();
   await expect(page.getByText('Nobody in the lead stream has asked for this feature.')).toBeVisible();
 
-  // the two expansion signals, with the HubSpot request collapsed and marked as not sent
+  // the two expansion signals, with the HubSpot request collapsed
   const signals = page.locator('.fp-signal');
   await expect(signals).toHaveCount(2);
   await expect(signals.first()).toContainText('Brindlewood Mutual Health');
   await expect(signals.first()).toContainText('5 uses of Quality data preview in the 30 days to 2026-11-06, by 3 people');
   await expect(signals.first().locator('details.ob-hs')).not.toHaveAttribute('open', '');
-  await signals.first().getByText('HubSpot requests that would be made (dry run, not sent)').click();
+  await signals.first().getByText('HubSpot requests', { exact: true }).click();
   await signals.first().getByText('/crm/v3/objects/tasks').click();
   await expect(signals.first().locator('pre.json').last()).toContainText('Expansion signal: Brindlewood Mutual Health previewed Provider quality data');
 
@@ -68,14 +66,12 @@ test('the Feature to pipeline tab says it is influence on synthetic data, shows 
   expect(problems, problems.join('\n')).toEqual([]);
 });
 
-test('the tab reflows to a phone: no sideways scroll, and the caveat and badge stay on the page', async ({ page }) => {
+test('the tab reflows to a phone: no sideways scroll, and the caveat stays on the page', async ({ page }) => {
   const problems = watch(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('tab', { name: 'Feature to pipeline' }).click();
-  await expect(page.locator('.fp-syn-usage')).toBeVisible();
-  await expect(page.locator('.fp-syn-interest')).toBeVisible();
-  await expect(page.locator('.fp-caveat')).toBeVisible();
+  await expect(page.locator('.fp-caveat')).toHaveText('Influence, not proof of cause.');
   await expect(page.locator('.fp-bar-row')).toHaveCount(7);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   expect(problems, problems.join('\n')).toEqual([]);

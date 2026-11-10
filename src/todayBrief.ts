@@ -143,7 +143,7 @@ function referralItem(r: ReferralLeadRow): BriefItem {
   const standing = ref.kind === 'customer' ? `a customer owned by ${ref.account?.owner ?? 'nobody'}` : ref.kind === 'known_org' ? 'not a customer' : 'organization not identified';
   return {
     kind: 'referral', title: `${who} referred ${personName(r)}${r.account_name ?? r.company_name_raw ? ` at ${r.account_name ?? r.company_name_raw}` : ''}`,
-    detail: `${who}: ${standing}. ${r.tier ? `Tier ${r.tier}. ` : ''}${ref.thanks ? 'A thank-you task for the owner is planned, not sent.' : 'No thank-you task, no owner to give it to.'}`,
+    detail: `${who}: ${standing}. ${r.tier ? `Tier ${r.tier}. ` : ''}${ref.thanks ? 'A thank-you task for the owner is planned.' : 'No thank-you task, no owner to give it to.'}`,
     tab: 'stream', ids: { leadId: r.lead_id, ...(ref.account?.key ? { accountKey: ref.account.key } : {}) },
   };
 }

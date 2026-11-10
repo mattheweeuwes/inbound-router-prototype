@@ -22,7 +22,7 @@ function clearDecision(ctx: Ctx, ein: string): Response {
 }
 
 async function linkDecision(req: Request, ctx: Ctx, ein: string): Promise<Response> {
-  if (!ctx.cfg.demoRoutes) return notFound('the demo actions are off, so link decisions are not taken: set DEMO_ROUTES=1 to turn them on (npm run dev does). Sign-in is not built.');
+  if (!ctx.cfg.demoRoutes) return notFound('decisions are off on this server: set DEMO_ROUTES=1 to turn them on (npm run dev does)');
   if (req.method === 'DELETE') return clearDecision(ctx, ein);
   if (req.method !== 'POST') return methodNotAllowed('POST, DELETE');
   const parsed = parseLinkDecision(await req.json().catch(() => null));

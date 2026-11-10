@@ -255,7 +255,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     { id: 'sales_ready', label: 'Sales-ready', def: 'Qualified and scored A or B.', keep: l => l.tier === 'A' || l.tier === 'B' },
     { id: 'assigned', label: 'Assigned to a rep or team', def: 'Sales-ready and routed to a rep, the account owner or a team queue (a repeat contact stays with its first owner).', keep: l => ASSIGNED_ROUTES.has(l.action ?? '') },
     { id: 'alerted', label: 'Alerted', def: 'Assigned and a Slack alert went to the rep or the team channel, or, for a row of an uploaded list, the list digest it was folded into went out. A repeat contact inside 24 hours is attached without a new alert.', keep: alertSent },
-    { id: 'synced', label: sDry ? 'HubSpot sync planned' : 'Synced to HubSpot', def: sDry ? 'Alerted, and the HubSpot requests for it were built and recorded (dry-run: nothing is sent).' : 'Alerted, and every HubSpot request for it answered 2xx.', keep: l => (l.crm?.requests?.length ?? 0) > 0 && (l.crm?.mode !== 'live' || l.crm?.ok === true) },
+    { id: 'synced', label: sDry ? 'HubSpot sync planned' : 'Synced to HubSpot', def: sDry ? 'Alerted, and the HubSpot requests for it were built and recorded.' : 'Alerted, and every HubSpot request for it answered 2xx.', keep: l => (l.crm?.requests?.length ?? 0) > 0 && (l.crm?.mode !== 'live' || l.crm?.ok === true) },
   ];
   let pool = leads;
   const funnel = steps.map((s, i) => {

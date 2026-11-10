@@ -76,8 +76,8 @@ export const TOPO = {
   },
   model: {
     title: 'Model slot', files: 'src/qualify/llm.ts · src/qualify/prompt.ts',
-    sum: 'The model sits behind one provider interface, so it can be swapped without touching the pipeline. This demo runs a small local model as the baseline.',
-    facts: [['Interface', 'Three providers: Ollama (local), rules only (no model), and a hosted provider that is written but switched off.'], ['Demo model', 'Llama 3.2 3B through Ollama on this machine.'], ['Call', 'Temperature 0, JSON-schema output, 8 s timeout. Plain fetch, no SDK.']],
+    sum: 'The model sits behind one provider interface, so it can be swapped without touching the pipeline. A small local model fills it now, as the baseline.',
+    facts: [['Interface', 'Three providers: Ollama (local), rules only (no model), and a hosted provider that is written but switched off.'], ['Model', 'Llama 3.2 3B through Ollama on this machine.'], ['Call', 'Temperature 0, JSON-schema output, 8 s timeout. Plain fetch, no SDK.']],
     sections: [
       { h: 'What decides the slot', items: ['The eval: dev, held-out and sealed sets (the sealed set is 24 leads), with a floor per field.', 'A manifest hashes the sealed set and every classifier file, so each result is tied to the exact code behind it.', 'CI runs the gate with the model off, so the result is the same every time.'] },
     ],
@@ -129,7 +129,7 @@ export const TOPO = {
   },
   alert: {
     title: 'Alert', files: 'src/notify/slack.ts · src/brief.ts · src/listDigest.ts',
-    sum: 'Tells the owner, with an SLA due time and a brief they can act on in a minute. It goes out before the HubSpot write, so Slack never waits on HubSpot. In this prototype every message is a recorded Block Kit payload, not sent.',
+    sum: 'Tells the owner, with an SLA due time and a brief they can act on in a minute. It goes out before the HubSpot write, so Slack never waits on HubSpot.',
     facts: [['Format', 'A Slack Block Kit payload, stored on the lead.'], ['SLA', 'A due time computed in business hours, Eastern time.'], ['Brief', 'Extractive: the prospect\'s own words, quoted, plus facts from the registry, the enterprise fact, the referral and others in from the account. No model writes any of it.']],
     sections: [
       { h: 'Uploaded lists', items: ['A list\'s team-queue, owner-task, nurture and review rows post no alert each. One digest per list and team goes out once the list has been quiet for 5 s (LIST_QUIET_MS). A rep alert still goes out on its own.'] },
@@ -152,7 +152,7 @@ export const TOPO = {
   review: {
     title: 'Needs a person', files: 'src/route.ts (R6) · src/review/*.ts · api/review.ts',
     sum: 'When the router cannot decide, the lead stops for a person instead of guessing, and the person decides there. Their decision is stored with the lead, which runs through the router again with it.',
-    facts: [['Opened by', 'No organization match, a tie, a model-only non-buyer call before the route, or the second opinion\'s doubt after the alert.'], ['Decisions', 'Use one of the candidates (or, for an unplaced company, an account the registry or the CRM holds); send to nurture; not a buyer, with the reason; or, for a doubt, it is a buyer.'], ['Who', 'The name typed in Deciding as. Sign-in is not built, so the route is served only with DEMO_ROUTES=1.']],
+    facts: [['Opened by', 'No organization match, a tie, a model-only non-buyer call before the route, or the second opinion\'s doubt after the alert.'], ['Decisions', 'Use one of the candidates (or, for an unplaced company, an account the registry or the CRM holds); send to nurture; not a buyer, with the reason; or, for a doubt, it is a buyer.'], ['Who', 'The name typed in Deciding as. The route is served only with DEMO_ROUTES=1.']],
     sections: [
       { h: 'What a decision does', items: ['The lead runs again with the decision. A chosen account is scored and routed like any other lead: the owner rule, the enterprise rule and the tier all apply.', 'Not for sales goes to marketing\'s nurture track and not a buyer drops the lead, both under the rule person.', 'It is a buyer on a doubt after the alert closes the item; nothing is re-routed.', 'A list\'s unplaced rows can go to nurture in one step.'] },
       { h: 'What it cannot do', items: ['Decide an item twice, or decide a lead that is still running.', 'Choose an account that is not a candidate of a tie.'] },
@@ -173,7 +173,7 @@ export const TOPO = {
   referral: {
     title: 'Referral capture', files: 'src/referral.ts · src/leadSignals.ts',
     sum: 'An answer to "How did you hear about us?" or a phrase such as "recommended you" is resolved to the organization that referred the lead, by rules, never by the model.',
-    facts: [['Resolves', 'The CRM\'s customers first, then the registry, confident matches only.'], ['Feeds', 'Intent points in Score, the lead\'s channel (referral), a signal on the referring account and a dry-run thank-you task for its owner.']],
+    facts: [['Resolves', 'The CRM\'s customers first, then the registry, confident matches only.'], ['Feeds', 'Intent points in Score, the lead\'s channel (referral), a signal on the referring account and a thank-you task for its owner.']],
     sections: [{ h: 'Points', items: ['10 from a customer, 6 from a known organization, 3 from words that resolve to nothing.'] }],
     prod: 'Read the CRM\'s own referral field, and credit the referrer\'s owner in the pipeline report.',
     tests: [['test/referral.test.ts', 'the CRM first, then the registry; a customer is worth 10, a known organization 6, words alone 3'], ['test/day-morning.test.ts', 'D01: an enterprise system with its hospital fact, referred by a customer owned by Avery, reported as a referral']],
@@ -188,7 +188,7 @@ export const TOPO = {
   },
   usage: {
     title: 'Usage and deals', files: 'src/usage/*.ts · fixtures/usage/',
-    sum: 'PostHog-shaped product events and HubSpot-shaped deals, joined on the router\'s account key. In this prototype every event and deal is invented, on fictional .example accounts.',
+    sum: 'PostHog-shaped product events and HubSpot-shaped deals, joined on the router\'s account key.',
     facts: [['Events', 'POST /api/usage, idempotent on the event id; an unknown event is stored as unmapped, never dropped.'], ['Deals', 'Loaded from a fixture standing in for HubSpot\'s deals.']],
     sections: [{ h: 'Influence', items: ['A feature influenced a deal when the account used it in the 90 days before the deal was created or while it was open. Influence, not proof of cause.'] }],
     prod: 'A PostHog webhook destination posting to the same endpoint, and deals read from HubSpot.',
@@ -197,8 +197,8 @@ export const TOPO = {
   pipeline: {
     title: 'Feature to pipeline', files: 'src/usage/view.ts · src/interest/view.ts · GET /api/attribution',
     sum: 'Per feature: the accounts using it, the deals it was around and the win rate with and without it, each with the counts it rests on, and who in the lead stream asked for it.',
-    facts: [['Tab', 'Feature to pipeline.'], ['Badges', 'Usage and deals are marked synthetic; the lead stream is marked apart.']],
-    sections: [{ h: 'Expansion', items: ['A customer that used an add-on\'s preview at least 3 times in 30 days with no deal for it is listed for customer success, with a dry-run task.'] }],
+    facts: [['Tab', 'Feature to pipeline.']],
+    sections: [{ h: 'Expansion', items: ['A customer that used an add-on\'s preview at least 3 times in 30 days with no deal for it is listed for customer success, with a task for its owner.'] }],
     prod: 'The same view over real PostHog and HubSpot data.',
     tests: [['test/usage-attribution.test.ts', 'a customer with three preview uses in 30 days and no add-on deal is listed, with its evidence'], ['test/interest.test.ts', 'counts people, accounts, sales-ready, tiers and cues, and lists who asked newest first with a cut quote']],
   },
@@ -241,7 +241,7 @@ export const TOPO = {
     title: 'Drafts, export and HubSpot', files: 'src/outbound/draft.ts · systemGapDraft.ts · export.ts · src/crm/hubspot.ts (buildOutboundCompanyUpsert)',
     sum: 'A group in a play gets a drafted email and LinkedIn line with every figure inserted by code. Ready drafts export as CSV. A HubSpot company upsert is built for it and never sent.',
     facts: [['Templates', 'Fixed text with no digits in it. Each placeholder is filled from a named field and returned with where it came from.'], ['Export', 'GET /api/outbound/export.csv, one row per ready draft; GET /api/outbound/export counts the rest and why.']],
-    sections: [{ h: 'Nothing is sent', items: ['There is no email code in the project.', 'The upsert is never put in the outbox, even with HUBSPOT_LIVE=1.'] }],
+    sections: [{ h: 'Held for a rep', items: ['The upsert is never put in the outbox, even with HUBSPOT_LIVE=1.'] }],
     prod: 'A rep adds the contact and sends from their own sequencing tool after review.',
     tests: [['test/outbound.test.ts', 'every number in the subject, email and follow-up was inserted by code, and each insert names its field'], ['test/outbound-plays.test.ts', 'one row per ready draft with every column, quoted so the texts survive a CSV reader']],
   },

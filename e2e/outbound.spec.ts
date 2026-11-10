@@ -41,13 +41,13 @@ test('the Outbound tab shows the finding, the chart and the targets, and a group
   await table.getByRole('button', { name: 'HARBORLIGHT TELEPSYCH PLLC' }).click();
   const panel = page.getByRole('complementary', { name: 'Group detail' });
   await expect(panel.getByText('Draft ready').first()).toBeVisible();
-  await expect(panel.locator('.ob-nothing')).toContainText('Nothing is sent from here.');
+  await expect(panel.locator('.ob-nothing')).toHaveCount(0);
   await expect(panel.getByText("Harborlight's UHC rate in Texas: 79% of Medicare")).toBeVisible();
   await expect(panel.locator('.ob-mail-body mark.ins').first()).toBeVisible();
   await expect(panel.locator('.ob-mail-body .ph-open').first()).toHaveText('{first_name}');
   await expect(panel.getByRole('table', { name: 'Every inserted value and where it came from' }).locator('tbody tr').first()).toBeVisible();
   await expect(panel.locator('details.ob-hs')).not.toHaveAttribute('open', '');
-  await panel.getByText('HubSpot request that would be sent').click();
+  await panel.getByText('HubSpot request', { exact: true }).click();
   await expect(panel.getByText('/crm/v3/objects/companies/batch/upsert')).toBeVisible();
 
   // the unconfirmed entity is blocked, with the reason

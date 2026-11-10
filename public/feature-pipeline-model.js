@@ -149,23 +149,6 @@ export function cueSummary(/** @type {Feature} */ f) {
 /** What an asked-for item says about how the person showed it: the cue in words, then the evidence. */
 export const askedHow = (/** @type {Asked} */ a) => `${CUE_WORDS[a.cue]}: ${a.evidence.join('; ')}`;
 
-/**
- * The two provenance badges, kept apart: usage and deals are invented on fictional accounts; interest is read from the lead
- * stream, whose people are invented and whose organizations are the ones in the stream. The second says how many of its people
- * are synthetic when they are not all.
- */
-export function provenanceBadges(/** @type {Loaded} */ d) {
-  const s = d.synthetic;
-  const i = s.interest;
-  return /** @type {{ kind: 'usage' | 'interest', text: string, title: string }[]} */ ([
-    { kind: 'usage', text: s.allSynthetic ? 'SYNTHETIC: USAGE AND DEALS' : `SYNTHETIC: ${s.events.toLocaleString('en-US')} events, ${s.deals.toLocaleString('en-US')} deals`, title: s.note },
-    {
-      kind: 'interest', title: i.note,
-      text: i.leads === 0 ? 'LEAD STREAM: NO PEOPLE YET' : i.allSynthetic ? 'LEAD STREAM: PEOPLE INVENTED' : `LEAD STREAM: ${i.synthetic} of ${i.leads} people invented`,
-    },
-  ]);
-}
-
 /** The evidence for an expansion signal, in a sentence. */
 export function evidenceWords(/** @type {Signal} */ s) {
   const e = s.evidence;

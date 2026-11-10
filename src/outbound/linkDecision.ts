@@ -26,7 +26,7 @@ export function parseLinkDecision(body: unknown): LinkDecisionRequest | string {
   const decision = b.decision;
   if (decision !== 'confirm' && decision !== 'reject') return 'decision must be "confirm" or "reject"';
   const by = text(b.by);
-  if (!by) return 'by is required: the name of the person deciding (sign-in is not built)';
+  if (!by) return 'by is required: the name of the person deciding';
   if (by.length > MAX_BY) return `by is longer than ${MAX_BY} characters`;
   const note = text(b.note);
   if (note.length > MAX_NOTE) return `note is longer than ${MAX_NOTE} characters`;

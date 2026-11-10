@@ -10,7 +10,7 @@ import { parseReviewRequest } from '../src/review/decision';
 import { reviewView } from '../src/review/view';
 import { jsonResponse, methodNotAllowed, notFound } from './_util';
 
-const DEMO_OFF = 'the demo actions are off, so review decisions are not taken: set DEMO_ROUTES=1 to turn them on (npm run dev does). Sign-in is not built.';
+const DEMO_OFF = 'decisions are off on this server: set DEMO_ROUTES=1 to turn them on (npm run dev does)';
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 async function leadDecision(req: Request, ctx: Ctx, leadId: string): Promise<Response> {

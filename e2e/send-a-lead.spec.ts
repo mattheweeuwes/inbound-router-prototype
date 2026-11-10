@@ -53,7 +53,7 @@ test('a lead sent through the cockpit is routed, with its decision trail and a d
   await expect(page.getByText('Routed', { exact: true })).toBeVisible();
   await expect(page.getByText(/· rule R\d/)).toBeVisible();
   await expect(page.getByText(/^Routed in .+ from the webhook/)).toBeVisible();
-  await expect(page.getByText(/dry run, not sent · \d+ requests?/)).toBeVisible();
+  await expect(page.getByText(/^planned · \d+ requests?$/)).toBeVisible();
   await expect(page.getByText(/live, sent/)).toHaveCount(0);
 
   // The Overview counts it: one lead in, from one signed delivery.

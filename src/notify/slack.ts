@@ -40,7 +40,6 @@ export function buildSlackPayload(i: SlackInput): SlackPayload {
         f('Routing', `${route.rule}: ${route.reason}`),
       ] },
       ...(account.length ? [{ type: 'section', fields: account }] : []),
-      { type: 'context', elements: [{ type: 'mrkdwn', text: i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead' }] },
     ],
   };
 }
@@ -84,7 +83,7 @@ export function buildEnterpriseNote(i: EnterpriseNoteInput): SlackPayload {
     dryRun: true,
     blocks: [
       { type: 'section', text: { type: 'mrkdwn', text: `*${header.slice(0, 150)}*\n${lines.join('\n').slice(0, 2800)}` } },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `${first} ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: first }] },
     ],
   };
 }
@@ -110,7 +109,7 @@ export function buildFailureAlert(i: FailureInput): SlackPayload {
         f('Received', i.receivedAt),
         f('Last error', i.error),
       ] },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `The run did not finish, so the lead may have no owner and no HubSpot record. ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: 'The run did not finish, so the lead may have no owner and no HubSpot record.' }] },
     ],
   };
 }
@@ -142,7 +141,6 @@ export function buildDoubtFollowUp(i: DoubtFollowUpInput): SlackPayload {
         f('Organization', i.org),
         f('What changed', i.sentence + (i.quote ? `\n> ${i.quote}` : '')),
       ] },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead' }] },
     ],
   };
 }
@@ -187,7 +185,7 @@ export function buildListDigest(i: ListDigestInput): SlackPayload {
         f('Unknown organizations', `${batch.unknownOrgs} in the list`),
       ] },
       { type: 'section', text: { type: 'mrkdwn', text: `*Top ${Math.min(summary.top.length, TOP_ROWS)} by score*\n${top}`.slice(0, 2900) } },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `One digest per list and team; each row keeps its own route, SLA and CRM task. ${i.synthetic ? ':test_tube: *SYNTHETIC* leads from the prototype fixtures' : 'Live leads'}` }] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: 'One digest per list and team; each row keeps its own route, SLA and CRM task.' }] },
     ],
   };
 }
@@ -213,7 +211,7 @@ export function buildReviewDigest(i: ListDigestInput & { rows: DigestRow[] }): S
         f('Repeats attached', `${batch.repeatsAttached} in the list`),
       ] },
       { type: 'section', text: { type: 'mrkdwn', text: `*Waiting for RevOps*\n${listed.join('\n')}${more}`.slice(0, 2900) } },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `Each row is its own review item in Needs a person. ${i.synthetic ? ':test_tube: *SYNTHETIC* leads from the prototype fixtures' : 'Live leads'}` }] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: 'Each row is its own review item in Needs a person.' }] },
     ],
   };
 }

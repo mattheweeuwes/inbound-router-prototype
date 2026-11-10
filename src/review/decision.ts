@@ -75,7 +75,7 @@ export function parseReviewRequest(body: unknown): ReviewRequest | string {
   const decision = REVIEW_DECISIONS.find(d => d === b.decision);
   if (!decision) return `decision must be one of ${REVIEW_DECISIONS.map(d => `"${d}"`).join(', ')}`;
   const by = text(b.by);
-  if (!by) return 'by is required: the name of the person deciding (sign-in is not built)';
+  if (!by) return 'by is required: the name of the person deciding';
   if (by.length > MAX_BY) return `by is longer than ${MAX_BY} characters`;
   const note = text(b.note);
   if (note.length > MAX_NOTE) return `note is longer than ${MAX_NOTE} characters`;

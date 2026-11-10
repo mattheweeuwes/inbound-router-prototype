@@ -134,7 +134,7 @@ function setMode(mode) {
   const pill = $('#modePill');
   pill.classList.toggle('live', mode === 'live');
   pill.classList.toggle('sample', mode === 'sample');
-  $('#modeText').textContent = mode === 'live' ? 'Live API' : 'Sample data · API offline';
+  $('#modeText').textContent = mode === 'live' ? 'Live API' : 'API offline';
   $('#submitBtn').disabled = mode !== 'live';
   renderStrip();
 }
@@ -276,7 +276,7 @@ function renderDetail(d) {
     <div class="d-top">
       <div class="d-tier tier ${tierCls}">${esc(d.tier ?? sc.tier ?? '·')}</div>
       <div class="d-title">
-        <div class="d-name">${esc(name)} ${d.synthetic !== false ? '<span class="syn">SYNTHETIC</span>' : ''}</div>
+        <div class="d-name">${esc(name)}</div>
         <div class="d-sub">${esc(sub)}</div>
       </div>
       <div class="d-score">
@@ -442,7 +442,7 @@ function renderDetail(d) {
   const crm = d.crm;
   if (crm) {
     const reqs = (crm.requests || []).map((x, i) => `<details class="req"><summary><span class="verb">${esc(x.method)}</span>${esc(x.path)}${(crm.responses || [])[i] ? ` · ${esc(crm.responses[i].reused ? 'open task already there, kept it' : String(crm.responses[i].status))}` : ''}</summary>${(crm.responses || [])[i] && crm.responses[i].error ? `<div class="meta-line">${esc(crm.responses[i].error)}</div>` : ''}${x.body != null ? `<pre class="json">${jsonHTML(x.body)}</pre>` : '<pre class="json">(no body)</pre>'}</details>`).join('');
-    html += stage(stageState(d, 'synced', true), 'HubSpot', `${crm.mode === 'live' ? (crm.delivery === 'pending' || crm.delivery === 'retrying' ? `live, waiting to send${crm.attempts ? ` (attempt ${crm.attempts} failed)` : ''}` : crm.delivery === 'dead' ? `live, gave up after ${crm.attempts} attempts` : crm.ok === false ? `live, ${(crm.responses || []).filter((r) => r.status >= 300).length} failed` : 'live, sent') : 'dry run, not sent'}${crm.ownerMapped && crm.ownerMapped.length ? ' · synthetic rep mapped to the portal owner' : ''} · ${(crm.requests || []).length} request${(crm.requests || []).length === 1 ? '' : 's'}`, t.crm,
+    html += stage(stageState(d, 'synced', true), 'HubSpot', `${crm.mode === 'live' ? (crm.delivery === 'pending' || crm.delivery === 'retrying' ? `live, waiting to send${crm.attempts ? ` (attempt ${crm.attempts} failed)` : ''}` : crm.delivery === 'dead' ? `live, gave up after ${crm.attempts} attempts` : crm.ok === false ? `live, ${(crm.responses || []).filter((r) => r.status >= 300).length} failed` : 'live, sent') : 'planned'}${crm.ownerMapped && crm.ownerMapped.length ? ' · rep mapped to the portal owner' : ''} · ${(crm.requests || []).length} request${(crm.requests || []).length === 1 ? '' : 's'}`, t.crm,
       reqs || '<div class="meta-line">No CRM write for this outcome.</div>');
   } else {
     html += stage(stageState(d, 'synced', false), 'HubSpot', '', t.crm, null);
@@ -501,7 +501,7 @@ function renderSlack(slack) {
   }
   return `<div class="chat">
     <div class="chat-avatar"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h6l5 7h7M7 16h11M7 23h6l5-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <div><div class="chat-from">Inbound Router <span>APP · to ${esc(slack.channel || 'a channel')} · preview, not sent</span></div>
+    <div><div class="chat-from">Inbound Router <span>to ${esc(slack.channel || 'a channel')}</span></div>
       ${header ? `<div class="chat-h">${esc(header)}</div>` : ''}
       ${fields ? `<div class="chat-fields">${fields}</div>` : ''}${secs}${ctx ? `<div class="chat-ctx">${ctx}</div>` : ''}
     </div></div>`;
@@ -511,8 +511,8 @@ function renderSlack(slack) {
 let evalSet = null;
 const SET_ORDER = ['sealed', 'heldout', 'dev'];
 function setLabel(x) {
-  if (x.name === 'sealed') return `Sealed held-out (${x.n} synthetic)`;
-  if (x.name === 'heldout') return `Held-out (${x.n} synthetic)`;
+  if (x.name === 'sealed') return `Sealed held-out (${x.n})`;
+  if (x.name === 'heldout') return `Held-out (${x.n})`;
   if (x.name === 'dev') return `Development (${x.n})`;
   return `${x.name} (${x.n})`;
 }
@@ -568,9 +568,8 @@ function renderEval() {
   if (ref && ref.fields && ref.fields.urgency) {
     const u = ref.fields.urgency;
     const bits = cols.map(([k, l]) => (val(u, k) != null ? `${l} ${u.counts && u.counts[k] ? `${u.counts[k]} (${pct(val(u, k))})` : pct(val(u, k))}` : null)).filter(Boolean);
-    story = `<div class="card" style="margin-top:14px"><h3>What the evals changed</h3>
-      <p style="margin:0 0 6px;color:var(--ink-2)">Version 1 let the model override the rules whenever it was at least 60% confident; the small demo model got month arithmetic wrong, so urgency got worse. Version 2 let rules decide wherever they had a clear signal; it recovered on the development set but its keyword cues did not generalize to new phrasing. Version 3 replaced the cues with a date parser that resolves every expression to a calendar date and measures the distance, but still asked the model when a message had no timing language, and the model guessed. Version 4 stops guessing: no timing language means unknown.</p>
-      <p style="margin:0;color:var(--ink-2)">Urgency on the ${esc(setLabel(ref).toLowerCase())}: ${esc(bits.join(' · '))}.</p></div>`;
+    story = `<div class="card eval-story"><h3>Urgency by policy</h3>
+      <p class="meta-line">${esc(setLabel(ref))}: ${esc(bits.join(' · '))}</p></div>`;
   }
   const curMisses = (e.misses || []).filter((m) => !m.set || m.set === cur.name);
   const misses = curMisses.slice(0, 60).map((m) => `<div class="miss"><div class="miss-top"><span class="idkey">${esc(m.fixtureId)}</span><b>${esc(m.field)}</b><span>expected <b>${esc(m.expected)}</b>, got <b>${esc(m.got)}</b></span>${m.source ? `<span class="src">${esc(lab('source', m.source))}</span>` : ''}</div>${m.reasons ? `<div class="why">“${esc(m.reasons)}”</div>` : ''}</div>`).join('');
@@ -739,27 +738,23 @@ function stackRow(label, tiers, total, scale, lw, extra = '', sub = '') {
   </div>`;
 }
 
+/** The header's status chips: whether HubSpot writes go out, and what fills the model slot. Each is a mode that changes what happens. */
 function renderStrip() {
   const d = state.dash;
-  const box = $('#envStrip');
+  const box = $('#envChips');
   if (!box) return;
-  const items = ['Synthetic people, real organizations (the CRM accounts are fictional)'];
-  if (d && d.env) {
-    const live = d.env.hubspot === 'live';
-    items.push(live ? 'HubSpot: <span class="live-tag">LIVE</span>' : 'HubSpot: dry-run, nothing sent');
-    const m = d.env.model || {};
-    items.push(m.provider === 'rules' ? 'Classifier: rules only, no model' : m.provider === 'anthropic' ? 'Classifier: rules + model slot (hosted model)' : 'Classifier: rules + model slot (demo model on this machine)');
-    items.push(d.env.registry === 'real' ? 'Registry: CMS, AHRQ, NPPES' : 'Registry: hand-made mini set');
-  }
-  if (state.mode === 'sample') items.push('Sample data: the API is offline');
-  box.innerHTML = `<div class="strip-in"><b>Prototype</b>${items.map((t, i) => `${i ? '<span class="sep" aria-hidden="true">·</span>' : ''}<span class="item">${t}</span>`).join('')}</div>`;
+  if (!d || !d.env || state.mode !== 'live') { box.innerHTML = ''; return; }
+  const live = d.env.hubspot === 'live';
+  const m = d.env.model || {};
+  const model = m.provider === 'rules' ? 'rules only' : m.provider === 'anthropic' ? 'hosted' : 'local';
+  box.innerHTML = `<span class="status-chip${live ? ' is-warn' : ''}">HubSpot: ${live ? 'live' : 'not sending'}</span><span class="status-chip">Model: ${model}</span>`;
 }
 
 function ovHeader(d) {
   const live = state.mode === 'live';
   return `<div class="ov-head">
     <div>
-      <h1>Every inbound lead, routed <span class="grad-text">in seconds</span></h1>
+      <h1>Overview</h1>
     </div>
     <div class="ov-updated${live ? ' is-live' : ''}" id="ovUpdated"><span class="pulse" aria-hidden="true"></span>${live ? `Updated ${esc(new Date(d.generatedAt).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit', second: '2-digit' }))} ET` : 'Sample data'}</div>
   </div>`;
@@ -819,7 +814,7 @@ function ovPath(d) {
   for (const p of d.path) counts[p.status] = (counts[p.status] || 0) + 1;
   const checked = d.path.length - counts.idle;
   const badge = counts.bad ? `<span class="badge bad">${counts.bad} failing</span>` : counts.warn ? `<span class="badge warn">${counts.warn} to look at</span>` : checked ? `<span class="badge ok">${counts.ok} of ${checked} passing</span>` : '<span class="badge">Waiting for leads</span>';
-  return `<div class="card path-card">
+  return `<div class="path-card">
     <div class="card-head"><h3>Speed-to-lead path</h3><div class="card-tools">${badge}</div></div>
     <ul class="path">${d.path.map((p) => `<li>${sicon(p.status)}<div class="line"><b>${esc(p.label)}</b><span class="fact">${esc(p.fact)}</span></div></li>`).join('')}</ul>
   </div>`;
@@ -830,7 +825,7 @@ function ovKpis(d) {
   const sr = k.salesReady;
   const t = k.timeToRoute;
   const thin = (parts) => `<div class="thin" aria-hidden="true">${parts.filter((p) => p[1] > 0).map(([cls, n]) => `<span class="${cls}" style="flex:${n} 1 0"></span>`).join('')}</div>`;
-  const tile = (label, inner, key = false) => `<div class="card kpi${key ? ' is-key' : ''}" role="group" aria-label="${esc(label)}"><div class="kpi-label">${esc(label)}</div>${inner}</div>`;
+  const tile = (label, inner, key = false) => `<div class="kpi${key ? ' is-key' : ''}" role="group" aria-label="${esc(label)}"><div class="kpi-label">${esc(label)}</div>${inner}</div>`;
   return `<section class="kpis" aria-label="Summary">
     ${tile('Leads in', `<div class="kpi-value">${nf(k.leadsIn.value)}</div>`)}
     ${tile('Sales-ready', `<div class="kpi-value">${nf(sr.value)}${sr.pct != null ? `<small>${pctTxt(sr.pct)} of leads</small>` : ''}</div>${thin([['seg-A', sr.a], ['seg-B', sr.b], ['seg-X', Math.max(0, k.leadsIn.value - sr.a - sr.b)]])}`, true)}
@@ -903,8 +898,8 @@ function ovLists(d) {
       <div class="act"><span class="wait">${nf(l.digests)} digest${l.digests === 1 ? '' : 's'}${l.waitingForDigest ? ` · ${nf(l.waitingForDigest)} waiting` : ''}</span><span class="wait">${nf(l.repeatsAttached)} repeat${l.repeatsAttached === 1 ? '' : 's'} · ${nf(l.unknownOrgs)} unknown</span></div>
     </li>`).join('')}</ul>`;
   const table = dtable(['List', 'Rows', 'By tier', 'By action', 'Repeats attached', 'Unknown organizations', 'Digests', 'First accepted', 'Last accepted'], rows, 9);
-  return vcard({ id: 'lists', title: 'Uploaded lists', sub: `${nf(lists.length)} list${lists.length === 1 ? '' : 's'}`, body, table, span: 'span-5',
-    foot: '<span>One Slack digest per list and team in place of one alert per row; a rep alert still goes out on its own.</span>' });
+  return vcard({ id: 'lists', title: 'Uploaded lists', sub: `${nf(lists.length)} list${lists.length === 1 ? '' : 's'}`, body, table, span: 'span-5'
+  });
 }
 
 /** Named referrals (decision 26): the people who named who sent them, beside everyone else, and the referrers ranked. */
@@ -925,7 +920,7 @@ function ovReferrals(d) {
     : '<div class="none">Nobody has named a referrer yet.</div>';
   const table = dtable(['Referrer', 'Customer', 'Owner', 'Leads', 'Sales-ready'], r.referrers.map((x) => [x.name, x.customer ? 'yes' : x.key ? 'no' : 'not identified', x.owner || '—', x.leads, x.salesReady]), 3);
   return vcard({ id: 'referrals', title: 'Named referrals', sub: `${nf(r.named)} of ${nf(r.people)} leads${r.share != null ? ` · ${r.share}%` : ''}`, body: compare + ranked, table, span: 'span-7',
-    foot: `<span><b>${nf(r.webOrUtmReferral)}</b> more read referral from a web referrer or UTM only, with nobody named</span><span><b>${nf(r.thanksPlanned)}</b> thank-you task${r.thanksPlanned === 1 ? '' : 's'} planned for an owner (dry-run)</span>` });
+    foot: `<span><b>${nf(r.webOrUtmReferral)}</b> more read referral from a web referrer or UTM only, with nobody named</span><span><b>${nf(r.thanksPlanned)}</b> thank-you task${r.thanksPlanned === 1 ? '' : 's'} planned for an owner</span>` });
 }
 
 function ovSpeed(d) {
@@ -1008,7 +1003,7 @@ function ovSync(d, span = 'span-5') {
   const body = hbars(rows, { lw: 110, keyIndex: rows.length ? maxIdx : -1 });
   const recOk = h.record.lines === h.plannedDryRun;
   const table = dtable(['Object', 'Operation', 'Planned', 'Failed', 'Reused'], h.requests.map((r) => [r.object, r.op, r.planned, r.failed, r.reused]), 2);
-  return vcard({ id: 'sync', title: h.mode === 'dry_run' ? 'HubSpot requests planned' : 'HubSpot requests sent', sub: h.mode === 'dry_run' ? 'dry-run' : 'live', body, table, span,
+  return vcard({ id: 'sync', title: h.mode === 'dry_run' ? 'HubSpot requests planned' : 'HubSpot requests sent', body, table, span,
     foot: `<span><b>${nf(h.failed)}</b> failed</span><span><b>${nf(h.leadsNotWritten)}</b> ${h.leadsNotWritten === 1 ? 'lead' : 'leads'} with no CRM write, by design</span><span><b>${nf(h.redeliveriesWithoutWrites)}</b> ${h.redeliveriesWithoutWrites === 1 ? 're-delivery' : 're-deliveries'} wrote nothing</span>${h.mode === 'live' ? `<span><b>${nf(h.reused)}</b> open tasks reused</span>` : ''}${h.plannedDryRun ? `<span>${recOk ? '' : '<b style="color:var(--warn)">differs</b> '}record: <b>${nf(h.record.lines)}</b> lines in out/hubspot</span>` : ''}` });
 }
 
@@ -1091,7 +1086,7 @@ function feedItem(a, isNew) {
     case 'signal': title = 'Account signal logged'; detail = a.org || 'web visits'; break;
     case 'attached': title = `Repeat contact kept with ${a.owner || 'its owner'}`; detail = who; break;
     case 'not_for_sales': title = `Not for sales: ${(a.reason || lab('action', a.action)).toLowerCase()}`; detail = who; break;
-    case 'crm': title = `CRM write planned: ${nf(a.requests)} request${a.requests === 1 ? '' : 's'}`; detail = `HubSpot ${a.mode === 'live' ? 'live' : 'dry-run'} · ${who}`; break;
+    case 'crm': title = `CRM write planned: ${nf(a.requests)} request${a.requests === 1 ? '' : 's'}`; detail = a.mode === 'live' ? `HubSpot live · ${who}` : who; break;
     case 'duplicate': title = 'Duplicate absorbed'; detail = `${lab('source', a.source)} re-delivered, no new lead`; break;
     case 'failed': title = `Step failed: ${a.stage}`; detail = a.note || who; break;
     default: title = `Routed to ${a.owner || a.team || 'a queue'}`; detail = who; dot = 'routed';

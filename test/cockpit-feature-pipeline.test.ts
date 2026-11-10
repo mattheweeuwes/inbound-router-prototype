@@ -8,7 +8,7 @@ import { buildAddress, parseAddress } from '../public/address-model.js';
 import { ROOT } from '../src/config';
 import {
   ASKED_SORTS, FEATURE_SORTS, adoptionWords, askedCountLine, askedCounts, askedHow, barSegments, defaultView, filterAsked, fromParams, isSalesReady, sortAsked, sortFeatures, toParams,
-  type Asked, cueSummary, interestWords, launchWords, provenanceBadges, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
+  type Asked, cueSummary, interestWords, launchWords, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
 } from '../public/feature-pipeline-model.js';
 import { testCtx } from './helpers';
 
@@ -94,12 +94,11 @@ describe('cockpit feature to pipeline: interest from inbound', () => {
     const a = { leadId: 'l', accountKey: null, accountName: 'X', owner: null, customer: false, tier: null, person: null, door: 'web_intent', cue: 'path' as const, cues: ['path' as const], evidence: ['/p/: 2 visits'], quote: null, at: '2026-11-10T00:00:00.000Z' };
     assert.equal(askedHow(a), 'by pages visited: /p/: 2 visits');
   });
-  it('two badges keep usage and deals apart from the lead stream, and say how many people are invented when not all are', async () => {
+  it('the data the tab reads still carries the fixture markers: usage and deals flagged synthetic, and the lead stream counted apart', async () => {
     const d = await load();
-    assert.deepEqual(provenanceBadges(d).map(b => [b.kind, b.text]), [['usage', 'SYNTHETIC: USAGE AND DEALS'], ['interest', 'LEAD STREAM: NO PEOPLE YET']]);
-    const mixed = { ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 3, allSynthetic: false } } };
-    assert.equal(provenanceBadges(mixed)[1].text, 'LEAD STREAM: 3 of 5 people invented');
-    assert.equal(provenanceBadges({ ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 5, allSynthetic: true } } })[1].text, 'LEAD STREAM: PEOPLE INVENTED');
+    assert.equal(d.synthetic.allSynthetic, true);
+    assert.equal(d.synthetic.events, d.data.events.total);
+    assert.deepEqual([d.synthetic.interest.leads, d.synthetic.interest.synthetic], [0, 0]);
   });
 });
 

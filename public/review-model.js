@@ -39,7 +39,7 @@ export const DECISION_WORDS = /** @type {Record<Decision, string>} */ ({
 });
 
 /** The sentence shown, and the buttons disabled, when the server takes no decisions. */
-export const DEMO_OFF = 'Decisions are off on this server: it runs without DEMO_ROUTES=1. Sign-in is not built, so the name you type is what is stored, and the route that stores it is served only with the demo actions on.';
+export const DEMO_OFF = 'Decisions are off on this server: start it with DEMO_ROUTES=1.';
 
 export const reasonWords = (/** @type {string} */ reason) => REASON_WORDS[reason] ?? reason.replace(/_/g, ' ');
 

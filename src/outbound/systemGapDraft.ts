@@ -92,7 +92,7 @@ function valuesFor(f: Finding, system: SystemGapInput['system'], c: Campaign): V
   };
 }
 
-const LABEL = 'Draft: the system-gap play. The group belongs to the named system by an exact name match or a person\'s confirmation. A rep reviews it and adds the contact; nothing is sent from here.';
+const LABEL = 'Draft: the system-gap play. The group belongs to the named system by an exact name match or a person\'s confirmation. A rep reviews it and adds the contact.';
 
 /** Renders the system-gap draft. Call draftUnavailable (draft.ts) first: the email names the session length. */
 export function renderSystemGapDraft(i: SystemGapInput): SystemGapDraft {

@@ -129,7 +129,7 @@ export function buildOutboundCompanyUpsert(c: OutboundCompanyInput): CrmRequest 
   return {
     method: 'POST', path: PATHS.companiesUpsert,
     body: { inputs: [{ id: c.accountKey, idProperty: 'serif_account_key', properties: outboundCompanyProperties(c) }] },
-    note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate, its play and its link status. Built for groups in a play that nobody already has; never enqueued or sent.',
+    note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate, its play and its link status. Built for groups in a play that nobody already has.',
   };
 }
 
@@ -196,7 +196,7 @@ export function planExpansionTask(i: ExpansionTaskInput): { requests: CrmRequest
       }),
       associations: [{ to: { id: COMPANY_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_COMPANY }] }],
     },
-    note: 'A task for the account owner. Built from product usage; not sent by anything in this project.',
+    note: 'A task for the account owner, built from product usage.',
   };
   return { requests: [company, task], skipped: null };
 }
@@ -238,7 +238,7 @@ export function planReferralThanks(i: ReferralThanksInput): { requests: CrmReque
       }),
       associations: [{ to: { id: COMPANY_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_COMPANY }] }],
     },
-    note: 'A task for the referring account\'s owner. Dry-run only: never enqueued or sent.',
+    note: 'A task for the referring account\'s owner.',
   };
   return { requests: [company, task], skipped: null };
 }

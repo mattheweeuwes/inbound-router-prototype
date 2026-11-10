@@ -174,7 +174,7 @@ describe('Slack payloads', () => {
     assert.equal(s.blocks[0].type, 'header');
     assert.match(s.blocks[0].text.text, /Tier A .* HSP/);
     const text = JSON.stringify(s);
-    assert.match(text, /SYNTHETIC/);
+    assert.doesNotMatch(text, /SYNTHETIC|prototype/, 'the alert carries no fixture banner; the flag stays on the lead');
     assert.match(text, /renegotiations start in January/);
     assert.equal(s.dryRun, true);
   });
@@ -188,6 +188,6 @@ describe('Slack payloads', () => {
     assert.match(brief.org, /AHRQ health system, 33 hospitals/);
     const quoted = buildBrief({ ...ev, source: 'calendly_demo' }, { ...n, message: 'We need peer rates.' }, lead.resolution, lead.qualification);
     assert.match(quoted.text, /They wrote: "We need peer rates\."/);
-    assert.ok(buildSlackPayload({ brief, score: lead.score, route: lead.route, timeToRouteMs: 5, synthetic: true, afterHours: false }).blocks.length === 3);
+    assert.ok(buildSlackPayload({ brief, score: lead.score, route: lead.route, timeToRouteMs: 5, synthetic: true, afterHours: false }).blocks.length === 2);
   });
 });

@@ -162,7 +162,7 @@ describe('outbound link decisions: POST /api/outbound/<ein>/link', () => {
   it('is not served without the demo actions, and says so', async () => {
     const res = await handler(postLink(PECOS, { decision: 'confirm', accountKey: 'ahrq:SYS-PECOSVALE', by: 'Pat' }), testCtx());
     assert.equal(res.status, 404);
-    assert.match((await res.json()).error, /demo actions are off.*DEMO_ROUTES=1.*Sign-in is not built/);
+    assert.match((await res.json()).error, /^decisions are off on this server: set DEMO_ROUTES=1/);
   });
   it('confirming the probable link puts the group in the system-gap play, with a ready draft, a HubSpot body and an export row', async () => {
     const ctx = demoCtx();
@@ -200,7 +200,7 @@ describe('outbound link decisions: POST /api/outbound/<ein>/link', () => {
     assert.match(e1, /not one of this group's candidates \(ahrq:SYS-PECOSVALE/);
     assert.equal((await call(CANYON, { decision: 'reject', by: 'Pat' }))[0], 409);
     assert.equal((await call('123', { decision: 'reject', by: 'Pat' }))[0], 404);
-    assert.match((await call(PECOS, { decision: 'confirm', accountKey: 'ahrq:SYS-PECOSVALE' }))[1], /by is required.*sign-in is not built/);
+    assert.match((await call(PECOS, { decision: 'confirm', accountKey: 'ahrq:SYS-PECOSVALE' }))[1], /^by is required: the name of the person deciding$/);
     assert.match((await call(PECOS, { decision: 'maybe', by: 'Pat' }))[1], /decision must be/);
     assert.equal((await handler(req(`/api/outbound/${PECOS}/link`), ctx)).status, 405);
   });
@@ -224,7 +224,7 @@ describe('outbound link decisions: DELETE /api/outbound/<ein>/link takes one bac
   it('is not served without the demo actions, and says so', async () => {
     const res = await handler(del(PECOS), testCtx());
     assert.equal(res.status, 404);
-    assert.match((await res.json()).error, /demo actions are off/);
+    assert.match((await res.json()).error, /decisions are off on this server/);
   });
   it('clears a confirmation: the group goes back to a probable link, out of the play, and the export loses its draft', async () => {
     const ctx = demoCtx();
