@@ -207,7 +207,17 @@ describe('list digests', () => {
 describe('what a digest says', () => {
   const row = (i: number, over: Partial<DigestRow> = {}): DigestRow => ({
     leadId: `l${i}`, name: `Person ${i}`, title: 'Director', org: `Org ${i}`, companyTyped: null, tier: i % 2 ? 'B' : 'C', score: 40 + i, action: i % 2 ? 'team_queue' : 'nurture',
-    note: null, slaDueAt: i % 2 ? `2026-11-10T1${i % 10}:00:00.000Z` : null, reviewReason: null, unknownOrg: false, ...over,
+    note: null, slaDueAt: i % 2 ? `2026-11-10T1${i % 10}:00:00.000Z` : null, reviewReason: null, unknownOrg: false, enterprise: false, ...over,
+  });
+
+  it('enterprise rows sort first and are marked in the digest line, whatever their score', () => {
+    const rows = [row(1), row(2, { enterprise: true }), row(9)];
+    const s = summarizeDigest(rows);
+    assert.deepEqual(s.top.map(r => r.leadId), ['l2', 'l9', 'l1']);
+    const p = buildListDigest({ batch: { list: 'HLTH', rows: 3, repeatsAttached: 0, unknownOrgs: 0, from: 'a', to: 'b' }, teamLabel: 'Health Systems & Providers', channel: '#leads-hsp', summary: s, synthetic: true });
+    const top = JSON.stringify(p.blocks[2]);
+    assert.ok(top.includes('*Enterprise* · C 42 · Person 2'), top);
+    assert.ok(!top.includes('*Enterprise* · B 49'), 'only the enterprise row is marked');
   });
 
   it('counts by tier and action, the top ten by score, how many more, and the earliest SLA due', () => {

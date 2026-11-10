@@ -22,6 +22,8 @@ export function buildSlackPayload(i: SlackInput): SlackPayload {
   const header = `Tier ${score.tier} (${score.total}) | ${route.team} | ${route.action.replace(/_/g, ' ')}`;
   const sla = route.slaDueAt ? `${route.slaMinutes} min${route.rule === 'R8' && route.action === 'team_queue' ? ' (business)' : ''}, due ${route.slaDueAt}${i.afterHours ? ' (after hours)' : ''}` : 'none';
   const f = (label: string, value: string) => ({ type: 'mrkdwn', text: `*${label}*\n${value.slice(0, 1800)}` });
+  // the account and deal lines (decisions 25 and 26) in a section of their own, so the first stays within Slack's ten fields
+  const account = [brief.enterprise, brief.referral, brief.alsoIn].filter((x): x is string => !!x).map(line => f(labelOf(line), stripLabel(line)));
   return {
     channel: slackChannel(route),
     text: `${header}: ${brief.person}`,
@@ -37,7 +39,48 @@ export function buildSlackPayload(i: SlackInput): SlackPayload {
         f('Time to route', `${(i.timeToRouteMs / 1000).toFixed(1)} s`),
         f('Routing', `${route.rule}: ${route.reason}`),
       ] },
+      ...(account.length ? [{ type: 'section', fields: account }] : []),
       { type: 'context', elements: [{ type: 'mrkdwn', text: i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead' }] },
+    ],
+  };
+}
+
+/** A brief line's "Label: " prefix, which becomes the field's label, and the line without it. */
+const labelOf = (line: string) => line.slice(0, Math.max(0, line.indexOf(':')));
+const stripLabel = (line: string) => line.replace(/^[^:]+:\s*/, '');
+
+/** Where sales leadership sees enterprise demand without reading every alert. */
+export const ENTERPRISE_CHANNEL = '#enterprise-deals';
+
+export interface EnterpriseNoteInput {
+  person: string;
+  /** the account's name */
+  org: string;
+  /** the brief's Enterprise line */
+  enterprise: string | null;
+  route: Route;
+  door: string;
+  synthetic: boolean;
+}
+
+/**
+ * The short note to the enterprise deals channel on the first enterprise lead of an account in 30 days (decision 25): who
+ * came in, the account's fact line and the cues, and who has it. Every word is from the brief or the route.
+ */
+export function buildEnterpriseNote(i: EnterpriseNoteInput): SlackPayload {
+  const header = `Enterprise lead: ${i.org}`;
+  const lines = [
+    `${i.person} (${i.door})`,
+    ...(i.enterprise ? [stripLabel(i.enterprise)] : []),
+    `${i.route.owner} has it (${i.route.rule}, ${i.route.action.replace(/_/g, ' ')}${i.route.slaMinutes ? `, ${i.route.slaMinutes} min SLA` : ''})`,
+  ];
+  return {
+    channel: ENTERPRISE_CHANNEL,
+    text: `${header}: ${i.person}`,
+    dryRun: true,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: `*${header.slice(0, 150)}*\n${lines.join('\n').slice(0, 2800)}` } },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: `First enterprise lead from this account in 30 days. ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
     ],
   };
 }
@@ -123,7 +166,7 @@ export function buildListDigest(i: ListDigestInput): SlackPayload {
   const { batch, summary } = i;
   const header = `${batch.list}: ${summary.rows} row${summary.rows === 1 ? '' : 's'} for ${i.teamLabel}`;
   const f = (label: string, value: string) => ({ type: 'mrkdwn', text: `*${label}*\n${value.slice(0, 1800)}` });
-  const line = (r: DigestRow) => `${r.tier ?? '?'} ${r.score ?? '?'} · ${r.name}${r.title ? `, ${r.title}` : ''} · ${r.org ?? r.companyTyped ?? 'unknown organization'}${r.note ? ` · "${cutNote(r.note)}"` : ''}`;
+  const line = (r: DigestRow) => `${r.enterprise ? '*Enterprise* · ' : ''}${r.tier ?? '?'} ${r.score ?? '?'} · ${r.name}${r.title ? `, ${r.title}` : ''} · ${r.org ?? r.companyTyped ?? 'unknown organization'}${r.note ? ` · "${cutNote(r.note)}"` : ''}`;
   const top = summary.top.map(line).join('\n') + (summary.more ? `\n...and ${summary.more} more` : '');
   return {
     channel: i.channel,

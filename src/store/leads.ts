@@ -33,6 +33,12 @@ export type SecondOpinionInputRow = {
   created_at: string;
 };
 
+/** The deal signals and referral written when a lead is committed (decisions 25 and 26). */
+export interface DealColumns { enterprise: boolean; dealJson: string; referralJson: string | null; referralKind: string | null; referrerAccountId: string | null }
+
+/** Another person at the account, for the brief's "Also in from this account" line. */
+export type AccountContactRow = { first_name: string | null; last_name: string | null; email: string | null; title: string | null; source: Source; received_at: string };
+
 export interface RoutedColumns { route_json: string | null; route_action: string; route_team: string; owner: string; sla_due_at: string | null; time_to_route_ms: number }
 
 const NORMALIZED_COLS: (keyof NormalizedColumns)[] = [
@@ -59,6 +65,17 @@ export function leadStore(db: Db) {
     otherContacts: p(`SELECT COUNT(DISTINCT l.contact_key) AS n FROM leads l JOIN lead_events e ON e.id = l.id
       WHERE l.account_id = ? AND l.id != ? AND l.contact_key IS NOT NULL AND l.contact_key != ? AND e.received_at >= ? AND e.received_at < ?
         AND l.status = 'done' AND COALESCE(l.route_action, '') NOT IN ('drop', 'careers', 'press')`),
+    // other people at the account, newest first, one row per contact, finished and live leads only; with MAX() SQLite takes the
+    // bare columns from the row that holds the maximum, so each contact shows their latest lead
+    accountContacts: p(`SELECT l.first_name, l.last_name, l.email, l.title, e.source, MAX(e.received_at) AS received_at FROM leads l JOIN lead_events e ON e.id = l.id
+      WHERE l.account_id = ? AND l.id != ? AND l.contact_key IS NOT NULL AND l.contact_key != ? AND e.received_at >= ? AND e.received_at <= ?
+        AND l.status = 'done' AND COALESCE(l.route_action, '') NOT IN ('drop', 'careers', 'press')
+      GROUP BY l.contact_key ORDER BY received_at DESC`),
+    // an earlier lead at the account in the window that already told the enterprise deals channel
+    enterpriseNoted: p(`SELECT COUNT(*) AS n FROM leads l JOIN lead_events e ON e.id = l.id
+      WHERE l.account_id = ? AND l.id != ? AND e.received_at >= ? AND e.received_at <= ? AND l.status = 'done'
+        AND json_extract(l.alert_json, '$.enterprise') IS NOT NULL`),
+    deal: p(`UPDATE leads SET enterprise = ?, deal_json = ?, referral_json = ?, referral_kind = ?, referrer_account_id = ? WHERE id = ?`),
     normalized: p(`UPDATE leads SET status = 'normalized', updated_at = ?, ${NORMALIZED_COLS.map(c => `${c} = ?`).join(', ')} WHERE id = ?`),
     resolved: p(`UPDATE leads SET status = 'resolved', updated_at = ?, resolution_json = ?, account_id = ?, segment = ? WHERE id = ?`),
     qualified: p(`UPDATE leads SET status = 'qualified', updated_at = ?, qualification_json = ?, resolution_json = ?, segment = ? WHERE id = ?`),
@@ -104,6 +121,13 @@ export function leadStore(db: Db) {
     otherContactsAt: (accountId: string, leadId: string, contactKey: string | null, since: string, until: string): number =>
       Number(getRow<{ n: number }>(s.otherContacts, accountId, leadId, contactKey ?? '', since, until)?.n ?? 0),
 
+    /** Other people at the account in [since, until], newest first, one row per contact. */
+    accountContacts: (accountId: string, leadId: string, contactKey: string | null, since: string, until: string): AccountContactRow[] =>
+      allRows<AccountContactRow>(s.accountContacts, accountId, leadId, contactKey ?? '', since, until),
+    /** Whether an earlier finished lead at the account in [since, until] already sent the enterprise deals note. */
+    enterpriseNotedSince: (accountId: string, leadId: string, since: string, until: string): boolean =>
+      Number(getRow<{ n: number }>(s.enterpriseNoted, accountId, leadId, since, until)?.n ?? 0) > 0,
+    markDeal: (id: string, c: DealColumns) => { s.deal.run(c.enterprise ? 1 : 0, c.dealJson, c.referralJson, c.referralKind, c.referrerAccountId, id); },
     markNormalized: (id: string, at: string, c: NormalizedColumns) => { s.normalized.run(at, ...NORMALIZED_COLS.map(k => c[k]), id); },
     markResolved: (id: string, at: string, resolutionJson: string | null, accountId: string | null, segment: string | null) => { s.resolved.run(at, resolutionJson, accountId, segment, id); },
     markQualified: (id: string, at: string, qualificationJson: string | null, resolutionJson: string | null, segment: string | null) => { s.qualified.run(at, qualificationJson, resolutionJson, segment, id); },

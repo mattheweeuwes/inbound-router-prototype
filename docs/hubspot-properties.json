@@ -330,6 +330,55 @@
       "description": "Track a HubSpot workflow enrolls the contact in."
     },
     {
+      "name": "serif_referral_kind",
+      "label": "Referral kind",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Who the contact named as referring them: a customer, another known organization, or one the router could not identify.",
+      "options": [
+        {
+          "label": "customer",
+          "value": "customer",
+          "displayOrder": 0
+        },
+        {
+          "label": "known_org",
+          "value": "known_org",
+          "displayOrder": 1
+        },
+        {
+          "label": "unknown_org",
+          "value": "unknown_org",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "serif_referred_by",
+      "label": "Referred by",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "The referring organization, or the words the contact used when it could not be identified."
+    },
+    {
+      "name": "serif_referrer_account_key",
+      "label": "Referrer account key",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Stable account key of the referring organization, when it resolved."
+    },
+    {
+      "name": "serif_deal_cues",
+      "label": "Deal-size cues",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Deal-size phrases quoted from the message (bulk license, full dataset, all states, multi-year, several entities, approved budget), separated by semicolons."
+    },
+    {
       "name": "first_touch_utm_source",
       "label": "First touch UTM source",
       "type": "string",
@@ -443,6 +492,42 @@
       "fieldType": "text",
       "groupName": "inbound_router",
       "description": "How the account was resolved."
+    },
+    {
+      "name": "serif_enterprise",
+      "label": "Enterprise account",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Whether the account meets the router's enterprise definition (a starting assumption: 8+ hospitals or 3+ states, a national or Blue payer, a national broker or TPA).",
+      "options": [
+        {
+          "label": "yes",
+          "value": "yes",
+          "displayOrder": 0
+        },
+        {
+          "label": "no",
+          "value": "no",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "name": "serif_enterprise_fact",
+      "label": "Enterprise fact",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "The fact line behind the enterprise flag, from the registry (for example \"145 hospitals in 20 states\")."
+    },
+    {
+      "name": "serif_last_referral",
+      "label": "Last referral",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "The latest organization a contact said this account referred, with the day."
     },
     {
       "name": "serif_account_score",

@@ -10,7 +10,7 @@ export type ListBatchRow = {
   id: string; status: string; first_name: string | null; last_name: string | null; email: string | null; title: string | null;
   company_name_raw: string | null; tier: string | null; score: number | null; route_action: string | null; route_team: string | null;
   sla_due_at: string | null; digest_team: string | null; digest_id: number | null; resolution_json: string | null; message: string | null;
-  created_at: string; accepted_at: string; synthetic: number; review_reason: string | null;
+  created_at: string; accepted_at: string; synthetic: number; review_reason: string | null; enterprise: number;
 };
 
 export interface DigestRecord { list: string; team: string; channel: string; rows: number; batchFrom: string; batchTo: string; at: string; payloadJson: string }
@@ -25,7 +25,7 @@ export function listStore(db: Db) {
     watermark: p(`SELECT MAX(batch_to) AS at FROM list_digests WHERE list_name = ?`),
     // the batch: rows accepted after the list's last digest, plus any folded row still owed one (a re-run of an older row)
     batch: p(`SELECT l.id, l.status, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.tier, l.score, l.route_action, l.route_team,
-        l.sla_due_at, l.digest_team, l.digest_id, l.resolution_json, l.message, l.created_at, e.accepted_at, e.synthetic,
+        l.sla_due_at, l.digest_team, l.digest_id, l.resolution_json, l.message, l.created_at, e.accepted_at, e.synthetic, l.enterprise,
         (SELECT r.reason FROM review_queue r WHERE r.lead_id = l.id ORDER BY r.id LIMIT 1) AS review_reason
       FROM leads l JOIN lead_events e ON e.id = l.id
       WHERE e.list_name = ? AND (e.accepted_at > ? OR (l.digest_team IS NOT NULL AND l.digest_id IS NULL))

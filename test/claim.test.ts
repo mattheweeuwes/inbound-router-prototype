@@ -5,14 +5,18 @@ import { enqueue, whenIdle } from '../src/pipeline';
 import { post, submit, testCtx } from './helpers';
 
 const owner = (ctx: ReturnType<typeof testCtx>, accountId: string) => (ctx.db.prepare(`SELECT owner FROM accounts WHERE id = ?`).get(accountId) as any)?.owner ?? null;
+// Intermountain (33 hospitals in the mini registry) is an enterprise account, so its tier-A rep alert is R10 (decision 25);
+// Johns Hopkins (6 hospitals, one state) is not, and keeps the plain round-robin rule R8.
 const INTER = 'ahrq:SYS-INTERMTN';
+const JHHS = 'ahrq:SYS-JHHS';
+const hopkins = { email: 'pcole@jhmi.edu', first: 'Pat', last: 'Cole', company: 'Johns Hopkins Medicine', state: 'MD' };
 const second = { email: 'b1@intermountainhealthcare.org', first: 'Sam', last: 'Other', seed: 'second', ts: '2026-11-05T16:00:00.000Z' };
 
 describe('account claiming: one account, one rep', () => {
   it('a tier-A rep alert claims the account; the next lead from it goes to that rep under R5, not round-robin', async () => {
     const ctx = testCtx();
     const a = await submit(ctx, 'calendly_demo');
-    assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R8', 'Avery']);
+    assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R10', 'Avery']);
     assert.equal(owner(ctx, INTER), 'Avery');
     const b = await submit(ctx, 'calendly_demo', second);
     assert.deepEqual([b.lead.tier, b.lead.route.rule, b.lead.route.action, b.lead.route.owner], ['A', 'R5', 'rep_alert', 'Avery']);
@@ -40,13 +44,22 @@ describe('account claiming: one account, one rep', () => {
 
   it('a B-tier first lead claims nothing, so the next A lead is round-robined and claims', async () => {
     const ctx = testCtx();
-    const b = await submit(ctx, 'guide_download', { message: undefined, guide: 'Health System Executive Guide' });
+    const b = await submit(ctx, 'guide_download', { ...hopkins, message: undefined, guide: 'Health System Executive Guide' });
     assert.equal(b.lead.tier, 'B');
     assert.equal(b.lead.route.action, 'team_queue');
-    assert.equal(owner(ctx, INTER), null);
-    const a = await submit(ctx, 'calendly_demo', { ...second, email: 'c1@intermountainhealthcare.org' });
+    assert.equal(owner(ctx, JHHS), null);
+    const a = await submit(ctx, 'calendly_demo', { ...hopkins, email: 'c1@jhmi.edu', seed: 'second', ts: '2026-11-05T16:00:00.000Z' });
     assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R8', 'Avery']);
+    assert.equal(owner(ctx, JHHS), 'Avery');
+  });
+
+  it('a tier-B lead at an enterprise account goes to a named rep under R10 and claims the account', async () => {
+    const ctx = testCtx();
+    const b = await submit(ctx, 'guide_download', { message: undefined, guide: 'Health System Executive Guide' });
+    assert.deepEqual([b.lead.tier, b.lead.route.rule, b.lead.route.action, b.lead.route.owner, b.lead.route.slaMinutes], ['B', 'R10', 'rep_alert', 'Avery', 15]);
     assert.equal(owner(ctx, INTER), 'Avery');
+    const next = await submit(ctx, 'calendly_demo', second);
+    assert.deepEqual([next.lead.route.rule, next.lead.route.owner], ['R5', 'Avery']);
   });
 
   it('review, nurture and web-intent signals claim nothing', async () => {
@@ -83,22 +96,22 @@ describe('account claiming: one account, one rep', () => {
     const a = await submit(ctx, 'calendly_demo');
     enqueue(ctx, a.json.leadId); await whenIdle(ctx);
     const row = ctx.db.prepare(`SELECT route_json FROM leads WHERE id = ?`).get(a.json.leadId) as any;
-    assert.equal(JSON.parse(row.route_json).rule, 'R8', 'still the original R8 decision');
+    assert.equal(JSON.parse(row.route_json).rule, 'R10', 'still the original R10 decision');
     assert.equal(owner(ctx, INTER), 'Avery');
     assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM account_signals WHERE type = 'claim'`).get() as any).c, 1);
   });
 
-  it('a rep with a two-word name: a re-run releases the claim by lead id, so it stays R8 and is not re-routed to its own claim', async () => {
+  it('a rep with a two-word name: a re-run releases the claim by lead id, so it keeps its rule and is not re-routed to its own claim', async () => {
     const ctx = testCtx();
     ctx.owners = structuredClone(ctx.owners);
     const hsp = ctx.owners.teams.HSP.reps;
     hsp[0] = { ...hsp[0], name: 'Avery Smith' };
     const a = await submit(ctx, 'calendly_demo');
-    assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R8', 'Avery Smith']);
+    assert.deepEqual([a.lead.route.rule, a.lead.route.owner], ['R10', 'Avery Smith']);
     assert.equal(owner(ctx, INTER), 'Avery Smith');
     enqueue(ctx, a.json.leadId); await whenIdle(ctx);
     const rerun = JSON.parse((ctx.db.prepare(`SELECT route_json FROM leads WHERE id = ?`).get(a.json.leadId) as { route_json: string }).route_json);
-    assert.deepEqual([rerun.rule, rerun.owner], ['R8', 'Avery Smith'], 'reading the owner out of the signal text took "Avery" and left the claim in place');
+    assert.deepEqual([rerun.rule, rerun.owner], ['R10', 'Avery Smith'], 'reading the owner out of the signal text took "Avery" and left the claim in place');
     assert.equal(owner(ctx, INTER), 'Avery Smith');
     const claims = (ctx.db.prepare(`SELECT lead_id, owner FROM account_claims`).all() as { lead_id: string; owner: string }[]).map(r => ({ ...r }));
     assert.deepEqual(claims, [{ lead_id: a.json.leadId, owner: 'Avery Smith' }]);
@@ -124,6 +137,6 @@ describe('account claiming: one account, one rep', () => {
     assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM accounts`).get() as any).c, 0);
     assert.equal((ctx.db.prepare(`SELECT COUNT(*) c FROM account_signals`).get() as any).c, 0);
     const again = await submit(ctx, 'calendly_demo', second);
-    assert.deepEqual([again.lead.route.rule, again.lead.route.owner], ['R8', 'Avery'], 'a fresh start: round-robin again, not an inherited claim');
+    assert.deepEqual([again.lead.route.rule, again.lead.route.owner], ['R10', 'Avery'], 'a fresh start: round-robin again, not an inherited claim');
   });
 });

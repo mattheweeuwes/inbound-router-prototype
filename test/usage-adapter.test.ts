@@ -87,7 +87,7 @@ describe('usage: resolving a company group to an account key', () => {
     assert.equal(accountForGroup(ctx, 'crm:mirror-wrenfield'), 'crm:mirror-wrenfield');
     assert.equal(accountForGroup(ctx, 'crm:mirror-nobody'), null);
     assert.equal(accountForGroup(ctx, 'ahrq:SYS-1'), null, 'no lead has created it');
-    ctx.store.accounts.upsert({ id: 'ahrq:SYS-1', name: 'A System', segment: 'health_system', subsegment: null, domain: 'asystem.example', idsJson: null, firmographicsJson: null, at: '2026-11-01T00:00:00.000Z' });
+    ctx.store.accounts.upsert({ id: 'ahrq:SYS-1', name: 'A System', segment: 'health_system', subsegment: null, domain: 'asystem.example', idsJson: null, firmographicsJson: null, at: '2026-11-01T00:00:00.000Z', enterprise: false, enterpriseFact: null });
     assert.equal(accountForGroup(ctx, 'ahrq:SYS-1'), 'ahrq:SYS-1');
     assert.equal(accountForGroup(ctx, 'asystem.example'), 'ahrq:SYS-1', 'by the domain a lead put on the account');
   });

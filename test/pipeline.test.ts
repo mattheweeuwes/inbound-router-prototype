@@ -85,7 +85,7 @@ describe('a guide download that only went to nurture', () => {
     const demo = await submit(ctx, 'calendly_demo', { ts: '2026-11-06T15:20:00.000Z', seed: 'd' });
     assert.notEqual(demo.lead.route.action, 'attach_to_existing');
     assert.equal(demo.lead.route.action, 'rep_alert');
-    assert.equal(demo.lead.route.rule, 'R8');
+    assert.equal(demo.lead.route.rule, 'R10', 'Intermountain is an enterprise account (decision 25)');
     assert.notEqual(demo.lead.route.owner, 'Marketing (Sam)');
     assert.equal(demo.lead.dedupe.duplicateOf, null);
     assert.equal(demo.lead.dedupe.priorTouches, 1, 'the guide still counts as a prior touch');
@@ -123,7 +123,7 @@ describe('end to end on the mini registry', () => {
     assert.equal(lead.qualification.final.urgency, 'now');
     assert.equal(lead.qualification.combineVersion, 'v4');
     assert.deepEqual(lead.qualification.final.sources, { useCase: 'rules', urgency: 'rules', buyingRole: 'rules', disqualifier: 'rules' });
-    assert.deepEqual([lead.tier, lead.route.action, lead.route.team, lead.route.owner, lead.route.rule], ['A', 'rep_alert', 'HSP', 'Avery', 'R8']);
+    assert.deepEqual([lead.tier, lead.route.action, lead.route.team, lead.route.owner, lead.route.rule], ['A', 'rep_alert', 'HSP', 'Avery', 'R10']);
     assert.equal(lead.normalized.utmFixes.length, 2);
     assert.equal(lead.normalized.channel, 'paid_social');
     assert.equal(lead.crm.mode, 'dry_run');
@@ -183,7 +183,8 @@ describe('end to end on the mini registry', () => {
     assert.equal(w.alert.slack, null, 'never a rep alert');
     const lead = (await submit(ctx, 'guide_download', { email: 'x@ohiohealth.com', company: 'OhioHealth', message: undefined, title: 'Director, Payer Strategy', ts: '2026-11-05T15:00:00.000Z' })).lead;
     assert.equal(lead.score.items.find((i: any) => i.label.startsWith('Account intent'))?.points, 6);
-    assert.equal(lead.account.signals.length, 1);
+    // OhioHealth (15 hospitals) is an enterprise account, so this tier-B lead goes to a named rep under R10 and claims it
+    assert.deepEqual(lead.account.signals.map((s: any) => s.type).sort(), ['claim', 'web_intent']);
   });
 
   it('a lead received after hours is flagged, and a tier-A SLA starts at the next business open', async () => {

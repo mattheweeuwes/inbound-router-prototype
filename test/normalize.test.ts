@@ -104,6 +104,8 @@ describe('titles', () => {
       ['VP Managed Care Contracting', 'vp'], ['SVP Benefits Consulting', 'vp'], ['Head of Data Engineering', 'vp'], ['Chief Financial Officer', 'c_level'],
       ['Executive Director, Managed Care', 'director'], ['Principal', 'director'], ['Director of Network Management', 'director'], ['Senior Manager, Provider Reimbursement', 'manager'],
       ['Managed Care Analyst', 'individual'], ['Graduate Student', 'student'], ['', 'unknown'],
+      // a managing director sits above a director: the vice-president rung, not "director"
+      ['Managing Director, Value Creation', 'vp'], ['Managing Director', 'vp'], ['Director, Managed Care', 'director'],
     ];
     for (const [t, s] of cases) assert.equal(titleSeniority(t || null), s, t);
   });

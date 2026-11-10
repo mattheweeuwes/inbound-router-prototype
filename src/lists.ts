@@ -57,6 +57,8 @@ export interface DigestRow {
   reviewReason: string | null;
   /** the router could not place the organization (unresolved or ambiguous), or inferred it */
   unknownOrg: boolean;
+  /** the row is at an enterprise account (decision 25): it stays in the digest, marked and listed first */
+  enterprise: boolean;
 }
 
 /** What a list batch holds across all teams: the rows accepted since its last digest. */
@@ -79,7 +81,7 @@ export interface DigestSummary {
   rows: number;
   byTier: Record<string, number>;
   byAction: Record<string, number>;
-  /** the highest scores first, ties in acceptance order */
+  /** enterprise rows first, then the highest scores, ties in acceptance order */
   top: DigestRow[];
   more: number;
   earliestSlaDueAt: string | null;
@@ -93,7 +95,8 @@ export function summarizeDigest(rows: readonly DigestRow[], topN = TOP_ROWS): Di
     byTier[tier] = (byTier[tier] ?? 0) + 1;
     byAction[action] = (byAction[action] ?? 0) + 1;
   }
-  const ranked = rows.map((r, i) => ({ r, i })).sort((a, b) => (b.r.score ?? -1) - (a.r.score ?? -1) || a.i - b.i).map(x => x.r);
+  const ranked = rows.map((r, i) => ({ r, i }))
+    .sort((a, b) => Number(b.r.enterprise) - Number(a.r.enterprise) || (b.r.score ?? -1) - (a.r.score ?? -1) || a.i - b.i).map(x => x.r);
   const due = rows.map(r => r.slaDueAt).filter((d): d is string => !!d).sort();
   return { rows: rows.length, byTier, byAction, top: ranked.slice(0, topN), more: Math.max(0, rows.length - topN), earliestSlaDueAt: due[0] ?? null };
 }

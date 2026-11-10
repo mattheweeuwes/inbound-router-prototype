@@ -22,7 +22,7 @@
     "disqualifier": "none",
     "route": {
       "team": "HSP",
-      "action": "team_queue"
+      "action": "rep_alert"
     }
   },
   "F03": {

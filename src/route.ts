@@ -1,6 +1,9 @@
-// Ordered routing rules R1..R9. First match wins; every decision records the rule and a one-line reason.
+// Ordered routing rules R1..R10. First match wins; every decision records the rule and a one-line reason. R10 (an enterprise
+// deal, decision 25) runs after R5 and R6 and before the tier gate in R8; the ids are labels, not the order.
 import type { CrmMirrorEntry, LeadEvent, Normalized, Owners, Qualification, Resolution, Route, Score, Segment, Team, UseCase } from './schema';
+import { cueClause } from './dealCues';
 import type { Doubt } from './decisions';
+import { confidentSalesOrg, NO_DEAL_SIGNALS, type DealSignals } from './enterprise';
 import { PERSON_DECIDES_IF_MODEL_ONLY } from './qualify/combine';
 import { addBusinessMinutes, iso, isBusinessTime, nextBusinessOpen } from './time';
 
@@ -18,12 +21,17 @@ export interface RouteInput {
   claimedOwner?: string | null; // accounts.owner: set when an earlier lead's rep alert claimed the account
   owners: Owners;
   pickRep: (team: Team) => Rep | null;
+  /** the account's size and the message's deal-size cues (src/enterprise.ts, src/dealCues.ts); none when absent */
+  deal?: DealSignals;
+  /** the lead came through a list door (decision 24): it stays in its list's digest, enterprise or not */
+  listDoor?: boolean;
 }
 
 const MARKETING = 'Marketing (Sam)';
 const REVOPS = 'RevOps';
 
-export const SLA = { A: 5, B: 60, C: 540, D: 540, review: 60 } as const; // minutes; B/C/D/review are business minutes
+// minutes; B/C/D/review are business minutes. enterprise is a tier-B enterprise deal (R10), clocked like A from the next business open.
+export const SLA = { A: 5, enterprise: 15, B: 60, C: 540, D: 540, review: 60 } as const;
 
 export function teamFor(segment: Segment, useCase: UseCase, source: string): Team {
   const apiish = (source === 'marketplace' || source === 'api_key') && useCase === 'data_platform_api';
@@ -45,11 +53,11 @@ export function nurtureTrack(segment: Segment, source: string): string {
   return 'general';
 }
 
-function sla(tier: 'A' | 'B' | 'C' | 'D' | 'review', receivedAt: string): { minutes: number; dueAt: string } {
+function sla(tier: keyof typeof SLA, receivedAt: string): { minutes: number; dueAt: string } {
   const minutes = SLA[tier];
   const t = Date.parse(receivedAt);
-  // A: the alert goes out immediately; if nobody is at their desk the 5-minute clock starts at the next business open
-  const due = tier === 'A' ? nextBusinessOpen(t) + minutes * 60_000 : addBusinessMinutes(t, minutes);
+  // A and an enterprise deal: the alert goes out immediately; if nobody is at their desk the clock starts at the next business open
+  const due = tier === 'A' || tier === 'enterprise' ? nextBusinessOpen(t) + minutes * 60_000 : addBusinessMinutes(t, minutes);
   return { minutes, dueAt: iso(due) };
 }
 
@@ -180,8 +188,22 @@ export function decideRoute(i: RouteInput): Route {
     return { action: 'review', team: 'Review', owner: REVOPS, rule: 'R6', slaMinutes: s.minutes, slaDueAt: s.dueAt, reason: why };
   }
 
-  // R7 team, R8 tier gate
+  // R7 team
   const team = teamFor(res.segment, f.useCase, ev.source);
+
+  // R10 an enterprise deal never waits in a team queue
+  const enterprise = enterpriseDeal(i);
+  if (enterprise) {
+    const rep = i.pickRep(team);
+    const s = sla(tier === 'A' ? 'A' : 'enterprise', ev.receivedAt);
+    const queue = teamName(owners, team);
+    const who = rep
+      ? `${tier === 'A' ? 'a named rep gets it and holds the account' : `a named rep gets it now instead of the ${queue} queue`}: round-robin assigned ${rep.name} in ${queue}, with a ${s.minutes}-minute response time`
+      : `it goes to the ${queue} queue because no rep was available`;
+    return { action: 'rep_alert', team, owner: rep?.name ?? `${team} queue`, rule: 'R10', slaMinutes: s.minutes, slaDueAt: s.dueAt, reason: `${enterprise}, so ${who}.` };
+  }
+
+  // R8 tier gate
   if (tier === 'A') {
     const rep = i.pickRep(team);
     const s = sla('A', ev.receivedAt);
@@ -196,6 +218,22 @@ export function decideRoute(i: RouteInput): Route {
   }
   const track = nurtureTrack(res.segment, ev.source);
   return { ...base, action: 'nurture', team, owner: MARKETING, rule: 'R8', sequence: track, reason: `Tier ${tier} (${score.total}) ${SEGMENT_LABEL[res.segment]}, which is below the rep threshold, so it goes to marketing's ${TRACK_LABEL[track] ?? track} nurture track.` };
+}
+
+/**
+ * Why R10 applies, as the start of its reason sentence, or null when it does not. A person (not an account-level signal,
+ * not a list door) with no disqualifier and tier B or better, at an enterprise account, or at a confidently resolved
+ * sales-segment organization whose message carries a deal-size cue.
+ */
+function enterpriseDeal(i: RouteInput): string | null {
+  const { n, res, qual, score } = i;
+  const deal = i.deal ?? NO_DEAL_SIGNALS;
+  if (i.listDoor || !n.email || qual.final.disqualifier !== 'none' || (score.tier !== 'A' && score.tier !== 'B')) return null;
+  const name = res.accountName ?? n.companyRaw ?? 'This organization';
+  const cue = deal.cues[0] ? ` and the message ${cueClause(deal.cues[0])}` : '';
+  if (deal.enterprise.enterprise) return `${name} is an enterprise account${deal.enterprise.fact ? ` (${deal.enterprise.fact})` : ''}${cue}`;
+  if (cue && confidentSalesOrg(res)) return `${name} is a known ${SEGMENT_LABEL[res.segment]}${cue}`;
+  return null;
 }
 
 export const afterHours = (receivedAt: string) => !isBusinessTime(Date.parse(receivedAt));

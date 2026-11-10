@@ -18,6 +18,7 @@ import { parse } from './db';
 import { computeMetrics } from './hygiene';
 import { waitedForModel } from './modelPath';
 import { computeScorecard } from './quality';
+import type { ReferralKind, StoredReferral } from './referral';
 import { SOURCES, type Segment, type Source } from './schema';
 import type { SecondOpinion, StoredSecondOpinion } from './secondOpinion';
 import { SIGNED_DOORS, unkeyedSignedDoors } from './sources';
@@ -66,6 +67,8 @@ interface Lead {
   secondOpinionState: 'pending' | 'running' | 'done' | null; secondOpinion: StoredSecondOpinion | null;
   /** the uploaded list it came in on (decision 24), and when the server accepted it */
   listName: string | null; acceptedAt: string | null;
+  /** the reported channel, and a named referral when the lead has one (decision 26) */
+  channel: string | null; referral: StoredReferral | null;
 }
 
 /** The columns loadLeads selects. */
@@ -76,6 +79,7 @@ type LeadRow = {
   created_at: string | null; updated_at: string | null; resolution_json: string | null; qualification_json: string | null; route_json: string | null;
   crm_json: string | null; alert_json: string | null; timings_json: string | null; source: Source; received_at: string; synthetic: number;
   second_opinion: 'pending' | 'running' | 'done' | null; second_opinion_json: string | null; list_name: string | null; accepted_at: string | null;
+  channel: string | null; referral_json: string | null;
 };
 type ActivityRow = { rid: number; lead_id: string; stage: string; started_at: string; ok: number; note: string | null };
 
@@ -83,7 +87,7 @@ function loadLeads(ctx: Ctx): Lead[] {
   const rows = ctx.db.prepare(`SELECT l.id, l.status, l.tier, l.segment, l.route_action, l.route_team, l.owner, l.sla_due_at, l.time_to_route_ms,
       l.account_id, l.duplicate_of, l.is_disposable, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.created_at, l.updated_at,
       l.resolution_json, l.qualification_json, l.route_json, l.crm_json, l.alert_json, l.timings_json, l.second_opinion, l.second_opinion_json,
-      e.source, e.received_at, e.synthetic, e.list_name, e.accepted_at
+      l.channel, l.referral_json, e.source, e.received_at, e.synthetic, e.list_name, e.accepted_at
     FROM leads l JOIN lead_events e ON e.id = l.id ORDER BY e.received_at, l.created_at`).all() as LeadRow[];
   return rows.map(r => ({
     id: r.id, status: r.status, tier: r.tier ?? null, segment: r.segment ?? null, action: r.route_action ?? null, team: r.route_team ?? null,
@@ -95,6 +99,7 @@ function loadLeads(ctx: Ctx): Lead[] {
     timings: parse<Record<string, number>>(r.timings_json),
     secondOpinionState: r.second_opinion ?? null, secondOpinion: r.second_opinion === 'done' ? parse<StoredSecondOpinion>(r.second_opinion_json) : null,
     listName: r.list_name ?? null, acceptedAt: r.accepted_at ?? null,
+    channel: r.channel ?? null, referral: parse<StoredReferral>(r.referral_json),
   }));
 }
 
@@ -367,6 +372,9 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
   const digestCounts = new Map((db.prepare(`SELECT list_name, COUNT(*) AS n FROM list_digests GROUP BY list_name`).all() as { list_name: string; n: number }[]).map(r => [r.list_name, Number(r.n)]));
   const lists = listsBlock(leads, digestCounts);
 
+  // ---- named referrals (decision 26): who referred whom, and how those leads compare with everyone else ------------------
+  const referrals = referralsBlock(leads);
+
   // ---- reps and queues (owners.json); load is the router's own rolling 24 hours before the newest lead -------------------
   const anchor = dataWindow.to ? Date.parse(dataWindow.to) : now;
   const since24 = new Date(anchor - 86_400_000).toISOString();
@@ -500,7 +508,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     motions, doors: doorRows, funnel, markets, unsegmented, notForSales,
     speed, sla, reps, queues,
     hubspot, matching, hygiene: metrics.hygiene, stageFailures,
-    activity, review, lists,
+    activity, review, lists, referrals,
     eval: ev,
   };
 }
@@ -529,6 +537,53 @@ function listsBlock(leads: Lead[], digestCounts: ReadonlyMap<string, number>) {
       firstAccepted: accepted[0] ?? null, lastAccepted: accepted[accepted.length - 1] ?? null,
     };
   }).sort((a, b) => (b.lastAccepted ?? '').localeCompare(a.lastAccepted ?? ''));
+}
+
+/** One referring organization (or, unresolved, the words used), ranked by the leads it sent. */
+export interface ReferrerRow {
+  key: string | null; name: string; customer: boolean; owner: string | null; kind: ReferralKind; leads: number; salesReady: number;
+}
+
+/**
+ * Named referrals among the people who came in: how many and what share, their tier mix and sales-ready share beside
+ * everyone else's, and the referrers ranked by leads sent. A lead whose channel reads referral only from a web referrer or a
+ * UTM medium is not a named referral; it is counted apart, so the two are never mixed.
+ */
+export function referralsBlock(leads: Lead[]) {
+  const people = leads.filter(l => l.source !== 'web_intent');
+  const referred = people.flatMap(l => (l.referral ? [{ l, r: l.referral }] : []));
+  const named = referred.map(x => x.l);
+  const others = people.filter(l => !l.referral);
+  const tierMix = (ls: Lead[]) => {
+    const t = emptyTiers();
+    for (const l of ls) t[l.tier && ['A', 'B', 'C', 'D', 'X'].includes(l.tier) ? l.tier : 'pending']++;
+    return t;
+  };
+  const ready = (ls: Lead[]) => ls.filter(l => l.tier === 'A' || l.tier === 'B').length;
+  const byReferrer = new Map<string, ReferrerRow>();
+  for (const { l, r } of referred) {
+    const id = r.account?.key ?? `words:${r.referrer.toLowerCase()}`;
+    const row = byReferrer.get(id) ?? {
+      key: r.account?.key ?? null, name: r.account?.name ?? r.referrer, customer: !!r.account?.customer, owner: r.account?.owner ?? null, kind: r.kind, leads: 0, salesReady: 0,
+    };
+    row.leads++;
+    if (l.tier === 'A' || l.tier === 'B') row.salesReady++;
+    byReferrer.set(id, row);
+  }
+  const kinds: Record<ReferralKind, number> = { customer: 0, known_org: 0, unknown_org: 0 };
+  for (const { r } of referred) kinds[r.kind]++;
+  return {
+    people: people.length,
+    named: named.length,
+    share: share(named.length, people.length),
+    byKind: kinds,
+    tiers: { referred: tierMix(named), others: tierMix(others) },
+    salesReady: { referred: share(ready(named), named.length), others: share(ready(others), others.length) },
+    /** the channel says referral from a web referrer or a UTM medium, and nobody was named */
+    webOrUtmReferral: others.filter(l => l.channel === 'referral').length,
+    thanksPlanned: referred.filter(x => !!x.r.thanks).length,
+    referrers: [...byReferrer.values()].sort((a, b) => b.leads - a.leads || b.salesReady - a.salesReady || a.name.localeCompare(b.name)),
+  };
 }
 
 export type Dashboard = ReturnType<typeof computeDashboard>;

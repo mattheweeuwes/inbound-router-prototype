@@ -1,5 +1,5 @@
 // guide_download and signal_ask_waitlist: HubSpot-form-like payloads.
-import { base, eventKey, isoOr, needObject, needString, str, utmFrom, type Adapter } from './common';
+import { base, eventKey, isoOr, needObject, needString, referralContext, str, utmFrom, type Adapter } from './common';
 import type { LeadEvent, Source } from '../schema';
 
 function formAdapter(source: Source): Adapter {
@@ -19,7 +19,7 @@ function formAdapter(source: Source): Adapter {
     ev.utm = utmFrom(p.utm);
     ev.landingPage = str(p.page_url);
     ev.referrer = str(p.referrer);
-    ev.context = { formId: p.form_id ?? null, guide: p.guide ?? null };
+    ev.context = { formId: p.form_id ?? null, guide: p.guide ?? null, ...referralContext(f, p) };
     return ev;
   };
 }

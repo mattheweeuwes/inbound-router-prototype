@@ -1,8 +1,9 @@
-// The typed data layer. Every statement the pipeline, the HubSpot outbox, the list digests, the outbound module and the usage module run lives behind a named
+// The typed data layer. Every statement the pipeline, the HubSpot outbox, the list digests, the outbound module, the usage module and the accounts API run lives behind a named
 // function in this folder, one file per concern, prepared once per database and reused. Read models for the API (view.ts, dashboard.ts,
 // quality.ts) keep their own SQL next to the shapes they build.
 import type { Db } from '../db';
 import { accountStore, type AccountStore } from './accounts';
+import { accountViewStore, type AccountViewStore } from './accountViews';
 import { leadStore, type LeadStore } from './leads';
 import { listStore, type ListStore } from './lists';
 import { outboundStore, type OutboundStore } from './outbound';
@@ -10,7 +11,11 @@ import { outboxStore, type OutboxStore } from './outbox';
 import { stageLogStore, type StageLogStore } from './stageLog';
 import { usageStore, type UsageStore } from './usage';
 
-export interface Store { leads: LeadStore; accounts: AccountStore; stages: StageLogStore; outbox: OutboxStore; outbound: OutboundStore; usage: UsageStore; lists: ListStore }
+export interface Store {
+  leads: LeadStore; accounts: AccountStore; stages: StageLogStore; outbox: OutboxStore; outbound: OutboundStore; usage: UsageStore; lists: ListStore;
+  /** reads for the accounts API, over the views in sql/models/v_accounts.sql */
+  accountViews: AccountViewStore;
+}
 
 const stores = new WeakMap<Db, Store>();
 
@@ -18,7 +23,7 @@ const stores = new WeakMap<Db, Store>();
 export function storeFor(db: Db): Store {
   let s = stores.get(db);
   if (!s) {
-    s = { leads: leadStore(db), accounts: accountStore(db), stages: stageLogStore(db), outbox: outboxStore(db), outbound: outboundStore(db), usage: usageStore(db), lists: listStore(db) };
+    s = { leads: leadStore(db), accounts: accountStore(db), stages: stageLogStore(db), outbox: outboxStore(db), outbound: outboundStore(db), usage: usageStore(db), lists: listStore(db), accountViews: accountViewStore(db) };
     stores.set(db, s);
   }
   return s;

@@ -107,7 +107,9 @@ export function titleSeniority(title: string | null): TitleSeniority {
   if (!title) return 'unknown';
   const t = title.toLowerCase();
   if (/\b(student|intern|undergraduate|graduate|candidate)\b/.test(t)) return 'student';
-  if (/\b(vp|svp|evp|avp)\b|vice president|head of/.test(t)) return 'vp';
+  // a managing director sits above a director (in private equity, banking and consulting it is the senior executive rung),
+  // so it reads at the vice-president level rather than matching "director" below
+  if (/\b(vp|svp|evp|avp)\b|vice president|head of|managing director/.test(t)) return 'vp';
   if (/\bchief\b|\bc[a-z]o\b|^president\b|\bfounder\b|\bowner\b/.test(t)) return 'c_level';
   if (/director|\bprincipal\b|\bpartner\b/.test(t) && !/growth partner/.test(t)) return 'director';
   if (/manager|\blead\b|supervisor/.test(t)) return 'manager';

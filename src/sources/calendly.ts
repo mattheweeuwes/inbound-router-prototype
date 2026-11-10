@@ -2,12 +2,23 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { splitName } from '../normalize';
 import { base, isoOr, needObject, needString, str, utmFrom, type Adapter } from './common';
+import { REFERRAL_QUESTION, type ReferralAnswer } from '../referral';
 import type { LeadEvent } from '../schema';
 
 const answer = (qa: any[], re: RegExp): string | null => {
   for (const x of qa) if (x && typeof x.question === 'string' && re.test(x.question) && typeof x.answer === 'string' && x.answer.trim()) return x.answer.trim();
   return null;
 };
+
+/** A booking question such as "How did you hear about us?", carried as ev.context.referral like a form's field. */
+function referralQuestion(qa: any[]): { referral?: ReferralAnswer } {
+  for (const x of qa) {
+    if (x && typeof x.question === 'string' && REFERRAL_QUESTION.test(x.question) && typeof x.answer === 'string' && x.answer.trim()) {
+      return { referral: { field: x.question.trim(), answer: x.answer.trim() } };
+    }
+  }
+  return {};
+}
 
 export const calendly: Adapter = (payload, nowIso): LeadEvent => {
   const p = needObject(payload, 'calendly payload');
@@ -26,7 +37,7 @@ export const calendly: Adapter = (payload, nowIso): LeadEvent => {
   ev.message = answer(qa, /see|help|anything|share|looking|message|notes|discuss/i);
   ev.utm = utmFrom(inv.tracking);
   ev.landingPage = str(inv.tracking?.landing_page);
-  ev.context = { eventName: inv.scheduled_event?.name ?? null, startTime: inv.scheduled_event?.start_time ?? null };
+  ev.context = { eventName: inv.scheduled_event?.name ?? null, startTime: inv.scheduled_event?.start_time ?? null, ...referralQuestion(qa) };
   return ev;
 };
 

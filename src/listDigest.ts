@@ -108,5 +108,6 @@ function digestRowOf(r: ListBatchRow): DigestRow {
     leadId: r.id, name: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || 'Unknown', title: r.title,
     org: res?.status === 'resolved' ? res.accountName : null, companyTyped: r.company_name_raw, tier: r.tier, score: r.score,
     action: r.route_action, note: r.message, slaDueAt: r.sla_due_at, reviewReason: r.review_reason, unknownOrg: isUnknownOrg(res),
+    enterprise: !!r.enterprise,
   };
 }

@@ -141,7 +141,7 @@ describe('the second opinion after the alert', () => {
     const m = stubModel(() => ({ use_case: 'vendor_pitch', disqualifier: 'vendor_pitch', confidence: 0.95 }));
     const ctx = modelCtx(m);
     const { lead } = await submit(ctx, 'calendly_demo', { message: CLEAR });
-    assert.deepEqual([lead.route.rule, lead.route.action, lead.route.owner], ['R8', 'rep_alert', 'Avery'], 'not quietly un-routed');
+    assert.deepEqual([lead.route.rule, lead.route.action, lead.route.owner], ['R10', 'rep_alert', 'Avery'], 'not quietly un-routed');
     const r = lead.secondOpinion.result;
     assert.deepEqual(r.doubt, { disqualifier: 'vendor_pitch', confidence: 0.95, heldForPerson: true });
     assert.ok(r.changed.includes('reviewReason'));
@@ -159,7 +159,8 @@ describe('the second opinion after the alert', () => {
     assert.ok(lead.alert.slack, 'the original alert is kept as it was');
     const slackDir = join(ctx.cfg.outDir, 'slack');
     const recorded = readdirSync(slackDir).flatMap(f => readFileSync(join(slackDir, f), 'utf8').trim().split('\n')).map(l => JSON.parse(l));
-    assert.equal(recorded.filter(p => p.leadId === lead.id).length, 3, 'the alert and the two follow-ups were recorded');
+    // the alert, the enterprise deals note (Intermountain is an enterprise account, decision 25) and the two follow-ups
+    assert.deepEqual(recorded.filter(p => p.leadId === lead.id).map(p => p.channel), ['@Avery', '#enterprise-deals', '@Avery', '#revops-review']);
   });
 
   it('a counted disqualifier at 0.8 or above is a doubt too, worded with its confidence', async () => {

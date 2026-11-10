@@ -31,7 +31,8 @@ const R: Row[] = [
       { path: '/platform/products/signal/', at: et('05', '08:41') }, { path: '/blog/signal-watch-monitoring-rate-changes-month-over-month', at: et('05', '08:52') }] },
     gold: { segment: 'health_system', route: { action: 'account_signal' } } },
   { id: 'F02', day: '05', at: '09:18', source: 'guide_download', first: 'Marcus', last: 'Bell', title: 'Director, Payer Strategy', company: 'Sutter Health', domain: 'sutterhealth.org', state: 'CA', guide: 'Health System Executive Guide', formId: 'gd_health_system_exec',
-    gold: { segment: 'health_system', useCase: 'contract_negotiation', urgency: 'unknown', disqualifier: 'none', route: { team: 'HSP', action: 'team_queue' } } },
+    // Sutter Health is an enterprise account (27 hospitals), so a tier-B lead goes to a named rep under R10 (decision 25)
+    gold: { segment: 'health_system', useCase: 'contract_negotiation', urgency: 'unknown', disqualifier: 'none', route: { team: 'HSP', action: 'rep_alert' } } },
   { id: 'F03', day: '05', at: '09:41', source: 'calendly_demo', first: 'Priya', last: 'Raman', title: 'Senior Analyst, Decision Support', company: 'OhioHealth', domain: 'ohiohealth.com', state: 'OH',
     utm: { source: 'google', medium: 'cpc', campaign: 'brand' }, message: "We want a market rate view for orthopedics and cardiology for next year's budget.",
     gold: { segment: 'health_system', useCase: 'rate_benchmarking_market', urgency: 'this_quarter', disqualifier: 'none', route: { team: 'HSP' } } },

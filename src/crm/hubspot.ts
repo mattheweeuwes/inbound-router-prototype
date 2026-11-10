@@ -4,6 +4,8 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Ctx } from '../context';
 import { parseRetryAfter } from '../retry';
+import type { DealSignals, Enterprise } from '../enterprise';
+import type { Referral } from '../referral';
 import type { CrmRequest, LeadEvent, Normalized, Qualification, Resolution, Route, Score } from '../schema';
 import { FEATURE_KEYS, type Feature } from '../usage/taxonomy';
 
@@ -35,6 +37,10 @@ export interface CrmInput {
   ownerId: string | null; // synthetic hubspot_owner_id of the task owner
   companyOwnerId?: string | null; // set only on the lead whose rep alert claimed the account: the company upsert then sets its owner
   brief: string; // extractive rep brief
+  /** the account's enterprise flag and the deal-size cues (decision 25); absent in callers that predate them */
+  deal?: DealSignals;
+  /** the named referral (decision 26), or null */
+  referral?: Referral | null;
 }
 
 const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== ''));
@@ -56,16 +62,26 @@ export function contactProperties(i: CrmInput): Record<string, unknown> {
     serif_segment: res.segment, serif_use_case: qual.final.useCase, serif_urgency: qual.final.urgency, serif_tier: score.tier,
     serif_fit_score: score.fit, serif_intent_score: score.intent, serif_route_team: route.team, serif_source: ev.source,
     serif_lead_id: i.leadId, serif_account_key: res.accountId, serif_nurture_track: route.action === 'nurture' ? route.sequence : undefined,
+    ...referralProperties(i.referral ?? null),
+    serif_deal_cues: i.deal?.cues.map(c => c.phrase).join('; '),
     ...(i.isFirstTouch ? utm('first_touch') : {}),
     ...utm('last_touch'),
   });
 }
 
-export function companyProperties(res: Resolution, ownerId: string | null = null): Record<string, unknown> {
+/** Who referred the contact (decision 26): the kind, the name (the organization's when it resolved, else the words), and its key. */
+function referralProperties(r: Referral | null): Record<string, unknown> {
+  if (!r) return {};
+  return { serif_referral_kind: r.kind, serif_referred_by: r.account?.name ?? r.referrer, serif_referrer_account_key: r.account?.key };
+}
+
+export function companyProperties(res: Resolution, ownerId: string | null = null, enterprise: Enterprise | null = null): Record<string, unknown> {
   const domainOk = res.accountId?.startsWith('domain:') ? res.accountId.slice(7) : undefined;
   return prune({
     name: res.accountName, domain: domainOk, serif_account_key: res.accountId, serif_segment: res.segment,
     serif_hospital_count: res.firmographics.hospitals ?? undefined, serif_match_method: res.method,
+    // an enterprise flag of 'no' is written too, so a HubSpot list of non-enterprise accounts is not a list of blanks
+    serif_enterprise: enterprise ? (enterprise.enterprise ? 'yes' : 'no') : undefined, serif_enterprise_fact: enterprise?.fact,
     hubspot_owner_id: ownerId,
   });
 }
@@ -75,10 +91,10 @@ export function buildContactUpsert(i: CrmInput): CrmRequest {
   return { method: 'POST', path: PATHS.contactsUpsert, body: { inputs: [{ id: i.n.email, idProperty: 'email', properties: props }] }, note: 'Batch upsert keyed on email. Response results[0].id is the contact record id.' };
 }
 
-export function buildCompanyUpsert(res: Resolution, ownerId: string | null = null): CrmRequest {
+export function buildCompanyUpsert(res: Resolution, ownerId: string | null = null, enterprise: Enterprise | null = null): CrmRequest {
   return {
     method: 'POST', path: PATHS.companiesUpsert,
-    body: { inputs: [{ id: res.accountId, idProperty: 'serif_account_key', properties: companyProperties(res, ownerId) }] },
+    body: { inputs: [{ id: res.accountId, idProperty: 'serif_account_key', properties: companyProperties(res, ownerId, enterprise) }] },
     note: 'Keyed on the unique custom property serif_account_key (AHRQ id, CCN, NPI or payer slug), not on domain or name.',
   };
 }
@@ -181,6 +197,48 @@ export function planExpansionTask(i: ExpansionTaskInput): { requests: CrmRequest
   return { requests: [company, task], skipped: null };
 }
 
+/** What a thank-you task for a referral says and who it goes to (decision 26). */
+export interface ReferralThanksInput {
+  referrerKey: string; referrerName: string; ownerId: string | null;
+  /** the referred lead: the person, their organization, and when they came in (ISO) */
+  person: string; referredOrg: string; receivedAt: string;
+  /** the prospect's own words about the referral */
+  text: string;
+  /** when the task is due, ISO */
+  dueAt: string;
+}
+
+/** The task body: what the prospect said, quoted, and that it is the prospect's account of the referral. */
+export function referralThanksBody(i: ReferralThanksInput): string {
+  return `${i.person} at ${i.referredOrg} came in on ${dayOf(i.receivedAt)} and named ${i.referrerName}: "${i.text}". ` +
+    `This is the prospect's account of the referral; confirm it with your contact before thanking anyone by name.`;
+}
+
+/**
+ * The plan for thanking a referring account's owner: the company (so the task has something to attach to, with the latest
+ * referral on it) and a task for the owner. Built like the expansion task: shown on the lead and never put in the outbox,
+ * so nothing sends it, live mode included.
+ */
+export function planReferralThanks(i: ReferralThanksInput): { requests: CrmRequest[]; skipped: string | null } {
+  const company: CrmRequest = {
+    method: 'POST', path: PATHS.companiesUpsert,
+    body: { inputs: [{ id: i.referrerKey, idProperty: 'serif_account_key', properties: prune({ name: i.referrerName, serif_account_key: i.referrerKey, serif_last_referral: `${i.referredOrg} (${dayOf(i.receivedAt)})` }) }] },
+    note: 'Keyed on serif_account_key, as for every company. Records the latest referral and lets the task attach to it.',
+  };
+  const task: CrmRequest = {
+    method: 'POST', path: PATHS.tasks,
+    body: {
+      properties: prune({
+        hs_timestamp: i.dueAt, hs_task_subject: `Thank ${i.referrerName} for referring ${i.referredOrg}`, hs_task_body: referralThanksBody(i),
+        hubspot_owner_id: i.ownerId, hs_task_status: 'NOT_STARTED', hs_task_priority: 'MEDIUM', hs_task_type: 'TODO',
+      }),
+      associations: [{ to: { id: COMPANY_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_COMPANY }] }],
+    },
+    note: 'A task for the referring account\'s owner. Dry-run only: never enqueued or sent.',
+  };
+  return { requests: [company, task], skipped: null };
+}
+
 export function buildAssociation(): CrmRequest {
   return { method: 'PUT', path: PATHS.associateDefault(CONTACT_ID, COMPANY_ID), body: null, note: 'Default (unlabeled) contact to company association. Ids come from the two upsert responses.' };
 }
@@ -216,7 +274,7 @@ export function planCrm(i: CrmInput): { requests: CrmRequest[]; skipped: string 
   const reqs: CrmRequest[] = [];
   const hasPerson = ev.source !== 'web_intent' && !!i.n.email;
   const hasCompany = !!res.accountId && res.status === 'resolved';
-  if (hasCompany) reqs.push(buildCompanyUpsert(res, i.companyOwnerId ?? null));
+  if (hasCompany) reqs.push(buildCompanyUpsert(res, i.companyOwnerId ?? null, i.deal?.enterprise ?? null));
   if (hasPerson) reqs.push(buildContactUpsert(i));
   if (hasPerson && hasCompany) reqs.push(buildAssociation());
   if (TASK_ACTIONS.has(route.action)) {
@@ -395,6 +453,11 @@ export const CONTACT_PROPERTIES: Prop[] = [
   text('serif_lead_id', 'Lead id', 'Id of the lead in the router.'),
   text('serif_account_key', 'Account key', 'Stable account id (ahrq:, ccn:, payer:, npi:, domain:).'),
   text('serif_nurture_track', 'Nurture track', 'Track a HubSpot workflow enrolls the contact in.'),
+  // a named referral and the deal-size cues (decisions 25 and 26)
+  enumProp('serif_referral_kind', 'Referral kind', ['customer', 'known_org', 'unknown_org'], 'Who the contact named as referring them: a customer, another known organization, or one the router could not identify.'),
+  text('serif_referred_by', 'Referred by', 'The referring organization, or the words the contact used when it could not be identified.'),
+  text('serif_referrer_account_key', 'Referrer account key', 'Stable account key of the referring organization, when it resolved.'),
+  text('serif_deal_cues', 'Deal-size cues', 'Deal-size phrases quoted from the message (bulk license, full dataset, all states, multi-year, several entities, approved budget), separated by semicolons.'),
   ...(['first', 'last'] as const).flatMap(p => (['source', 'medium', 'campaign', 'content', 'term'] as const).map(k => text(`${p}_touch_utm_${k}`, `${p === 'first' ? 'First' : 'Last'} touch UTM ${k}`, `Normalized utm_${k} at the ${p} touch.`))),
 ];
 
@@ -403,6 +466,9 @@ export const COMPANY_PROPERTIES: Prop[] = [
   text('serif_segment', 'Segment', 'Resolved account segment.'),
   { name: 'serif_hospital_count', label: 'Hospital count', type: 'number', fieldType: 'number', description: 'AHRQ hospital count for health systems.' },
   text('serif_match_method', 'Match method', 'How the account was resolved.'),
+  enumProp('serif_enterprise', 'Enterprise account', ['yes', 'no'], 'Whether the account meets the router\'s enterprise definition (a starting assumption: 8+ hospitals or 3+ states, a national or Blue payer, a national broker or TPA).'),
+  text('serif_enterprise_fact', 'Enterprise fact', 'The fact line behind the enterprise flag, from the registry (for example "145 hospitals in 20 states").'),
+  text('serif_last_referral', 'Last referral', 'The latest organization a contact said this account referred, with the day.'),
   { name: 'serif_account_score', label: 'Account score', type: 'number', fieldType: 'number', description: 'Reverse-ETL account score (max lead score at the account).' },
   { name: 'serif_open_leads', label: 'Leads (30d)', type: 'number', fieldType: 'number', description: 'Reverse-ETL count of leads in the last 30 days.' },
   { name: 'serif_web_intent_points', label: 'Web intent points', type: 'number', fieldType: 'number', description: 'Reverse-ETL account-level web intent points.' },

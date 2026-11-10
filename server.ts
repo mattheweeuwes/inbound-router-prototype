@@ -4,6 +4,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import accounts from './api/accounts';
 import attribution from './api/attribution';
 import dashboard from './api/dashboard';
 import demo from './api/demo';
@@ -33,7 +34,7 @@ type Handler = (req: Request) => Promise<Response>;
 const routes: [RegExp, Handler][] = [
   [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
   [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+)?\/?$/, outbound],
-  [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution],
+  [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution], [/^\/api\/accounts(\/[^/]+)?\/?$/, accounts],
 ];
 
 async function toWebRequest(req: IncomingMessage, port: number): Promise<Request> {

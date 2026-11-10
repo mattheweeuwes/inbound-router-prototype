@@ -1,6 +1,6 @@
 // api_key: API / MCP developer key created.
 import { splitName } from '../normalize';
-import { base, eventKey, isoOr, needObject, needString, str, type Adapter } from './common';
+import { base, eventKey, isoOr, needObject, needString, referralContext, str, type Adapter } from './common';
 
 export const apiKey: Adapter = (payload, nowIso) => {
   const p = needObject(payload, 'api_key payload');
@@ -12,6 +12,6 @@ export const apiKey: Adapter = (payload, nowIso) => {
   ev.email = email; ev.firstName = sp.first; ev.lastName = sp.last;
   ev.title = str(d.title); ev.company = str(d.company); ev.state = str(d.state);
   ev.message = str(p.message);
-  ev.context = { product: p.product ?? null };
+  ev.context = { product: p.product ?? null, ...referralContext(d, p) };
   return ev;
 };

@@ -1,32 +1,37 @@
 // The seven stages of a run, in order: normalize, resolve, qualify, score, route, notify, crm.
 // The first three need nothing from earlier leads, so prepareLead runs them as soon as a lead is accepted, alongside other
 // leads, and keeps their results in memory. In the lead's turn, commitPrepared writes them and adds what does depend on
-// earlier leads (prior touches, the account); the last four stages then run in order. Each writes its result on the lead in
+// earlier leads (prior touches, the account) and the lead's deal signals and referral (src/leadSignals.ts, decisions 25 and
+// 26); the last four stages then run in order. Each writes its result on the lead in
 // one UPDATE, announces the new status on the bus for the cockpit, and returns what the later stages need. Every stage is
 // timed into stage_log and run.timings.
 // Decisions that need no database are in src/decisions.ts; the SQL is in src/store.
-import { buildBrief, type Brief } from './brief';
+import { alsoInLine, buildBrief, DOOR_TEXT, enterpriseLine, type AccountContact, type Brief, type BriefLines } from './brief';
 import type { Ctx } from './context';
 import { json } from './db';
 import {
-  accountIds, accountIntent, assignsRep, claimDetail, claimsAccount, DAY, DEDUPE_DAYS, hubspotOwnerIdOf, pickRoundRobin,
+  accountIds, accountIntent, assignsRep, claimDetail, claimsAccount, DAY, DEDUPE_DAYS, hubspotOwnerIdOf, notesEnterprise, pickRoundRobin,
   reviewReason, summarizeTouches, wantsSlackAlert, webIntentDetail, webIntentPoints, type ModelTiming, type PriorTouch, type StoredAlert,
   type TouchSummary,
 } from './decisions';
-import { crmMode, planCrm, recordDryRun } from './crm/hubspot';
+import { crmMode, planCrm, planReferralThanks, recordDryRun } from './crm/hubspot';
+import { enterpriseOf, type DealSignals } from './enterprise';
+import { dealSignalsOf, referralOf } from './leadSignals';
 import { digestChannel, foldsIntoDigest } from './lists';
 import { enqueuePlan, type CrmRecord } from './crm/outbox';
 import { crmIdentity, matchMirror } from './mirror';
 import { qualifyForRoute } from './modelPath';
 import { normalizeEvent } from './normalize';
-import { buildSlackPayload, recordSlack } from './notify/slack';
+import { buildEnterpriseNote, buildSlackPayload, recordSlack } from './notify/slack';
 import { rateFactFor } from './outbound/fact';
-import { inferEmployer, resolve } from './resolve';
+import { referralLine, referralScoreLabel, type Referral, type ReferrerAccount, type StoredReferral } from './referral';
+import { inferEmployer, resolutionForAccount, resolve } from './resolve';
 import { registryLookups } from './resolve/domain';
 import { afterHours, decideRoute, type Rep } from './route';
 import type { CrmMirrorEntry, LeadEvent, Normalized, Qualification, Resolution, Route, Score, Team } from './schema';
 import { scoreLead } from './score';
 import { adapt } from './sources';
+import { addBusinessMinutes, iso } from './time';
 import type { LeadInputRow, NormalizedColumns } from './store/leads';
 
 /** The pipeline stages, in order, as stage_log names them. */
@@ -163,7 +168,10 @@ export function logPrepared(ctx: Ctx, id: string, records: StageRecord[], run?: 
 
 // ---- commit the prepared work, in order ------------------------------------------------------------------------------
 
-export interface Committed { n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary }
+/** What the router reads about a lead beyond the classifier (decisions 25 and 26): the deal signals and a named referral. */
+export interface LeadSignals { deal: DealSignals; referral: Referral | null }
+
+export interface Committed { n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary; signals: LeadSignals }
 
 /**
  * The prepared lead's turn: the parts that depend on earlier leads (its prior touches from the same contact, the account
@@ -173,9 +181,13 @@ export interface Committed { n: Normalized; res: Resolution; qual: Qualification
 export function commitPrepared(run: Run, p: Prepared): Committed {
   const { ctx, id, ev } = run;
   logPrepared(ctx, id, p.records, run);
-  const { n, resolved, res, qual } = p;
+  const { resolved, res, qual } = p;
 
-  const touches = n.contactKey ? summarizeTouches(priorTouches(ctx, id, n.contactKey, ev.receivedAt)) : { duplicate: null, priorTouches: 0 };
+  const touches = p.n.contactKey ? summarizeTouches(priorTouches(ctx, id, p.n.contactKey, ev.receivedAt)) : { duplicate: null, priorTouches: 0 };
+  // a named referral is reported as the referral channel, whatever the UTM or web referrer said (decision 26)
+  const referral = referralOf(ctx, ev, p.n, res);
+  const n: Normalized = referral ? { ...p.n, channel: 'referral' } : p.n;
+  const signals: LeadSignals = { deal: dealSignalsOf(res, n), referral };
   ctx.store.leads.markNormalized(id, nowIso(ctx), normalizedColumns(n, touches.duplicate?.leadId ?? null));
   announce(run, 'normalized');
 
@@ -186,8 +198,26 @@ export function commitPrepared(run: Run, p: Prepared): Committed {
   if (res !== resolved) saveAccount(ctx, res, n, ev.receivedAt);
   ctx.store.leads.markQualified(id, nowIso(ctx), json(qual), json(res), res.segment);
   if (p.timing === 'after_alert') ctx.store.leads.markSecondOpinionDue(id, json({ shownSegment: resolved.segment })!);
+  ctx.store.leads.markDeal(id, {
+    enterprise: signals.deal.enterprise.enterprise, dealJson: json(signals.deal)!, referralJson: referral ? json(storedReferral(ctx, referral, n, res, ev.receivedAt)) : null,
+    referralKind: referral?.kind ?? null, referrerAccountId: referral?.account?.key ?? null,
+  });
   announce(run, 'qualified');
-  return { n, res, qual, touches };
+  return { n, res, qual, touches, signals };
+}
+
+/** The referral as stored, with the dry-run thank-you task for the referring account's owner when it has one. */
+function storedReferral(ctx: Ctx, r: Referral, n: Normalized, res: Resolution, receivedAt: string): StoredReferral {
+  const owner = r.account?.owner ?? null;
+  if (!r.account || !owner) return { ...r, thanks: null };
+  const plan = planReferralThanks({
+    referrerKey: r.account.key, referrerName: r.account.name, ownerId: hubspotOwnerIdOf(ctx.owners, owner),
+    person: [n.firstName, n.lastName].filter(Boolean).join(' ') || n.email || 'A contact', referredOrg: res.accountName ?? n.companyRaw ?? 'an organization',
+    receivedAt, text: r.text,
+    // a thank-you is not urgent: due one business day (540 business minutes) after the lead came in
+    dueAt: iso(addBusinessMinutes(Date.parse(receivedAt), 540)),
+  });
+  return { ...r, thanks: { mode: 'dry_run', requests: plan.requests } };
 }
 
 /**
@@ -215,23 +245,43 @@ function normalizedColumns(n: Normalized, duplicateOf: string | null): Normalize
 }
 
 /** Creates or refreshes the resolved account. Its owner is never set here; only a claim sets it. */
-function saveAccount(ctx: Ctx, res: Resolution, n: Normalized, at: string) {
+function saveAccount(ctx: Ctx, res: Resolution, n: Normalized | null, at: string) {
   if (!res.accountId) return;
+  const e = enterpriseOf(res.segment, res.firmographics);
   ctx.store.accounts.upsert({
-    id: res.accountId, name: res.accountName, segment: res.segment, subsegment: res.subsegment, domain: n.companyDomain,
+    id: res.accountId, name: res.accountName, segment: res.segment, subsegment: res.subsegment, domain: n?.companyDomain ?? null,
     idsJson: json(accountIds(res.accountId, res.firmographics)), firmographicsJson: json(res.firmographics), at,
+    enterprise: e.enterprise, enterpriseFact: e.fact,
   });
+}
+
+/**
+ * A referring organization the router has not seen inbound gets an account row, so its referral signal and the accounts
+ * API have something to hang on: a registry account from the registry, a CRM account from the mirror. An account the router
+ * already holds is left as it is.
+ */
+function saveReferrerAccount(ctx: Ctx, a: ReferrerAccount, at: string) {
+  if (ctx.store.accounts.exists(a.key)) return;
+  const mirror = a.key.startsWith('crm:') ? ctx.mirror.find(m => `crm:${m.id}` === a.key) ?? null : null;
+  const res = mirror
+    ? { ...resolutionForAccount(ctx, a.key, 'crm', 'medium', null, []), accountName: mirror.name, segment: mirror.segment, firmographics: { ...(mirror.firmographics ?? {}) } }
+    : resolutionForAccount(ctx, a.key, 'company_name', 'high', null, []);
+  saveAccount(ctx, res, null, at);
 }
 
 // ---- score ---------------------------------------------------------------------------------------------------------
 
-export interface Scored { n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary }
+export type Scored = Committed;
 
 export function scoreStage(run: Run, i: Scored): Promise<Score> {
   return timed(run, 'score', () => {
     const { ctx, id, ev } = run;
     const intent = accountIntentFor(run, i.n, i.res);
-    const s = scoreLead({ ev, n: i.n, res: i.res, final: i.qual.final, priorTouches: i.touches.priorTouches, accountIntent: intent.points, accountIntentNote: intent.note });
+    const r = i.signals.referral;
+    const s = scoreLead({
+      ev, n: i.n, res: i.res, final: i.qual.final, priorTouches: i.touches.priorTouches, accountIntent: intent.points, accountIntentNote: intent.note,
+      referral: r ? { points: r.points, label: referralScoreLabel(r) } : null,
+    });
     ctx.store.leads.markScored(id, nowIso(ctx), json(s), s.total, s.tier);
     run.tier = s.tier;
     announce(run, 'scored');
@@ -261,11 +311,12 @@ export function routeStage(run: Run, i: RouteInputs): Promise<Routed> {
     const claimedOwner = i.res.accountId ? ctx.store.accounts.claimedOwner(i.res.accountId) : null;
     const route = decideRoute({
       ev, n: i.n, res: i.res, qual: i.qual, score: i.score, mirror, claimedOwner, owners: ctx.owners, duplicate: i.touches.duplicate,
-      pickRep: team => pickRep(ctx, team, ev.receivedAt),
+      pickRep: team => pickRep(ctx, team, ev.receivedAt), deal: i.signals.deal, listDoor: !!run.listName,
     });
     const claimed = recordAssignment(run, route, i, claimedOwner, mirror);
     if (route.action === 'review') ctx.store.accounts.addReview(id, reviewReason(i.qual, i.res), json(i.res.candidates.slice(0, 5)), nowIso(ctx));
     if (route.action === 'account_signal' && i.res.accountId) recordWebIntent(run, i.res.accountId);
+    if (i.signals.referral?.account) recordReferral(run, i.signals.referral.account, i.res, i.n);
     const ttr = ctx.cfg.now() - run.t0;
     ctx.store.leads.markRouted(id, nowIso(ctx), { route_json: json(route), route_action: route.action, route_team: route.team, owner: route.owner, sla_due_at: route.slaDueAt, time_to_route_ms: ttr });
     run.routeAction = route.action;
@@ -294,6 +345,13 @@ function recordAssignment(run: Run, route: Route, i: RouteInputs, claimedOwner: 
   return ctx.store.accounts.assign({ owner: route.owner, team: route.team, leadId: id, at: ev.receivedAt }, claim) ? route.owner : null;
 }
 
+/** The referring account's signal row, naming who it referred (decision 26). A re-run of the lead deletes it with its other signals. */
+function recordReferral(run: Run, referrer: ReferrerAccount, res: Resolution, n: Normalized) {
+  const { ctx, id, ev } = run;
+  saveReferrerAccount(ctx, referrer, ev.receivedAt);
+  ctx.store.accounts.addReferralSignal(referrer.key, id, `referred ${res.accountName ?? n.companyRaw ?? n.email ?? 'a contact'}`, ev.receivedAt);
+}
+
 function recordWebIntent(run: Run, accountId: string) {
   const { ctx, id, ev } = run;
   const signals = ctx.store.accounts.addWebIntentSignal(accountId, id, webIntentDetail(ev.context), ev.receivedAt);
@@ -315,7 +373,7 @@ export async function notifyStage(run: Run, i: NotifyInputs): Promise<Brief> {
   const { route, ttr } = i.routed;
   // the organization's own rate, when the rate file has a group for it: one line of fact, read here and never scored
   const rateFact = rateFactFor(ctx, i.res, i.n);
-  const brief = buildBrief(ev, i.n, i.res, i.qual, rateFact?.line ?? null);
+  const brief = buildBrief(ev, i.n, i.res, i.qual, rateFact?.line ?? null, briefLines(run, i));
   const fold = run.listName && foldsIntoDigest(route) ? { list: run.listName, team: route.team, channel: digestChannel(route.team), at: null, id: null } : null;
   await timed(run, 'notify', () => {
     const alert: StoredAlert = { slack: null, suppressed: route.alertSuppressed ?? false };
@@ -326,12 +384,47 @@ export async function notifyStage(run: Run, i: NotifyInputs): Promise<Brief> {
       alert.slack = buildSlackPayload({ brief, score: i.score, route, timeToRouteMs: ttr, synthetic: ev.synthetic, afterHours: afterHours(ev.receivedAt) });
       recordSlack(ctx, id, alert.slack, nowIso(ctx));
     }
+    const note = enterpriseNote(run, i, brief);
+    if (note) {
+      alert.enterprise = note;
+      recordSlack(ctx, id, note, nowIso(ctx));
+    }
     ctx.store.leads.markNotified(id, nowIso(ctx), json(alert), rateFact ? json(rateFact) : null);
     announce(run, 'notified');
   });
   // when the alert was out, which is what the response-time clock measures; a folded lead's is the digest's time
   if (!fold) run.timings.alerted = ctx.cfg.now() - run.t0;
   return brief;
+}
+
+/** The brief's account and deal lines: the enterprise fact and cues, the referral, and other people in from the account. */
+function briefLines(run: Run, i: NotifyInputs): BriefLines {
+  const { ctx, id, ev } = run;
+  const r = i.signals.referral;
+  let contacts: AccountContact[] = [];
+  if (i.res.accountId && ev.source !== 'web_intent') {
+    const since = new Date(Date.parse(ev.receivedAt) - DEDUPE_DAYS * DAY).toISOString();
+    contacts = ctx.store.leads.accountContacts(i.res.accountId, id, i.n.contactKey, since, ev.receivedAt).map(c => ({
+      name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Unknown', title: c.title, source: c.source, receivedAt: c.received_at,
+    }));
+  }
+  return { enterprise: enterpriseLine(i.signals.deal), referral: r ? referralLine(r) : null, alsoIn: alsoInLine(contacts, ev.receivedAt) };
+}
+
+/** The enterprise deals channel's note, when this is the first enterprise lead of its account in 30 days (decision 25). */
+function enterpriseNote(run: Run, i: NotifyInputs, brief: Brief) {
+  const { ctx, id, ev } = run;
+  const accountId = i.res.accountId;
+  if (!accountId) return null;
+  const since = new Date(Date.parse(ev.receivedAt) - DEDUPE_DAYS * DAY).toISOString();
+  const send = notesEnterprise({
+    deal: i.signals.deal, route: i.routed.route, person: ev.source !== 'web_intent' && !!i.n.email, listDoor: !!run.listName,
+    notedRecently: ctx.store.leads.enterpriseNotedSince(accountId, id, since, ev.receivedAt),
+  });
+  return send ? buildEnterpriseNote({
+    person: brief.person, org: i.res.accountName ?? i.n.companyRaw ?? accountId, enterprise: brief.enterprise, route: i.routed.route,
+    door: DOOR_TEXT[ev.source], synthetic: ev.synthetic,
+  }) : null;
 }
 
 // ---- crm -----------------------------------------------------------------------------------------------------------
@@ -349,6 +442,7 @@ export function crmStage(run: Run, i: CrmInputs): Promise<boolean> {
     const plan = planCrm({
       leadId: id, ev, n: i.n, res: i.res, qual: i.qual, score: i.score, route, isFirstTouch: !i.touches.duplicate,
       ownerId: hubspotOwnerIdOf(ctx.owners, route.owner), companyOwnerId: claimed ? hubspotOwnerIdOf(ctx.owners, claimed) : null, brief: i.brief.text,
+      deal: i.signals.deal, referral: i.signals.referral,
     });
     let record: CrmRecord;
     if (crmMode(ctx.cfg) === 'dry_run') {

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { REFERRAL_POINTS, referralScoreLabel, type Referral } from '../src/referral';
 import { scoreLead, tierFor, type ScoreInput } from '../src/score';
 import type { Classification, Resolution } from '../src/schema';
 import { adapt } from '../src/sources';
@@ -53,5 +54,27 @@ describe('score: caps, usage and repeat engagement', () => {
   });
   it('tier boundaries', () => {
     assert.deepEqual([70, 69, 50, 49, 30, 29].map(tierFor), ['A', 'B', 'B', 'C', 'C', 'D']);
+  });
+});
+
+describe('referral points', () => {
+  const referral = (kind: Referral['kind']): Referral => ({
+    cue: 'recommended_you', text: 'x', referrer: 'the contracting VP at Wrenfield Health', kind, points: REFERRAL_POINTS[kind],
+    account: kind === 'unknown_org' ? null : { key: 'crm:mirror-wrenfield', name: 'Wrenfield Health', customer: kind === 'customer', owner: 'Avery', matchedBy: 'crm' },
+  });
+  it('itemizes 10 for a customer, 6 for a known organization and 3 for an unidentified one, as intent', () => {
+    for (const [kind, label] of [['customer', 'Referral: Wrenfield Health (a customer)'], ['known_org', 'Referral: Wrenfield Health (not a customer)'], ['unknown_org', 'Referral: "the contracting VP at Wrenfield Health" (organization not identified)']] as const) {
+      const r = referral(kind);
+      const s = lead('guide_download', { message: undefined }, res({}), cls(), { referral: { points: r.points, label: referralScoreLabel(r) } });
+      const item = s.items.find(i => i.label.startsWith('Referral'));
+      assert.deepEqual([item?.group, item?.label, item?.points], ['intent', label, REFERRAL_POINTS[kind]]);
+    }
+    assert.deepEqual(REFERRAL_POINTS, { customer: 10, known_org: 6, unknown_org: 3 });
+  });
+  it('stays inside the intent cap', () => {
+    const r = referral('customer');
+    const s = lead('calendly_demo', {}, res({}), cls({ urgency: 'now' }), { priorTouches: 2, accountIntent: 12, referral: { points: r.points, label: referralScoreLabel(r) } });
+    assert.equal(s.intent, 50);
+    assert.ok(s.items.some(i => i.label === 'Cap: intent maximum 50'));
   });
 });

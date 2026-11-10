@@ -1,6 +1,6 @@
 // sample_signup: Try Signal / sample dashboard (PostHog-like payload with usage events).
 import { splitName } from '../normalize';
-import { base, eventKey, isoOr, needObject, needString, str, utmFrom, type Adapter } from './common';
+import { base, eventKey, isoOr, needObject, needString, referralContext, str, utmFrom, type Adapter } from './common';
 
 export const sampleSignup: Adapter = (payload, nowIso) => {
   const p = needObject(payload, 'sample_signup payload');
@@ -20,6 +20,7 @@ export const sampleSignup: Adapter = (payload, nowIso) => {
     sessions: usage.filter(x => x?.event === 'session_start').length,
     searches: usage.filter(x => x?.event === 'search').length,
     markets: [...new Set(usage.map(x => x?.market).filter(Boolean))],
+    ...referralContext(u, p),
   };
   return ev;
 };

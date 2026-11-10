@@ -1023,6 +1023,27 @@ function ovLists(d) {
     foot: '<span>One Slack digest per list and team in place of one alert per row; a rep alert still goes out on its own.</span>' });
 }
 
+/** Named referrals (decision 26): the people who named who sent them, beside everyone else, and the referrers ranked. */
+function ovReferrals(d) {
+  const r = d.referrals;
+  if (!r) return '';
+  const tiers = (t) => TIER_ORDER.filter((k) => t[k]).map((k) => `${k} ${nf(t[k])}`).join(' · ') || '—';
+  const pct = (v) => (v == null ? '—' : `${v}%`);
+  const kind = (x) => (x.customer ? '<span class="badge ok">customer</span>' : x.key ? '<span class="badge">not a customer</span>' : '<span class="badge warn">not identified</span>');
+  const compare = `<ul class="fq" aria-label="Named referrals beside everyone else">
+      <li><div class="who"><span class="who-line"><b>Named a referrer</b></span><span class="d">${nf(r.named)} lead${r.named === 1 ? '' : 's'} · ${esc(tiers(r.tiers.referred))}</span></div><div class="act"><span class="wait">${pct(r.salesReady.referred)} sales-ready</span></div></li>
+      <li><div class="who"><span class="who-line"><b>Everyone else</b></span><span class="d">${nf(r.people - r.named)} lead${r.people - r.named === 1 ? '' : 's'} · ${esc(tiers(r.tiers.others))}</span></div><div class="act"><span class="wait">${pct(r.salesReady.others)} sales-ready</span></div></li>
+    </ul>`;
+  const ranked = r.referrers.length
+    ? `<div class="eyebrow ref-h">Referrers, by leads sent</div><ul class="fq" aria-label="Referrers by leads sent">${r.referrers.slice(0, 5).map((x) => `<li>
+        <div class="who"><span class="who-line"><b>${esc(x.name)}</b> ${kind(x)}</span><span class="d">${x.owner ? `owner ${esc(x.owner)}` : 'no owner'}</span></div>
+        <div class="act"><span class="wait">${nf(x.leads)} lead${x.leads === 1 ? '' : 's'} · ${nf(x.salesReady)} sales-ready</span></div></li>`).join('')}</ul>`
+    : '<div class="none">Nobody has named a referrer yet.</div>';
+  const table = dtable(['Referrer', 'Customer', 'Owner', 'Leads', 'Sales-ready'], r.referrers.map((x) => [x.name, x.customer ? 'yes' : x.key ? 'no' : 'not identified', x.owner || '—', x.leads, x.salesReady]), 3);
+  return vcard({ id: 'referrals', title: 'Named referrals', sub: `${nf(r.named)} of ${nf(r.people)} leads${r.share != null ? ` · ${r.share}%` : ''}`, body: compare + ranked, table, span: 'span-7',
+    foot: `<span><b>${nf(r.webOrUtmReferral)}</b> more read referral from a web referrer or UTM only, with nobody named</span><span><b>${nf(r.thanksPlanned)}</b> thank-you task${r.thanksPlanned === 1 ? '' : 's'} planned for an owner (dry-run)</span>` });
+}
+
 function ovSpeed(d) {
   const sp = d.speed;
   const stageLabel = { normalize: 'Normalize', resolve: 'Resolve', qualify: 'Qualify', score: 'Score', route: 'Route', crm: 'CRM plan', notify: 'Alert' };
@@ -1237,7 +1258,7 @@ function renderOverview() {
   if (d.empty) {
     html += `<div class="card empty-card"><h3>No leads yet</h3></div>`;
   } else {
-    html += section('Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d) + ovLists(d));
+    html += section('Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d) + ovLists(d) + ovReferrals(d));
     html += section('Speed to lead', ovSpeed(d) + ovSpeedBy(d) + ovReps(d));
     html += section('HubSpot and data quality', `<div class="span-5 colstack">${ovSync(d, '')}${ovLifecycle(d, '')}</div>` + ovProps(d) + ovMatching(d) + ovHygiene(d));
     html += section('Live', ovActivity(d) + `<div class="span-5 colstack">${ovFollowUp(d, '')}${ovClocks(d, '')}</div>`);

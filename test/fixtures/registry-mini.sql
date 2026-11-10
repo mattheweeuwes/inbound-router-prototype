@@ -27,7 +27,11 @@ INSERT INTO ahrq_systems VALUES
  ('SYS-BHAR','Baptist Health','Little Rock','AR',7,7,1500,1100,0,'baptist health',2023),
  ('SYS-BHSA','Baptist Health System','San Antonio','TX',5,5,1900,1200,0,'baptist health system',2023),
  ('SYS-BHCARE','Baptist Health Care','Pensacola','FL',3,3,1000,800,0,'baptist health care',2023),
- ('SYS-SMALL','Valley Community Health','Spokane','WA',2,2,300,100,0,'valley community health',2023);
+ ('SYS-SMALL','Valley Community Health','Spokane','WA',2,2,300,100,0,'valley community health',2023),
+ -- added for the working-day fixtures (fixtures/day/morning.json): the enterprise and referral tests
+ ('SYS-COMMONSPIRIT','CommonSpirit Health','Chicago','IL',140,130,20000,9000,1,'commonspirit health',2023),
+ ('SYS-PIEDMONT','Piedmont Healthcare','Atlanta','GA',20,18,3500,2000,0,'piedmont healthcare',2023),
+ ('SYS-EMORY','Emory Healthcare','Atlanta','GA',10,9,2500,2500,0,'emory healthcare',2023);
 
 INSERT INTO cms_hospitals VALUES
  ('460010','Intermountain Medical Center','5121 S Cottonwood St','Murray','UT','84107','Salt Lake','8015071000','Acute Care Hospitals','Voluntary non-profit - Private','Yes','4','intermountain medical center'),
@@ -53,7 +57,8 @@ INSERT INTO payers VALUES
  ('priority-health','Priority Health','Corewell Health','priorityhealth.com','regional','curated','priority health'),
  ('highmark','Highmark Health','','highmarkhealth.org','blue','curated','highmark health'),
  ('independence-blue-cross','Independence Blue Cross','','ibx.com','blue','curated','independence blue cross'),
- ('smallplan','Cascade Mutual Health Plan','','cascademutual.example','other','curated','cascade mutual health plan');
+ ('smallplan','Cascade Mutual Health Plan','','cascademutual.example','other','curated','cascade mutual health plan'),
+ ('humana','Humana','','humana.com','national','curated','humana');
 
 INSERT INTO curated_orgs VALUES
  ('mercer.com','Mercer','benefits_consultant_broker','benefits consulting','national','https://example.org/curated',1),
@@ -73,4 +78,8 @@ INSERT INTO org_domains VALUES
  ('baptisthealth.net','ahrq_system','SYS-BHSF','Baptist Health South Florida','mini registry','2026-11-06'),
  ('jeffersonhealthcare.org','cms_hospital','500005','Jefferson Healthcare','mini registry','2026-11-06'),
  ('bcbsm.com','payer','bcbs-michigan','Blue Cross Blue Shield of Michigan','mini registry','2026-11-06'),
- ('priorityhealth.com','payer','priority-health','Priority Health','mini registry','2026-11-06');
+ ('priorityhealth.com','payer','priority-health','Priority Health','mini registry','2026-11-06'),
+ ('commonspirit.org','ahrq_system','SYS-COMMONSPIRIT','CommonSpirit Health','mini registry','2026-11-10'),
+ ('piedmont.org','ahrq_system','SYS-PIEDMONT','Piedmont Healthcare','mini registry','2026-11-10'),
+ ('emoryhealthcare.org','ahrq_system','SYS-EMORY','Emory Healthcare','mini registry','2026-11-10'),
+ ('humana.com','payer','humana','Humana','mini registry','2026-11-10');

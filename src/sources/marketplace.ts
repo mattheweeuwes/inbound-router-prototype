@@ -1,6 +1,6 @@
 // marketplace: Databricks / Snowflake / Arcadia listing inquiry.
 import { splitName } from '../normalize';
-import { base, eventKey, isoOr, needObject, needString, str, type Adapter } from './common';
+import { base, eventKey, isoOr, needObject, needString, referralContext, str, type Adapter } from './common';
 
 export const marketplace: Adapter = (payload, nowIso) => {
   const p = needObject(payload, 'marketplace payload');
@@ -12,6 +12,6 @@ export const marketplace: Adapter = (payload, nowIso) => {
   ev.email = email; ev.firstName = sp.first; ev.lastName = sp.last;
   ev.title = str(r.title); ev.company = str(r.company); ev.state = str(r.state);
   ev.message = str(p.message);
-  ev.context = { marketplace: p.marketplace ?? null, listing: p.listing ?? null };
+  ev.context = { marketplace: p.marketplace ?? null, listing: p.listing ?? null, ...referralContext(r, p) };
   return ev;
 };

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { REFERRAL_FIELDS, type ReferralAnswer } from '../referral';
 import type { LeadEvent, Source, Utm } from '../schema';
 
 export class PayloadError extends Error {}
@@ -40,6 +41,29 @@ export function utmFrom(o: any): Utm {
   if (!o || typeof o !== 'object') return {};
   const g = (k: string) => (typeof o[`utm_${k}`] === 'string' ? o[`utm_${k}`] : typeof o[k] === 'string' ? o[k] : undefined);
   return { source: g('source'), medium: g('medium'), campaign: g('campaign'), content: g('content'), term: g('term') };
+}
+
+/**
+ * The first field answering "How did you hear about us?" that the object carries, as `{ field, answer }` for
+ * ev.context.referral, or null. Carried as given: capture and resolution happen after normalize (src/referral.ts), and
+ * nothing here reaches the model (src/qualify/prompt.ts reads only the guide from the context).
+ */
+export function referralFieldOf(o: unknown): ReferralAnswer | null {
+  if (!o || typeof o !== 'object') return null;
+  for (const field of REFERRAL_FIELDS) {
+    const answer = str((o as Record<string, unknown>)[field]);
+    if (answer) return { field, answer: answer.trim() };
+  }
+  return null;
+}
+
+/** `{ referral }` for an adapter's context when any of the objects carries a referral field, else nothing, so other contexts stay as they were. */
+export function referralContext(...objects: unknown[]): { referral?: ReferralAnswer } {
+  for (const o of objects) {
+    const referral = referralFieldOf(o);
+    if (referral) return { referral };
+  }
+  return {};
 }
 
 export function isoOr(v: unknown, fallback: string): string {

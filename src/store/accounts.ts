@@ -5,6 +5,8 @@ import { allRows, getRow, tx, type Db } from '../db';
 export interface AccountUpsert {
   id: string; name: string | null; segment: string | null; subsegment: string | null; domain: string | null;
   idsJson: string | null; firmographicsJson: string | null; at: string;
+  /** src/enterprise.ts: the flag and its fact line, from the same firmographics */
+  enterprise: boolean; enterpriseFact: string | null;
 }
 
 /** A rep's assignment history, for round-robin: the latest assignment ever, and the count since a cut-off. */
@@ -17,11 +19,11 @@ export interface ClaimRequest { accountId: string; owner: string; signalDetail: 
 export function accountStore(db: Db) {
   const p = (sql: string): StatementSync => db.prepare(sql);
   const s = {
-    upsert: p(`INSERT INTO accounts (id, name, segment, subsegment, domain, ids_json, firmographics_json, owner, intent_points, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?)
+    upsert: p(`INSERT INTO accounts (id, name, segment, subsegment, domain, ids_json, firmographics_json, owner, intent_points, created_at, updated_at, enterprise, enterprise_fact)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET name = excluded.name, segment = excluded.segment, subsegment = excluded.subsegment,
         domain = COALESCE(excluded.domain, accounts.domain), ids_json = excluded.ids_json, firmographics_json = excluded.firmographics_json,
-        updated_at = excluded.updated_at`),
+        updated_at = excluded.updated_at, enterprise = excluded.enterprise, enterprise_fact = excluded.enterprise_fact`),
     owner: p(`SELECT owner FROM accounts WHERE id = ?`),
     exists: p(`SELECT 1 AS found FROM accounts WHERE id = ?`),
     byDomain: p(`SELECT id FROM accounts WHERE domain = ? ORDER BY id LIMIT 1`),
@@ -46,7 +48,7 @@ export function accountStore(db: Db) {
   const count = (stmt: StatementSync, ...params: string[]) => Number(getRow<{ n: number }>(stmt, ...params)?.n ?? 0);
 
   return {
-    upsert: (a: AccountUpsert) => { s.upsert.run(a.id, a.name, a.segment, a.subsegment, a.domain, a.idsJson, a.firmographicsJson, a.at, a.at); },
+    upsert: (a: AccountUpsert) => { s.upsert.run(a.id, a.name, a.segment, a.subsegment, a.domain, a.idsJson, a.firmographicsJson, a.at, a.at, a.enterprise ? 1 : 0, a.enterpriseFact); },
     /** The owner a rep claimed on an earlier lead. Seeded CRM owners are never stored here; they live in the mirror file. */
     claimedOwner: (accountId: string): string | null => getRow<{ owner: string | null }>(s.owner, accountId)?.owner ?? null,
     /** Whether the router has created this account key from a lead. */
@@ -87,6 +89,8 @@ export function accountStore(db: Db) {
       return count(s.webIntentAll, accountId);
     },
     setIntentPoints: (accountId: string, points: number) => { s.setIntentPoints.run(points, accountId); },
+    /** The referring account's signal row ("referred CommonSpirit Health", decision 26); a re-run of the lead deletes it with the others. */
+    addReferralSignal: (accountId: string, leadId: string, detail: string, at: string) => { s.insertSignal.run(accountId, leadId, 'referral', detail, at); },
   };
 }
 

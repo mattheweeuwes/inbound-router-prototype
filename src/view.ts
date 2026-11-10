@@ -4,7 +4,9 @@ import { parse } from './db';
 import { adapt } from './sources';
 import { matchMirror } from './mirror';
 import { afterHours } from './route';
+import type { DealSignals } from './enterprise';
 import type { RateFact } from './outbound/fact';
+import type { StoredReferral } from './referral';
 import type { Qualification, Resolution, Route, Source } from './schema';
 import type { StoredSecondOpinion } from './secondOpinion';
 
@@ -26,7 +28,7 @@ export type LeadViewRow = {
   company_name_raw: string | null; contact_key: string | null; duplicate_of: string | null; account_id: string | null; segment: string | null;
   normalized_json: string | null; resolution_json: string | null; qualification_json: string | null; score_json: string | null; route_json: string | null;
   crm_json: string | null; alert_json: string | null; timings_json: string | null; second_opinion: SecondOpinionState | null; second_opinion_json: string | null;
-  rate_fact_json: string | null; digest_team: string | null;
+  rate_fact_json: string | null; digest_team: string | null; enterprise: number | null; deal_json: string | null; referral_json: string | null; referral_kind: string | null;
   tier: string | null; score: number | null; route_action: string | null; route_team: string | null; owner: string | null; time_to_route_ms: number | null;
   source: Source; received_at: string; synthetic: number; raw_json: string; replays: number; list_name: string | null;
 };
@@ -57,6 +59,8 @@ export function toSummary(r: LeadViewRow): LeadSummary {
   if (route?.rule === 'R5') flags.push('existing_account');
   if (r.replays > 0) flags.push('idempotent_replay');
   if (r.digest_team) flags.push('in_digest');
+  if (r.enterprise) flags.push('enterprise');
+  if (r.referral_kind) flags.push('referral');
   return {
     id: r.id, receivedAt: r.received_at, source: r.source, synthetic: !!r.synthetic, status: r.status,
     person: r.source === 'web_intent' ? null : { name: name || email || 'Unknown', title: title ?? null, email: email ?? null },
@@ -107,6 +111,9 @@ export function leadDetail(ctx: Ctx, id: string) {
     timings: parse(r.timings_json),
     // the organization's own rate from the rate file, the line the brief, alert and task carried; null when it has no rate group
     rateFact: parse<RateFact>(r.rate_fact_json),
+    // the account's enterprise flag and the deal-size cues routing read (decision 25), and a named referral (decision 26)
+    deal: parse<DealSignals>(r.deal_json),
+    referral: parse<StoredReferral>(r.referral_json),
     // the model's answer after the alert, for a lead routed on the rules (decision 19); null when none was due
     secondOpinion: r.second_opinion ? { state: r.second_opinion, result: r.second_opinion === 'done' ? parse<StoredSecondOpinion>(r.second_opinion_json) : null } : null,
     account,

@@ -215,11 +215,11 @@ export async function processLead(ctx: Ctx, id: string, turn: Turn = { started: 
     const p = prepared.value;
     const run = startRun(ctx, id, input, p, turnMs, waitedMs);
     if (turn.passed) run.timings.passed = 1;
-    const { n, res, qual, touches } = commitPrepared(run, p);
-    const score = await scoreStage(run, { n, res, qual, touches });
-    const routed = await routeStage(run, { n, res, qual, touches, score });
-    const brief = await notifyStage(run, { n, res, qual, touches, score, routed });
-    const planStored = await crmStage(run, { n, res, qual, touches, score, routed, brief });
+    const committed = commitPrepared(run, p);
+    const score = await scoreStage(run, committed);
+    const routed = await routeStage(run, { ...committed, score });
+    const brief = await notifyStage(run, { ...committed, score, routed });
+    const planStored = await crmStage(run, { ...committed, score, routed, brief });
     finishRun(run);
     if (planStored) kickOutbox(ctx);
   } catch (e) {

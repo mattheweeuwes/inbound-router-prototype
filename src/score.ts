@@ -40,6 +40,8 @@ export interface ScoreInput {
   priorTouches: number; // same contact, earlier, within 30 days
   accountIntent: number; // already capped web-intent + other-leads-at-account points
   accountIntentNote?: string;
+  /** a named referral (src/referral.ts): its points and the line that says who; absent when the lead names none */
+  referral?: { points: number; label: string } | null;
 }
 
 function sizePoints(res: Resolution): { points: number; label: string } {
@@ -102,6 +104,7 @@ export function scoreLead(i: ScoreInput): Score {
     const pts = Math.min(8, 4 * i.priorTouches);
     items.push({ group: 'intent', label: `Repeat engagement: ${i.priorTouches} prior touch(es) in 30 days`, points: pts });
   }
+  if (i.referral?.points) items.push({ group: 'intent', label: i.referral.label, points: i.referral.points });
   if (i.accountIntent > 0) items.push({ group: 'intent', label: `Account intent: ${i.accountIntentNote ?? 'other activity at this account'}`, points: i.accountIntent });
   let intent = items.filter(x => x.group === 'intent').reduce((a, x) => a + x.points, 0);
   if (intent > 50) { items.push({ group: 'intent', label: 'Cap: intent maximum 50', points: 50 - intent }); intent = 50; }

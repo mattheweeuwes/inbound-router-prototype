@@ -3,6 +3,7 @@
 // model runs for a lead, and what its second opinion after the alert would have changed.
 // The stages in src/stages.ts read the database, call these, and write the result. Tests call them directly.
 import type { DuplicateInfo, Rep } from './route';
+import type { DealSignals } from './enterprise';
 import type { DigestFold } from './lists';
 import type { SlackPayload } from './notify/slack';
 import type {
@@ -24,6 +25,8 @@ export interface StoredAlert {
   followUp?: SlackPayload[];
   /** a list lead whose alert was folded into its list's digest for a team (decision 24): no Slack payload of its own */
   digest?: DigestFold;
+  /** the short note to the enterprise deals channel, on the first enterprise lead of an account in 30 days (decision 25) */
+  enterprise?: SlackPayload;
 }
 
 /** An earlier finished lead from the same contact inside the dedupe window. */
@@ -90,15 +93,42 @@ export const assignsRep = (route: Route) => route.action === 'rep_alert' && !rou
 
 export interface ClaimInput { route: Route; owners: Owners; accountId: string | null; claimedOwner: string | null; mirror: CrmMirrorEntry | null; source: Source }
 
+/** Rules whose rep alert comes from round-robin: R8 (tier A) and R10 (an enterprise deal, decision 25). */
+const ROUND_ROBIN_RULES: readonly string[] = ['R8', 'R10'];
+
 /**
- * Whether this lead's rep alert claims the account. Only an R8 round-robin alert to a named rep on an account nobody owns,
- * that is not in the CRM mirror, and not a web-intent signal. This stands in for HubSpot's company owner being set by the
- * company upsert, and it is what keeps two reps off one account.
+ * Whether this lead's rep alert claims the account. Only a round-robin alert (R8, or R10 for an enterprise deal) to a named
+ * rep on an account nobody owns, that is not in the CRM mirror, and not a web-intent signal. This stands in for HubSpot's
+ * company owner being set by the company upsert, and it is what keeps two reps off one account.
  */
 export function claimsAccount(i: ClaimInput): boolean {
-  if (!assignsRep(i.route) || i.route.rule !== 'R8') return false;
+  if (!assignsRep(i.route) || !ROUND_ROBIN_RULES.includes(i.route.rule)) return false;
   const namedRep = (i.owners.teams[i.route.team]?.reps ?? []).some(r => r.name === i.route.owner);
   return namedRep && !!i.accountId && !i.claimedOwner && !i.mirror && i.source !== 'web_intent';
+}
+
+/** Routes that put a lead in front of sales: a rep, the account owner or a team queue. */
+const SALES_ACTIONS: readonly RouteAction[] = ['rep_alert', 'owner_task', 'team_queue'];
+
+export interface EnterpriseNoteDecision {
+  deal: DealSignals;
+  route: Route;
+  /** the lead names a person (not an account-level signal) */
+  person: boolean;
+  /** it came through a list door: its digest marks it instead */
+  listDoor: boolean;
+  /** an earlier lead at the account already sent the note in the last 30 days */
+  notedRecently: boolean;
+}
+
+/**
+ * Whether this lead sends the short note to the enterprise deals channel (decision 25): an enterprise lead (at an enterprise
+ * account, or an enterprise deal under R10) from a person, routed to sales, not a list row, and the first such lead at the
+ * account in 30 days. Sales leadership then sees enterprise demand once per account, without reading every alert.
+ */
+export function notesEnterprise(i: EnterpriseNoteDecision): boolean {
+  const enterpriseLead = i.deal.enterprise.enterprise || i.route.rule === 'R10';
+  return enterpriseLead && i.person && !i.listDoor && SALES_ACTIONS.includes(i.route.action) && !i.notedRecently;
 }
 
 const SLACK_ACTIONS: readonly RouteAction[] = ['rep_alert', 'team_queue', 'owner_task', 'review', 'competitor_flag'];
@@ -206,8 +236,8 @@ export function compareSecondOpinion(used: Qualification, full: Qualification): 
 
 /**
  * Whether a doubt after the alert needs a follow-up and a review item. Only routes the old order would have changed or
- * annotated: R5 (the owner was told of the doubt in the reason, or R4 took a counted disqualifier first) and R8 (R6 held the
- * lead for RevOps before any rep heard). Earlier rules (a drop, a repeat touch, a competitor, R4) and R6 itself decide the
- * same with or without the doubt, so it is recorded only.
+ * annotated: R5 (the owner was told of the doubt in the reason, or R4 took a counted disqualifier first), and R8 and R10
+ * (R6 held the lead for RevOps before any rep heard). Earlier rules (a drop, a repeat touch, a competitor, R4) and R6 itself
+ * decide the same with or without the doubt, so it is recorded only.
  */
-export const doubtNeedsFollowUp = (route: Route) => route.rule === 'R5' || route.rule === 'R8';
+export const doubtNeedsFollowUp = (route: Route) => route.rule === 'R5' || ROUND_ROBIN_RULES.includes(route.rule);

@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { decideRoute, teamFor, type RouteInput } from '../src/route';
+import { findDealCues } from '../src/dealCues';
+import { enterpriseOf, type DealSignals } from '../src/enterprise';
+import { decideRoute, SLA, teamFor, type RouteInput } from '../src/route';
 import type { Classification, CrmMirrorEntry, Owners, Qualification, Resolution, Score, Tier } from '../src/schema';
 import { adapt } from '../src/sources';
 import { buildPayload } from '../src/payloads';
@@ -185,5 +187,49 @@ describe('route rules R1 to R9', () => {
       ];
       for (const [rule, r, re] of cases) { assert.match(r.reason, re, rule); oneSentence(r.reason); }
     });
+  });
+});
+
+describe('R10: an enterprise deal never waits in a team queue', () => {
+  const enterprise = (hospitals: number): DealSignals => ({ enterprise: enterpriseOf('health_system', { hospitals }), cues: [] });
+  const cued = (message: string): DealSignals => ({ enterprise: enterpriseOf('pe_investor', {}), cues: findDealCues(message) });
+
+  it('a tier-B lead at an enterprise account goes to a named rep with a 15-minute response time, and says why', () => {
+    const r = decideRoute(input({ tier: 'B', score: score('B', 62), deal: enterprise(145), res: res({ accountName: 'CommonSpirit Health' }) }));
+    assert.deepEqual([r.rule, r.action, r.owner, r.team, r.slaMinutes], ['R10', 'rep_alert', 'Avery', 'HSP', SLA.enterprise]);
+    assert.equal(r.reason, 'CommonSpirit Health is an enterprise account (145 hospitals), so a named rep gets it now instead of the Health Systems & Providers queue: round-robin assigned Avery in Health Systems & Providers, with a 15-minute response time.');
+  });
+  it('tier A keeps its 5 minutes', () => {
+    const r = decideRoute(input({ tier: 'A', score: score('A', 85), deal: enterprise(145) }));
+    assert.deepEqual([r.rule, r.slaMinutes], ['R10', SLA.A]);
+  });
+  it('a deal-size cue at a confidently resolved sales-segment organization counts too, and the reason quotes it', () => {
+    const r = decideRoute(input({
+      tier: 'B', score: score('B', 60), deal: cued('We want to benchmark three portfolio MSOs.'),
+      res: res({ segment: 'pe_investor', accountName: 'Welsh, Carson, Anderson & Stowe', accountId: 'domain:welshcarson.com', method: 'curated_domain' }),
+    }));
+    assert.deepEqual([r.rule, r.team, r.owner], ['R10', 'PLS', 'Casey']);
+    assert.match(r.reason, /^Welsh, Carson, Anderson & Stowe is a known private equity investor and the message covers several entities \("portfolio MSOs"\), so a named rep gets it now/);
+  });
+  it('a cue does not count from a low-confidence or inferred organization', () => {
+    const deal = cued('Budget is approved for a bulk license.');
+    for (const r of [res({ confidence: 'low' }), res({ segment: 'employer_self_funded', inferred: true, confidence: 'low', method: 'inferred' })]) {
+      assert.equal(decideRoute(input({ tier: 'B', score: score('B', 60), deal, res: r })).rule, 'R8');
+    }
+  });
+  it('stays out of the way of earlier rules, lower tiers, list doors and disqualifiers', () => {
+    const m: CrmMirrorEntry = { id: 'm', name: 'Wrenfield Health', status: 'customer', owner: 'Taylor', segment: 'health_system', domains: [], nameContains: [], note: '' };
+    assert.deepEqual([decideRoute(input({ tier: 'B', score: score('B', 60), deal: enterprise(20), mirror: m })).rule], ['R5'], 'the account owner comes first');
+    assert.equal(decideRoute(input({ tier: 'B', score: score('B', 60), deal: enterprise(20), res: res({ status: 'ambiguous', accountId: null }) })).rule, 'R6');
+    assert.equal(decideRoute(input({ tier: 'C', score: score('C', 40), deal: enterprise(20) })).rule, 'R8', 'tier C goes to nurture');
+    const scan = decideRoute(input({ source: 'event_scan', tier: 'B', score: score('B', 60), deal: enterprise(20), listDoor: true }));
+    assert.deepEqual([scan.rule, scan.action], ['R8', 'team_queue'], 'a list row stays in its digest');
+    assert.equal(decideRoute(input({ source: 'web_intent', tier: 'B', deal: enterprise(20) })).rule, 'R9');
+    assert.equal(decideRoute(input({ tier: 'X', qual: qual({ disqualifier: 'student' }), deal: enterprise(20) })).rule, 'R4');
+  });
+  it('with no rep available it falls back to the team queue and says so', () => {
+    const r = decideRoute(input({ tier: 'B', score: score('B', 60), deal: enterprise(20), pickRep: () => null }));
+    assert.deepEqual([r.rule, r.owner], ['R10', 'HSP queue']);
+    assert.match(r.reason, /no rep was available\.$/);
   });
 });
