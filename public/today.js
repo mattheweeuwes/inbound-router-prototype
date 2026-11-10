@@ -112,7 +112,8 @@ function pageHTML(/** @type {Brief} */ b) {
     <div class="td-head"><p class="td-asof">As of ${timeTag(b.generatedAt, 'full')}. ${esc(lookbackWords(b))}</p><button type="button" class="btn btn-secondary td-refresh" data-refresh>Refresh</button></div>
     ${indexHTML(indexEntries(b, S.total), 'Sections on this page')}
     <div class="td-grid">${sectionsInOrder(b).map(sectionHTML).join('')}</div>
-    <section class="card td-accounts" id="tdAccounts" data-index-id="accounts" aria-labelledby="tdAccountsTitle">${accounts.html(S.total)}</section>`;
+    <section class="card td-accounts" id="tdAccounts" data-index-id="accounts" aria-labelledby="tdAccountsTitle">${accounts.html(S.total)}</section>
+    <p class="ob-chart-note td-note">The brief decides nothing. It lists what the dashboard, the outbound module, the usage module and the accounts API already hold, with the ids to open each one.</p>`;
 }
 
 function sectionHTML(/** @type {Section} */ s) {

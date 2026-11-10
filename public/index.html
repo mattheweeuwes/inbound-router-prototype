@@ -9,6 +9,8 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23001639'/%3E%3Cpath d='M7 9h6l5 7h7M7 16h11M7 23h6l5-7' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='16' r='2.6' fill='%2355b1ff'/%3E%3C/svg%3E">
 </head>
 <body>
+  <div class="strip" id="envStrip" role="note" aria-label="Environment"><div class="strip-in"><b>Environment</b><span class="item">Connecting…</span></div></div>
+
   <header class="topbar">
     <div class="topbar-row">
       <div class="brand">
@@ -17,13 +19,15 @@
           <path d="M7 9h6l5 7h7M7 16h11M7 23h6l5-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
           <circle cx="25" cy="16" r="2.6" class="mark-dot"/>
         </svg>
-        <span class="brand-name">Inbound Router</span>
-      </div>
-      <div class="top-status" role="group" aria-label="Environment">
-        <span class="status-chip mode-pill" id="modePill"><span class="dot"></span><span id="modeText">Connecting…</span></span>
-        <span class="env-chips" id="envChips"></span>
+        <div class="brand-text">
+          <div class="brand-name">Inbound Router</div>
+          <div class="brand-sub">Serif Health GTM · Matthew Eeuwes</div>
+        </div>
       </div>
       <div class="top-actions">
+        <span class="mode-pill" id="modePill">
+          <span class="dot"></span><span id="modeText">Connecting…</span>
+        </span>
         <button class="btn btn-secondary" id="replayBtn">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.5v11l9-5.5-9-5.5z"/></svg>Replay a day
         </button>
@@ -67,9 +71,9 @@
         <div class="pane pane-list">
           <div class="list-tools">
             <div class="chips" id="filterChips" role="group" aria-label="Filter by outcome"></div>
-            <div class="filter-bar" id="filterBar" role="group" aria-label="Filters"></div>
             <input class="search" id="search" type="search" placeholder="Search" aria-label="Search leads">
           </div>
+          <div class="filter-bar" id="filterBar" role="group" aria-label="Filters"></div>
           <div class="list-count" id="listCount" role="status" aria-live="polite"></div>
           <div class="list-head" id="listHead" role="row"></div>
           <div class="list" id="leadList" role="listbox" aria-label="Leads" tabindex="0"></div>
@@ -88,6 +92,7 @@
       <div class="page">
         <div class="page-head">
           <h2>Needs a person</h2>
+          <p class="page-sub">Each item is a lead the router would not guess about. Choose the account, send it to nurture, or say whether it is a buyer, and it runs through the router again with your decision.</p>
         </div>
         <div id="reviewBody"></div>
       </div>
@@ -138,6 +143,7 @@
       <div class="page">
         <div class="page-head">
           <h2>How it works</h2>
+          <p class="page-sub">Click any box to see how it is built and the tests that prove what it claims.</p>
         </div>
         <figure class="diagram">
           <svg viewBox="0 0 1240 840" role="group" aria-label="Three rows. Inbound: eight doors to a webhook that verifies, stores once and answers 202; leads prepare at once (normalize, resolve, qualify) and commit one at a time in order per lane (score, route, alert, HubSpot). Qualify runs the rules first and asks the model before the route only when the rules cannot settle the use case. Score adds referral points. Route applies the owner rule, the review rule, the enterprise rule R10 and then the tier. The alert goes out first, with one digest per uploaded list and team and a note to the enterprise deals channel, then the HubSpot outbox, retried and marked dead after 8 attempts. A company the router cannot place, a model-only non-buyer call, or the model's second opinion after the alert opens an item in Needs a person, where a person chooses the account, sends it to nurture, or says whether it is a buyer, and the lead runs again with that decision. Outbound: the public rate file to patterns, one finding per EIN with link review by a person, two plays, drafts with suppression and a CSV export, and a HubSpot upsert built for review; a line from the finding goes into the inbound alert. Beside the route: referral capture into the score and the referring account, feature interest tags and usage events and deals into Feature to pipeline, and the Today brief, which reads the same read models and decides nothing.">
@@ -223,7 +229,8 @@
             <g class="d-person" data-node="review" tabindex="0" role="button" aria-label="Needs a person: how it is built">
               <rect x="470" y="392" width="750" height="78" rx="10"/>
               <text x="490" y="417" class="d-title">Needs a person (R6): a person decides, and the lead runs again with the decision</text>
-              <text x="490" y="444">use a candidate · nurture · not a buyer · it is a buyer</text>
+              <text x="490" y="438">use one of the candidates · send to nurture · not a buyer, with the reason · it is a buyer</text>
+              <text x="490" y="456">The decision, who made it and when are stored with the lead. Nothing is guessed silently.</text>
             </g>
             <path d="M470 431 H446 V234" class="d-line-warn d-dash" marker-end="url(#arr-warn)"/>
             <text x="438" y="452" text-anchor="end" class="d-note">a decision runs</text>
@@ -256,15 +263,15 @@
             <!-- BESIDE THE ROUTE -->
             <text x="20" y="700" class="d-cap">BESIDE THE ROUTE, BY RULES</text>
             <path d="M135 712 V690 H300" class="d-line d-dash" marker-end="url(#arr)"/>
-            <g class="d-box" data-node="referral" tabindex="0" role="button" aria-label="Referral capture: how it is built"><rect x="20" y="712" width="230" height="114" rx="10"/><text x="34" y="738" class="d-title">Referral capture</text><text x="34" y="758">a named referrer, resolved</text><text x="34" y="774">to its organization</text></g>
+            <g class="d-box" data-node="referral" tabindex="0" role="button" aria-label="Referral capture: how it is built"><rect x="20" y="712" width="230" height="114" rx="10"/><text x="34" y="738" class="d-title">Referral capture</text><text x="34" y="758">a named referrer, resolved</text><text x="34" y="774">to its organization: points</text><text x="34" y="790">into Score, and a signal</text><text x="34" y="806">on the referring account</text></g>
             <text x="306" y="694" class="d-note">into Score, above</text>
             <g class="d-box" data-node="interest" tabindex="0" role="button" aria-label="Feature interest tags: how it is built"><rect x="290" y="712" width="230" height="46" rx="10"/><text x="304" y="731" class="d-title">Feature interest tags</text><text x="304" y="748">words, door, guide, pages; at commit</text></g>
             <g class="d-reg" data-node="usage" tabindex="0" role="button" aria-label="Usage events and deals: how it is built"><rect x="290" y="768" width="230" height="58" rx="10"/><text x="304" y="788" class="d-title">Usage events and deals</text><text x="304" y="806">PostHog events, HubSpot deals</text></g>
             <path d="M520 735 H558" class="d-line" marker-end="url(#arr)"/>
             <path d="M520 797 H558" class="d-line" marker-end="url(#arr)"/>
-            <g class="d-box d-key" data-node="pipeline" tabindex="0" role="button" aria-label="Feature to pipeline: how it is built"><rect x="562" y="712" width="220" height="114" rx="10"/><text x="576" y="738" class="d-title">Feature to pipeline</text><text x="576" y="758">deals each feature was around,</text><text x="576" y="774">and who asked for it</text></g>
+            <g class="d-box d-key" data-node="pipeline" tabindex="0" role="button" aria-label="Feature to pipeline: how it is built"><rect x="562" y="712" width="220" height="114" rx="10"/><text x="576" y="738" class="d-title">Feature to pipeline</text><text x="576" y="758">deals each feature was around,</text><text x="576" y="774">with the counts they rest on,</text><text x="576" y="790">and who asked for it</text></g>
             <path d="M782 769 H808" class="d-line d-dash" marker-end="url(#arr)"/>
-            <g class="d-out" data-node="today" tabindex="0" role="button" aria-label="Today brief: how it is built"><rect x="812" y="712" width="408" height="114" rx="10"/><text x="828" y="738" class="d-title">Today brief</text><text x="828" y="758">what needs a person, enterprise, referrals, lists,</text><text x="828" y="774">expansion, outbound and feature interest</text></g>
+            <g class="d-out" data-node="today" tabindex="0" role="button" aria-label="Today brief: how it is built"><rect x="812" y="712" width="408" height="114" rx="10"/><text x="828" y="738" class="d-title">Today brief</text><text x="828" y="758">reads the same read models as the Overview: what needs</text><text x="828" y="774">a person, enterprise, referrals, lists, expansion,</text><text x="828" y="790">outbound and feature interest</text><text x="828" y="808">It decides nothing.</text></g>
           </svg>
           <div class="topo-detail" id="topoDetail" aria-live="polite" hidden></div>
         </figure>

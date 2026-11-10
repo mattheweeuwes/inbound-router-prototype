@@ -209,7 +209,7 @@ function groupHTML(/** @type {import('./stream-model.js').GroupRow} */ g) {
   </div>`;
 }
 
-/** The small marks beside a lead's name: enterprise, a named referral, the list it came on, a deal-size cue. Quiet on purpose. */
+/** The small marks under a row: enterprise, a named referral, the list it came on, a deal-size cue. Quiet on purpose. */
 function marksHTML(/** @type {Lead} */ l, /** @type {boolean} */ inGroup) {
   const marks = [];
   if (l.enterprise) marks.push(`<span class="rmark rmark-ent" title="${esc(`Enterprise account${l.enterpriseFact ? `: ${l.enterpriseFact}` : ''}`)}">enterprise</span>`);
@@ -219,7 +219,7 @@ function marksHTML(/** @type {Lead} */ l, /** @type {boolean} */ inGroup) {
   }
   if (l.list && !inGroup && S.view.list !== l.list) marks.push(`<span class="rmark rmark-list" title="${esc(`From the ${l.list} list`)}">${esc(l.list)}</span>`);
   if (l.dealCue) marks.push(`<span class="rmark rmark-deal" title="${esc(`Deal-size cue in the message: “${l.dealCue}”`)}">deal cue</span>`);
-  return marks.length ? `<span class="rmarks">${marks.join('')}</span>` : '';
+  return marks.length ? `<div class="rmarks">${marks.join('')}</div>` : '';
 }
 
 function rowHTML(/** @type {Lead} */ l, /** @type {boolean} */ inGroup) {
@@ -242,7 +242,7 @@ function rowHTML(/** @type {Lead} */ l, /** @type {boolean} */ inGroup) {
     <div class="cell-tier">${tierBadge(l.tier)}</div>
     <div class="num cell-score">${l.score == null ? '—' : esc(l.score)}</div>
     <div class="who">
-      <div class="who-line"><span class="who-name">${esc(name)}</span>${marksHTML(l, inGroup)}</div>
+      <div class="who-name">${esc(name)}</div>
       <div class="who-title">${esc(title)}</div>
     </div>
     <div class="org">
@@ -251,6 +251,7 @@ function rowHTML(/** @type {Lead} */ l, /** @type {boolean} */ inGroup) {
     </div>
     <div class="route-cell">${actionPill(l.routeAction)}<span class="route-owner">${esc(owner)}${team ? ` · ${esc(team)}` : ''}</span></div>
     <div class="num speed" title="${esc(alertTitle)}">${esc(alert)}</div>
+    ${marksHTML(l, inGroup)}
   </div>`;
 }
 

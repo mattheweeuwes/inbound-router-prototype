@@ -501,7 +501,7 @@ function renderSlack(slack) {
   }
   return `<div class="chat">
     <div class="chat-avatar"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h6l5 7h7M7 16h11M7 23h6l5-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <div><div class="chat-from">Inbound Router <span>to ${esc(slack.channel || 'a channel')}</span></div>
+    <div><div class="chat-from">Inbound Router <span>APP · to ${esc(slack.channel || 'a channel')}</span></div>
       ${header ? `<div class="chat-h">${esc(header)}</div>` : ''}
       ${fields ? `<div class="chat-fields">${fields}</div>` : ''}${secs}${ctx ? `<div class="chat-ctx">${ctx}</div>` : ''}
     </div></div>`;
@@ -568,8 +568,9 @@ function renderEval() {
   if (ref && ref.fields && ref.fields.urgency) {
     const u = ref.fields.urgency;
     const bits = cols.map(([k, l]) => (val(u, k) != null ? `${l} ${u.counts && u.counts[k] ? `${u.counts[k]} (${pct(val(u, k))})` : pct(val(u, k))}` : null)).filter(Boolean);
-    story = `<div class="card eval-story"><h3>Urgency by policy</h3>
-      <p class="meta-line">${esc(setLabel(ref))}: ${esc(bits.join(' · '))}</p></div>`;
+    story = `<div class="card" style="margin-top:14px"><h3>What the evals changed</h3>
+      <p style="margin:0 0 6px;color:var(--ink-2)">Version 1 let the model override the rules whenever it was at least 60% confident; the small local model got month arithmetic wrong, so urgency got worse. Version 2 let rules decide wherever they had a clear signal; it recovered on the development set but its keyword cues did not generalize to new phrasing. Version 3 replaced the cues with a date parser that resolves every expression to a calendar date and measures the distance, but still asked the model when a message had no timing language, and the model guessed. Version 4 stops guessing: no timing language means unknown.</p>
+      <p style="margin:0;color:var(--ink-2)">Urgency on the ${esc(setLabel(ref).toLowerCase())}: ${esc(bits.join(' · '))}.</p></div>`;
   }
   const curMisses = (e.misses || []).filter((m) => !m.set || m.set === cur.name);
   const misses = curMisses.slice(0, 60).map((m) => `<div class="miss"><div class="miss-top"><span class="idkey">${esc(m.fixtureId)}</span><b>${esc(m.field)}</b><span>expected <b>${esc(m.expected)}</b>, got <b>${esc(m.got)}</b></span>${m.source ? `<span class="src">${esc(lab('source', m.source))}</span>` : ''}</div>${m.reasons ? `<div class="why">“${esc(m.reasons)}”</div>` : ''}</div>`).join('');
@@ -738,23 +739,27 @@ function stackRow(label, tiers, total, scale, lw, extra = '', sub = '') {
   </div>`;
 }
 
-/** The header's status chips: whether HubSpot writes go out, and what fills the model slot. Each is a mode that changes what happens. */
 function renderStrip() {
   const d = state.dash;
-  const box = $('#envChips');
+  const box = $('#envStrip');
   if (!box) return;
-  if (!d || !d.env || state.mode !== 'live') { box.innerHTML = ''; return; }
-  const live = d.env.hubspot === 'live';
-  const m = d.env.model || {};
-  const model = m.provider === 'rules' ? 'rules only' : m.provider === 'anthropic' ? `${m.name || 'hosted'}${m.effort ? `, ${m.effort}` : ''}` : 'local';
-  box.innerHTML = `<span class="status-chip${live ? ' is-warn' : ''}">HubSpot: ${live ? 'live' : 'not sending'}</span><span class="status-chip">Model: ${model}</span>`;
+  const items = [];
+  if (d && d.env) {
+    const live = d.env.hubspot === 'live';
+    items.push(live ? 'HubSpot: <span class="live-tag">LIVE</span>' : 'HubSpot: not sending');
+    const m = d.env.model || {};
+    items.push(`Model: ${esc(m.provider === 'rules' ? 'rules only' : m.provider === 'anthropic' ? `${m.name || 'hosted'}${m.effort ? `, ${m.effort} effort` : ''}` : `${m.name || 'local'}, on this machine`)}`);
+    items.push(d.env.registry === 'real' ? 'Registry: CMS, AHRQ, NPPES' : 'Registry: test set');
+  }
+  if (state.mode === 'sample') items.push('API offline');
+  box.innerHTML = `<div class="strip-in"><b>Environment</b>${items.map((t, i) => `${i ? '<span class="sep" aria-hidden="true">·</span>' : ''}<span class="item">${t}</span>`).join('')}</div>`;
 }
 
 function ovHeader(d) {
   const live = state.mode === 'live';
   return `<div class="ov-head">
     <div>
-      <h1>Overview</h1>
+      <h1>Every inbound lead, routed <span class="grad-text">in seconds</span></h1>
     </div>
     <div class="ov-updated${live ? ' is-live' : ''}" id="ovUpdated"><span class="pulse" aria-hidden="true"></span>${live ? `Updated ${esc(new Date(d.generatedAt).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit', second: '2-digit' }))} ET` : 'Sample data'}</div>
   </div>`;
@@ -814,7 +819,7 @@ function ovPath(d) {
   for (const p of d.path) counts[p.status] = (counts[p.status] || 0) + 1;
   const checked = d.path.length - counts.idle;
   const badge = counts.bad ? `<span class="badge bad">${counts.bad} failing</span>` : counts.warn ? `<span class="badge warn">${counts.warn} to look at</span>` : checked ? `<span class="badge ok">${counts.ok} of ${checked} passing</span>` : '<span class="badge">Waiting for leads</span>';
-  return `<div class="path-card">
+  return `<div class="card path-card">
     <div class="card-head"><h3>Speed-to-lead path</h3><div class="card-tools">${badge}</div></div>
     <ul class="path">${d.path.map((p) => `<li>${sicon(p.status)}<div class="line"><b>${esc(p.label)}</b><span class="fact">${esc(p.fact)}</span></div></li>`).join('')}</ul>
   </div>`;
@@ -825,7 +830,7 @@ function ovKpis(d) {
   const sr = k.salesReady;
   const t = k.timeToRoute;
   const thin = (parts) => `<div class="thin" aria-hidden="true">${parts.filter((p) => p[1] > 0).map(([cls, n]) => `<span class="${cls}" style="flex:${n} 1 0"></span>`).join('')}</div>`;
-  const tile = (label, inner, key = false) => `<div class="kpi${key ? ' is-key' : ''}" role="group" aria-label="${esc(label)}"><div class="kpi-label">${esc(label)}</div>${inner}</div>`;
+  const tile = (label, inner, key = false) => `<div class="card kpi${key ? ' is-key' : ''}" role="group" aria-label="${esc(label)}"><div class="kpi-label">${esc(label)}</div>${inner}</div>`;
   return `<section class="kpis" aria-label="Summary">
     ${tile('Leads in', `<div class="kpi-value">${nf(k.leadsIn.value)}</div>`)}
     ${tile('Sales-ready', `<div class="kpi-value">${nf(sr.value)}${sr.pct != null ? `<small>${pctTxt(sr.pct)} of leads</small>` : ''}</div>${thin([['seg-A', sr.a], ['seg-B', sr.b], ['seg-X', Math.max(0, k.leadsIn.value - sr.a - sr.b)]])}`, true)}
@@ -898,8 +903,8 @@ function ovLists(d) {
       <div class="act"><span class="wait">${nf(l.digests)} digest${l.digests === 1 ? '' : 's'}${l.waitingForDigest ? ` · ${nf(l.waitingForDigest)} waiting` : ''}</span><span class="wait">${nf(l.repeatsAttached)} repeat${l.repeatsAttached === 1 ? '' : 's'} · ${nf(l.unknownOrgs)} unknown</span></div>
     </li>`).join('')}</ul>`;
   const table = dtable(['List', 'Rows', 'By tier', 'By action', 'Repeats attached', 'Unknown organizations', 'Digests', 'First accepted', 'Last accepted'], rows, 9);
-  return vcard({ id: 'lists', title: 'Uploaded lists', sub: `${nf(lists.length)} list${lists.length === 1 ? '' : 's'}`, body, table, span: 'span-5'
-  });
+  return vcard({ id: 'lists', title: 'Uploaded lists', sub: `${nf(lists.length)} list${lists.length === 1 ? '' : 's'}`, body, table, span: 'span-5',
+    foot: '<span>One Slack digest per list and team in place of one alert per row; a rep alert still goes out on its own.</span>' });
 }
 
 /** Named referrals (decision 26): the people who named who sent them, beside everyone else, and the referrers ranked. */

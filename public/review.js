@@ -124,7 +124,7 @@ function listHTML(/** @type {import('./review-model.js').ListGroup} */ g) {
 function cardHTML(/** @type {OpenItem} */ i) {
   const off = demoOn() && !i.busy ? '' : ' disabled';
   const said = i.companyTyped ? ` · said "${esc(i.companyTyped)}"` : '';
-  const head = `<div class="rcard-top"><span class="rcard-name">${esc(i.person)}</span><span class="rcard-sub">${esc(i.title ?? '')}${said}</span><span class="badge warn">${esc(reasonWords(i.reason))}</span><button type="button" class="btn btn-secondary btn-sm open" data-id="${esc(i.leadId)}">Open the trail</button></div>`;
+  const head = `<div class="rcard-top"><span class="rcard-name">${esc(i.person)}</span><span class="rcard-sub">${esc(i.title ?? '')}${said}</span><span class="badge warn">${esc(reasonWords(i.reason))}</span><button type="button" class="btn btn-ghost btn-sm open" data-id="${esc(i.leadId)}">Open the trail</button></div>`;
   const why = `<div class="rcard-why">${esc(i.route.reason ?? 'Sent to a person.')}${i.busy ? ' <b>It is running now; decide when it is done.</b>' : ''}</div>`;
   const cands = i.candidates.length && i.decisions.includes('use_account')
     ? `<table class="cands"><thead><tr><th>Candidate</th><th>State</th><th class="rv-key-col">Account key</th><th class="num">Match</th><th></th></tr></thead><tbody>${i.candidates.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.state || '—')}</td><td class="rv-key-col"><span class="idkey">${esc(c.accountId)}</span></td><td class="num">${esc(matchText(c.score))}</td><td class="rv-use"><button type="button" class="btn btn-secondary btn-sm" data-act="use_account" data-key="${esc(c.accountId)}"${off}>Use this account</button></td></tr>`).join('')}</tbody></table>`
@@ -133,7 +133,7 @@ function cardHTML(/** @type {OpenItem} */ i) {
     ? `<label class="ob-field rv-key">Account key, if you know it<input type="text" data-ctl="key" placeholder="crm:… or ahrq:…" spellcheck="false"${off}></label><button type="button" class="btn btn-secondary btn-sm" data-act="use_account"${off}>Use this account</button>`
     : '';
   const buttons = itemButtons(i).map((b) => b.decision === 'not_a_buyer'
-    ? `<span class="rv-nb"><select data-ctl="reason" aria-label="Why it is not a buyer"${off}>${NOT_BUYER_REASONS.map((r) => `<option>${esc(r)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" data-act="not_a_buyer"${off}>${esc(b.label)}</button></span>`
+    ? `<span class="rv-nb"><select data-ctl="reason" aria-label="Why it is not a buyer"${off}>${NOT_BUYER_REASONS.map((r) => `<option>${esc(r)}</option>`).join('')}</select><button type="button" class="btn btn-ghost btn-sm" data-act="not_a_buyer"${off}>${esc(b.label)}</button></span>`
     : `<button type="button" class="btn ${b.decision === 'is_buyer' ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="${b.decision}"${off}>${esc(b.label)}</button>`).join('');
   return `<div class="rcard" data-id="${esc(i.leadId)}" tabindex="-1">${head}${why}${cands}<div class="rcard-acts">${named}${buttons}</div><p class="rcard-msg" role="alert"></p></div>`;
 }
@@ -215,7 +215,7 @@ function askNurtureAll(/** @type {HTMLButtonElement} */ btn) {
   if (btn.dataset.armed === '1') { void nurtureAll(list); return; }
   btn.dataset.armed = '1';
   btn.textContent = nurtureAllYes(n);
-  btn.insertAdjacentHTML('afterend', `<button type="button" class="btn btn-secondary btn-sm rv-all rv-all-cancel" data-act="nurture_cancel" data-list="${esc(list)}">Cancel</button>`);
+  btn.insertAdjacentHTML('afterend', `<button type="button" class="btn btn-ghost btn-sm rv-all rv-all-cancel" data-act="nurture_cancel" data-list="${esc(list)}">Cancel</button>`);
   say(nurtureAllConfirm(n, list));
 }
 
@@ -272,7 +272,7 @@ function markDecided(/** @type {string} */ id, /** @type {string} */ outcome, fo
   if (card) {
     const name = card.querySelector('.rcard-name')?.textContent ?? '';
     card.classList.add('is-decided');
-    card.innerHTML = `<div class="rcard-top"><span class="rv-done" aria-hidden="true">✓</span><span class="rcard-name">${esc(name)}</span><span class="rv-outcome">${esc(outcome)}</span><button type="button" class="btn btn-secondary btn-sm open" data-id="${esc(id)}">Open the trail</button></div>`;
+    card.innerHTML = `<div class="rcard-top"><span class="rv-done" aria-hidden="true">✓</span><span class="rcard-name">${esc(name)}</span><span class="rv-outcome">${esc(outcome)}</span><button type="button" class="btn btn-ghost btn-sm open" data-id="${esc(id)}">Open the trail</button></div>`;
   }
   updateCounts();
   if (focusNext) focusCard(nextFocus(S.order, id, S.done));

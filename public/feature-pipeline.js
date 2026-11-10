@@ -163,27 +163,30 @@ function onChange(/** @type {Event} */ e) {
 
 function pageHTML(/** @type {Loaded} */ d) {
   return `
-    <div class="ob-finding fp-finding"><p class="ob-line">${esc(headline(d))}</p><span class="fp-asof">Measured to ${esc(day(d.asOf))}</span></div>
-    <p class="fp-caveat" role="note">Influence, not proof of cause.</p>
+    <div class="fp-head"><span class="fp-asof">Measured to ${esc(day(d.asOf))}, the newest event</span></div>
+    <div class="ob-finding"><p class="ob-line">${esc(headline(d))}</p></div>
+    <div class="card fp-caveat" role="note"><b>Influence, not proof of cause.</b> ${esc(d.model.caveat.replace(/^This is influence, not proof of cause\.\s*/, ''))}</div>
     ${tilesHTML(d)}
     ${chartHTML(d)}
     ${tableHTML(d)}
     ${dealsHTML(d)}
     ${askedHTML(d)}
-    ${signalsHTML(d)}`;
+    ${signalsHTML(d)}
+    <p class="ob-chart-note fp-def"><b>The definition.</b> ${esc(d.model.definition)} ${esc(d.model.note)}</p>
+    <p class="ob-chart-note fp-def"><b>Interest from inbound.</b> A person in the router's lead stream counts for a feature when they name it in their message, come in through its door, take a guide about it or (for an account's web visits) visit its pages. It is not usage, it is not in any win rate, and it never changes a lead's tier or route. A person who came in twice counts once.</p>`;
 }
 
 function tilesHTML(/** @type {Loaded} */ d) {
   const t = d.data.deals;
   const ev = d.data.events;
   const tile = (/** @type {string} */ label, /** @type {string} */ value, /** @type {string} */ sub) =>
-    `<div class="ob-stat"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${value}</div><div class="ob-stat-sub">${sub}</div></div>`;
-  return `<div class="figs"><div class="figs-group" role="group" aria-label="The data behind the tab">
+    `<div class="card ob-stat"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${value}</div><div class="ob-stat-sub">${sub}</div></div>`;
+  return `<div class="ob-stats" role="group" aria-label="The data behind the tab">
     ${tile('Deals', nf(t.total), `${nf(t.won.count)} won, ${nf(t.lost.count)} lost, ${nf(t.open.count)} open; ${nf(d.data.accounts)} accounts`)}
     ${tile('Pipeline in the data', esc(moneyShort(t.won.amount + t.lost.amount + t.open.amount)), `${esc(moneyShort(t.won.amount))} won, ${esc(moneyShort(t.open.amount))} open, ${esc(moneyShort(t.lost.amount))} lost`)}
     ${tile('Events', nf(ev.total), `${nf(ev.mapped)} mapped to a feature, ${nf(ev.unmapped)} unmapped, ${nf(ev.unresolved)} with no account`)}
     ${tile('Expansion signals', nf(d.expansion.signals.length), `customers using a preview, no add-on deal`)}
-  </div></div>`;
+  </div>`;
 }
 
 // ─── the chart: pipeline each feature was around ─────────────────────────────
@@ -203,7 +206,7 @@ function chartHTML(/** @type {Loaded} */ d) {
   }).join('');
   const key = (/** @type {'won' | 'open' | 'lost'} */ k) => `<span><i class="fp-sw is-${k}" aria-hidden="true"></i>${OUTCOME_WORDS[k]}</span>`;
   return `<div class="card fp-chart">
-    <div class="card-head"><h3>Pipeline each feature was around</h3></div>
+    <div class="card-head"><h3>Pipeline each feature was around</h3><span class="sub">deal amounts by outcome; one deal counts under every feature it was around</span></div>
     <div class="legend fp-legend" aria-label="Chart key">${key('won')}${key('open')}${key('lost')}</div>
     <ol class="fp-bars">${rows}</ol>
   </div>`;
@@ -220,7 +223,7 @@ function tableHTML(/** @type {Loaded} */ d) {
     return `<th class="${first ? '' : 'num'}" aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="ob-sort${on ? ' is-on' : ''}" data-fsort="${key}" data-fk="fsort-${key}">${esc(c.label)}<span class="ob-arrow" aria-hidden="true">${on ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</span></button></th>`;
   }).join('');
   return `<section class="card fp-list" aria-labelledby="fpTableTitle">
-    <div class="card-head fp-table-head"><h3 id="fpTableTitle">Features</h3></div>
+    <div class="card-head fp-table-head"><h3 id="fpTableTitle">Features</h3><span class="sub">counts first: a rate over a few closed deals is not a result</span></div>
     <table class="fp-table">
       <thead><tr>${head}</tr></thead>
       <tbody>${rows}</tbody>
@@ -287,7 +290,7 @@ function askedHTML(/** @type {Loaded} */ d) {
     : 'Nobody in the lead stream has asked for this feature.';
   const since = i.sinceLaunch === null ? '' : ` ${nf(i.sinceLaunch)} came in after the launch.`;
   return `<section class="card fp-asked" aria-labelledby="fpAskedTitle" aria-live="polite">
-    <div class="card-head"><h3 id="fpAskedTitle">Who asked for ${esc(f.label)}</h3></div>
+    <div class="card-head"><h3 id="fpAskedTitle">Who asked for ${esc(f.label)}</h3><span class="sub">for customer success</span></div>
     <p class="fp-asked-sum">${esc(head + since)}</p>
     ${f.asked.length ? askedTable(f.asked) : ''}
   </section>`;
@@ -346,8 +349,8 @@ function signalsHTML(/** @type {Loaded} */ d) {
     ? x.signals.map((s) => signalHTML(s)).join('')
     : `<p class="fp-none">No customer account meets the rule at ${esc(day(d.asOf))}.</p>`;
   return `<section class="card fp-signals" aria-labelledby="fpSignalsTitle">
-    <div class="card-head"><h3 id="fpSignalsTitle">Expansion signals</h3></div>
-    <p class="fp-rule meta-line">Rule: ${esc(x.rule)}</p>
+    <div class="card-head"><h3 id="fpSignalsTitle">Expansion signals</h3><span class="sub">for customer success</span></div>
+    <p class="fp-rule"><b>The rule.</b> ${esc(x.rule)}</p>
     ${body}
   </section>`;
 }

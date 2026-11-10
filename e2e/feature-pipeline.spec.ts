@@ -19,7 +19,7 @@ test('the Feature to pipeline tab says it is influence, not cause, shows counts 
   await page.getByRole('tab', { name: 'Feature to pipeline' }).click();
   await expect(page.getByRole('tab', { name: 'Feature to pipeline' })).toHaveAttribute('aria-selected', 'true');
 
-  // the one-line caveat is on the page before any number is read, and no fixture banner is
+  // the caveat is on the page before any number is read, and no fixture banner is
   await expect(page.locator('.fp-syn-usage, .fp-syn-interest')).toHaveCount(0);
   await expect(page.getByRole('note').filter({ hasText: 'Influence, not proof of cause.' })).toBeVisible();
   await expect(page.locator('.ob-line')).toContainText('22 of 22 deals had an account using at least one tracked feature');
@@ -71,7 +71,8 @@ test('the tab reflows to a phone: no sideways scroll, and the caveat stays on th
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('tab', { name: 'Feature to pipeline' }).click();
-  await expect(page.locator('.fp-caveat')).toHaveText('Influence, not proof of cause.');
+  await expect(page.locator('.fp-caveat')).toBeVisible();
+  await expect(page.locator('.fp-caveat')).toContainText('Influence, not proof of cause.');
   await expect(page.locator('.fp-bar-row')).toHaveCount(7);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   expect(problems, problems.join('\n')).toEqual([]);
