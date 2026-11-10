@@ -11,7 +11,8 @@ Needs Node 22 (uses `node:sqlite`). Optional: Ollama with `llama3.2:3b` on `127.
 ```
 npm install
 npm test               # unit and pipeline tests, no network
-npm run replay         # all 40 fixtures through the inbound handler; prints a table, writes out/replay.json
+npm run replay         # all 40 fixtures through the inbound handler; prints a table and time to alert, writes out/replay.json
+                       # (-- --pace 2000 posts like the cockpit's Replay a day, -- --burst posts with no gap)
 npm run eval           # rules vs model vs combined against fixtures/gold-labels.json; writes out/eval.md and out/eval.json
 npm run eval:gate      # the same evaluation as a gate: exits 1 if v4 on the sealed or held-out set is below its floors, or the local model is unreachable
 npm run ci             # what CI runs, in order, stopping at the first failure: typecheck, tests, CI replay, rules-only eval gate, browser test
@@ -30,20 +31,24 @@ Until `data/registry.sqlite` exists with `meta.status = 'complete'`, the app run
  calendly_demo  ──┐          verify signature (Calendly) ─ adapt to LeadEvent ─ (source, event id) unique?
  guide_download   │                        │ duplicate: 200, stop            │ new: 202
  signal_ask       ├──────────────────────► │                                 ▼
- sample_signup    │                  lead_events + leads('received')   single-flight queue (resumed at boot)
+ sample_signup    │                  lead_events + leads('received')   queue (resumed at boot)
  marketplace      │                                                         │
  api_key          │      ┌──────────────────────────────────────────────────┘
- event_scan       │      ▼
- web_intent    ───┘   normalize ─► resolve ─► qualify ─► score ─► route ─► notify ─► crm
-                      UTM, email,   domain,    rules on    fit 50 +   R1..R9   Slack Block  HubSpot
-                      title, dedupe curated,   every lead; intent 50, first     Kit payload   requests
-                      (30 days)     name,      model on     itemized   match    (dry-run);    (dry-run) or an
-                                    site title, free text,   points     wins     the rep is    outbox, retried
-                                    NPPES, TLD  guard-railed                     told first
-                      no match, a tie, or a non-buyer call only the model makes (spam or vendor pitch at any confidence,
-                      anything else under 0.8): held for RevOps (R6) before any rep is alerted; an account that already
-                      has an owner goes to the owner (R5), doubt included. Exception: a benefits or HR contact at an
-                      unknown company is resolved as a low-confidence inferred employer and routed by tier
+ event_scan       │      ▼  prepare: starts at once, 4 leads at a time   commit: one lead at a time, in the order accepted
+ web_intent    ───┘   normalize ─► resolve ─► qualify ──────────────────► dedupe ─► score ─► route ─► notify ─► crm
+                      UTM, email,  domain,    rules on every lead;         30 days,  fit 50 +  R1..R9   Slack Block  HubSpot
+                      title        curated,   the model before the         account   intent 50 first    Kit payload; requests
+                                   name, site route only when the          upsert    itemized  match    the rep is   (dry-run) or an
+                                   title,     rules cannot settle the                points    wins     told first   outbox, retried
+                                   NPPES, TLD use case (it can change                                       │
+                                              the team); guard-railed                                       ▼
+                      second opinion: every other free-text lead gets the same model call after the alert, one at a time
+                      while no lead waits; a disqualifier only the model raised opens a review item and a follow-up to
+                      the alert's channel and RevOps, and the lead stays routed
+                      no match, a tie, or a non-buyer call only the model makes before the route (spam or vendor pitch at
+                      any confidence, anything else under 0.8): held for RevOps (R6) before any rep is alerted; an account
+                      that already has an owner goes to the owner (R5), doubt included. Exception: a benefits or HR contact
+                      at an unknown company is resolved as a low-confidence inferred employer and routed by tier
                       every stage timed into stage_log; every decision stored on the lead with its evidence; a run that
                       throws is retried with backoff, then given up with a RevOps alert
  data/app.sqlite (WAL)  ◄── attaches ──►  data/registry.sqlite (read-only, built by etl/)
@@ -51,7 +56,7 @@ Until `data/registry.sqlite` exists with `meta.status = 'complete'`, the app run
 
 An account already in the CRM that the public registries do not know keeps the CRM record's identity, segment and size.
 
-Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline (`src/pipeline.ts` the queue and runner, `src/stages.ts` one function per stage, `src/decisions.ts` the pure decisions, `src/store/` every statement the pipeline runs, `src/crm/outbox.ts` HubSpot delivery); `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners and CRM mirror; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
+Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline (`src/pipeline.ts` the queue and runner, `src/stages.ts` the prepare step and one function per ordered stage, `src/decisions.ts` the pure decisions, `src/modelPath.ts` when the model runs, `src/secondOpinion.ts` the model's answer after the alert, `src/limiter.ts` the bound on concurrent work, `src/store/` every statement the pipeline runs, `src/crm/outbox.ts` HubSpot delivery); `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners and CRM mirror; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
 
 ## Real and synthetic
 
@@ -66,7 +71,7 @@ Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as func
 
 | posting | where |
 |---|---|
-| Speed up response to new leads | 202 on receipt, per-stage timings, `time_to_route_ms`, SLA clocks in business hours (`src/time.ts`, `src/route.ts`) |
+| Speed up response to new leads | 202 on receipt, prepare concurrently and commit in order, the model off the path to the alert unless it can change the team (`src/modelPath.ts`, `src/secondOpinion.ts`), per-stage timings, `time_to_route_ms` and time to alert, SLA clocks in business hours (`src/time.ts`, `src/route.ts`) |
 | AI-assisted tools that qualify and route inbound leads | `src/qualify/` (rules plus a guard-railed model slot, filled in this demo by a small local model, with an eval), `src/route.ts` |
 | Own the schemas, tagging and hygiene from marketing to sales | `docs/DATA-CONTRACT.md`, UTM and channel taxonomy in `src/normalize.ts`, dedupe and idempotency in `src/pipeline.ts`, `/api/metrics` hygiene counts |
 | Report on the funnel and speed to lead | the cockpit's Overview tab, modeled on HubSpot's Lead Pipeline Overview dashboard: leads by door, funnel, buyer type, disqualification reasons, where the time goes, rep load, HubSpot sync and data quality, all from `GET /api/dashboard` (`src/dashboard.ts`, read-only) |
@@ -79,7 +84,7 @@ Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as func
 Every push and pull request runs `.github/workflows/ci.yml`, and `npm run ci` runs the same sequence locally. It stops at the first failure.
 
 1. `npm run typecheck`: `tsc --noEmit` over the app, scripts, tests and the browser test.
-2. `npm test`: the unit and pipeline tests (489, about two seconds, no network).
+2. `npm test`: the unit and pipeline tests (524, about two seconds, no network).
 3. `npm run replay:ci`: all 40 fixtures through the real inbound handler, rules only, offline, HubSpot dry-run, in its own database and folder (`out/ci/`). It fails the build if the p90 time to route is over `TTR_P90_BUDGET_MS`, set in that script: 150 ms. On Nov 8 the p90 measured 17 ms on this Mac and 35 ms on the GitHub runner, so the budget is about four times the runner's figure: it fails when someone makes the pipeline slow, not when a runner is noisy. With `CI` set, the replay also refuses to start if HubSpot is live.
 4. `npm run eval:gate:rules`: the v4 classifier with no model, scored on the sealed and held-out sets. The rules path is deterministic, so its floors (`RULES_FLOORS` in `scripts/lib/eval-gate.ts`) are the measured results with no slack: any drop is a real change in the rules or the date parser. Its output goes to `eval-rules.*` files, never over the model run's `out/eval.json`.
 5. `npm run test:e2e`: one Playwright test. It starts the server on port 3497 with a throwaway database, opens the cockpit, sends a test lead through the form, opens it in the stream and checks the decision trail: the resolved organization, a routing decision, and a dry-run CRM sync, with no console errors or failed requests.
@@ -90,8 +95,8 @@ CI does not gate the model-in-the-loop eval. It needs the local Ollama model, so
 
 ## Known limits
 
-- The pipeline is one lead at a time in one process. `time_to_route_ms` runs from the 202 to the routing decision, so a burst shows up in it; the queue part is also reported as `timings.queued`. The demo replay defaults to 2000 ms between posts so the queue stays short.
-- The classifier is rules first, with the demo's 3B local model filling gaps on use case and buying role only. The model never decides urgency: urgency comes from a temporal-expression parser (`src/qualify/when.ts`) that resolves phrases to dates relative to the lead's received time, and a message with no timing language is `unknown`. The model cannot set urgency, override a rule, write alert text or get a lead dropped on its word alone, but its use-case label can change the team for API-type leads (`teamFor` in `src/route.ts`). Combine policy is v4; v1 to v3 stay callable. `npm run eval` scores rules, model, v1, v2, v3 and v4 on the dev fixtures, the held-out set and, if `fixtures/heldout-sealed.json` exists, a sealed set, and writes `out/eval.md`.
+- The pipeline runs in one process. Each lead's order-independent work (normalize, resolve, the rules, a gated model call) starts when it is accepted, four at a time, but leads commit one at a time in the order they were accepted, so a lead that waits for the model holds the leads behind it: in a burst of the 40-event day, everything after the one lead that waited was alerted about 4.3 s after its 202 (`docs/speed-record-2026-11-09.md`). `time_to_route_ms` runs from the 202 to the routing decision, so a burst shows up in it; the wait for earlier leads is also reported as `timings.queued`. Per-account ordering would let unrelated leads pass; it is not built.
+- The classifier is rules first, with the demo's 3B local model filling gaps on use case and buying role only. Only a lead whose use case the rules cannot settle waits for the model before routing; every other free-text lead is alerted on the rules and gets the same call afterwards, so a disqualifier only the model sees (a vendor pitch, say) reaches RevOps as a doubt a few seconds after the rep was alerted, not before (`docs/DECISIONS.md` #19; `MODEL_BEFORE_ROUTE=all` restores the old order). Second opinions run one at a time and only while no lead is waiting, so a steady stream with no lull delays them, and one that has started holds a lead that needs the model for up to one call. The model never decides urgency: urgency comes from a temporal-expression parser (`src/qualify/when.ts`) that resolves phrases to dates relative to the lead's received time, and a message with no timing language is `unknown`. The model cannot set urgency, override a rule, write alert text or get a lead dropped on its word alone, but its use-case label can change the team for API-type leads (`teamFor` in `src/route.ts`). Combine policy is v4; v1 to v3 stay callable. `npm run eval` scores rules, model, v1, v2, v3 and v4 on the dev fixtures, the held-out set and, if `fixtures/heldout-sealed.json` exists, a sealed set, and writes `out/eval.md`.
 - A door that is meant to be signed fails closed. Calendly is the only one: with `CALENDLY_SIGNING_KEY` missing or blank, `POST /api/inbound?source=calendly_demo` answers 503 naming the setting and records nothing, and the server logs one warning line at start. `.env.example` is documentation only and is never loaded, so a missing key stays missing. `npm run dev` and `npm run replay` set a local demo key inline (`local-demo-signing-key-not-a-secret`, not a secret), which is what lets the cockpit's send-a-lead form and Replay a day (which sign server-side) work. The other doors are unsigned by design.
 - Local only by default: the server binds to 127.0.0.1 (`HOST` overrides), and the cockpit's write routes under `/api/demo/` answer 404 unless `DEMO_ROUTES=1` (`npm run dev` sets it). The read endpoints (`/api/leads`, `/api/metrics`, `/api/dashboard`, `/api/stream`) have no authentication, so do not expose this server to a network.
 - The homepage-title lookup fetches a domain taken from a stranger's email address, so it takes a plain DNS hostname only, refuses any name that resolves to a private, loopback, link-local, CGNAT or unique-local address, and follows at most 3 redirects, https only. It checks the name before the fetch and `fetch` resolves it again, so a DNS answer that changes in between is not caught; closing that needs the connection pinned to the checked address.

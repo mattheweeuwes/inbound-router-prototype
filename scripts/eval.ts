@@ -4,6 +4,9 @@
 //   sealed   fixtures/heldout-sealed.json, loaded only if it exists: same shape as heldout, written after the round-3 parser was frozen.
 // Writes out/eval.json (the cockpit reads it), out/eval.md and out/eval-manifest.json (hashes of the sealed set and every classifier source file).
 // The numbers are whatever they are.
+// The dev replay runs with the model before every free-text route (MODEL_BEFORE_ROUTE=all), so the classifier is scored on its
+// full answer whatever the pipeline's gate does. The fast-path section then counts, on every labelled set, the items the gated
+// pipeline (decision 19) would route on different classifier inputs, because their model answer would arrive after the alert.
 //   npm run eval:gate:rules (--gate --rules-only, LLM_PROVIDER=rules) is the same gate with no model in the loop: deterministic, so it runs in CI against
 //                       RULES_FLOORS (the measured results, no slack). It writes eval-rules.json, eval-rules.md and eval-rules-manifest.json, never the model run's files.
 //   npm run eval:gate   (--gate) runs the same evaluation, then exits 1 if the v4 combiner on the sealed or held-out set is below the floors in
@@ -16,6 +19,8 @@ import { createCtx, type Ctx } from '../src/context';
 import { NO_OUTSIDE_WRITES } from './lib/outside-writes';
 import { normalizeEvent } from '../src/normalize';
 import { buildPayload } from '../src/payloads';
+import { compareSecondOpinion, type OpinionField } from '../src/decisions';
+import { fastPathOf } from '../src/modelPath';
 import { COMBINE_VERSION, combine } from '../src/qualify/combine';
 import { warmOllama, type LlmOutcome } from '../src/qualify/llm';
 import { PROMPT_VERSION } from '../src/qualify/prompt';
@@ -43,7 +48,7 @@ const FILES = RULES_ONLY ? { json: 'eval-rules.json', md: 'eval-rules.md', manif
 const GATE_FLOORS = RULES_ONLY ? RULES_FLOORS : FLOORS;
 // The dev replay posts the Calendly fixtures through the real handler, which refuses unsigned traffic; sign with a key that lives only in this process.
 // The eval runs synthetic items through the real pipeline: it never writes to HubSpot, whatever .env says.
-const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', ...NO_OUTSIDE_WRITES });
+const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', modelBeforeRoute: 'all', ...NO_OUTSIDE_WRITES });
 const modelReachable = ctx.cfg.llmProvider === 'ollama' && await warmOllama(ctx);
 if (RULES_ONLY) {
   const problems = rulesGatePreflight({ provider: ctx.cfg.llmProvider, sealedExists: !!sealed });
@@ -164,6 +169,30 @@ const sealedRows = sealed ? await runItems(sealed) : [];
 const sealedResult = sealed ? scoreSet('sealed', sealedRows, 'sealed until the round-3 parser was frozen', false) : null;
 
 const sets = [dev.set, ho.set, ...(sealedResult ? [sealedResult.set] : [])];
+
+// ---------------- fast path: what the gated pipeline would route on, against the full combine scored above
+/** Classifier outputs the route reads: the use case (the team), the disqualifier (R1, R4, tier X) and a person's review (R5, R6). */
+const ROUTE_INPUTS: readonly OpinionField[] = ['useCase', 'disqualifier', 'reviewReason'];
+/** Rules that decide before any classifier field is read, so a different input cannot change them. */
+const DECIDED_FIRST = ['R1', 'R2', 'R3', 'R9'];
+function fastPathSet(name: string, rows: Row[]) {
+  const items = rows.map(r => {
+    const fast = fastPathOf(r.q);
+    const fields = compareSecondOpinion(fast, r.q).changed.filter(f => ROUTE_INPUTS.includes(f));
+    // dev rows carry the route the full combine produced; the item sets have no earlier rule that could decide first
+    const decidedFirst = !!r.route && DECIDED_FIRST.includes(r.route.rule);
+    return { id: r.id, afterAlert: fast !== r.q, fields, routesDifferently: fields.length > 0 && !decidedFirst };
+  });
+  const differ = items.filter(i => i.routesDifferently);
+  return {
+    name, n: rows.length,
+    waitedForModel: rows.filter(r => !r.q.fallbackReason?.startsWith('no_free_text') && r.q.provider !== 'rules').length - items.filter(i => i.afterAlert).length,
+    afterAlert: items.filter(i => i.afterAlert).length,
+    routesDifferently: differ.length,
+    items: differ.map(i => ({ id: i.id, fields: i.fields })),
+  };
+}
+const fastPath = [fastPathSet('dev', devRows), fastPathSet('heldout', hoRows), ...(sealed ? [fastPathSet('sealed', sealedRows)] : [])];
 const misses = [...dev.misses, ...ho.misses, ...(sealedResult?.misses ?? [])];
 const latency = { p50: pctile(llmLatencies, 50), p90: pctile(llmLatencies, 90) };
 const out = {
@@ -173,6 +202,7 @@ const out = {
   modelCalls: llmLatencies.length, idempotency,
   note: 'accuracies are fractions 0-1; final is combine v4 (the pipeline); llm is counted only on leads where the model answered; rules is the round-2 keyword classifier; v1: a confident model overrides the rules; v2: rules first with keyword urgency cues; v3: v2 with the date parser deciding urgency and the model asked when the parser finds nothing; v4: the parser decides urgency and the model never does (no timing language means unknown)',
   sets, misses,
+  fastPath: { note: 'decision 19: items the gated pipeline would route on different classifier inputs (use case, disqualifier, review) than the full combine, because the model answer that changes them arrives after the alert; dev excludes items an earlier rule (R1, R2, R3, R9) decides first', sets: fastPath },
 };
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, FILES.json), JSON.stringify(out, null, 2));
@@ -255,6 +285,10 @@ for (const s of sets) {
 }
 md.push(`Idempotent re-delivery (F27) creates no new lead: ${idempotency.every(i => i.ok) ? 'yes' : 'NO'}.`, ``,
   `## Latency`, ``, `- rules: p50 ${out.rulesLatencyMs.p50} ms, p90 ${out.rulesLatencyMs.p90} ms per lead`, `- model: ${out.modelCalls} calls, p50 ${latency.p50} ms, p90 ${latency.p90} ms`, ``,
+  `## Fast path (decision 19)`, ``,
+  `Items the gated pipeline would route on different classifier inputs than the full combine above, because the model's answer that changes them would arrive after the alert. Use case never differs: a lead whose use case the model can change waits for it. ${RULES_ONLY ? 'With no model, nothing waits and nothing differs.' : ''}`, ``,
+  `| set | items | waited for the model | model after the alert | routed differently | which |`, `|---|---|---|---|---|---|`,
+  ...fastPath.map(f => `| ${f.name} | ${f.n} | ${f.waitedForModel} | ${f.afterAlert} | ${f.routesDifferently} | ${f.items.map(i => `${i.id} (${i.fields.join(', ')})`).join('; ')} |`), ``,
   `## Misses (v4 result; ${misses.length})`, ``, `| set | id | field | expected | got | rules | model | reasons |`, `|---|---|---|---|---|---|---|---|`,
   ...misses.map(m => `| ${m.set} | ${m.fixtureId} | ${m.field} | ${m.expected} | ${m.got} | ${m.rulesGot ?? ''} | ${m.modelGot ?? ''} | ${String(m.reasons).replace(/\|/g, '/').replace(/\n/g, ' ').slice(0, 200)} |`), ``,
   `Not evaluated: the score tier (it comes out of the points table, not a label) and fields the dev gold table leaves blank. The model sees guide-only, badge-only and usage-only dev leads never; those are decided by rules alone.`, ``);
@@ -265,6 +299,7 @@ if (GATE) {
   console.log(`\nEVAL GATE (combine ${COMBINE_VERSION}${RULES_ONLY ? ', rules only' : ''}, floor versus actual)\n${gateTable(gateResult.rows)}`);
   if (!RULES_ONLY) console.log(`model answered: held-out ${modelAnswered.heldout}, sealed ${modelAnswered.sealed}; infrastructure failures: held-out ${infra.heldout}, sealed ${infra.sealed}`);
   console.log(`${comparison.message}${sealedComparison ? `; ${sealedComparison}` : ''}`);
+  console.log(`fast path (decision 19), items routed on different classifier inputs: ${fastPath.map(f => `${f.name} ${f.routesDifferently}/${f.n}`).join(', ')}`);
   for (const r of gateResult.rows.filter(r => !r.pass)) console.log(`  FAIL ${r.set} ${r.field}: ${r.why}`);
   if (infra.heldout || infra.sealed) console.log('  FAIL some model calls on a gated set failed on infrastructure (unreachable or timed out), so those items were decided without the model');
   console.log(`EVAL GATE${RULES_ONLY ? ' (rules only)' : ''}: ${gatePass ? 'PASS' : 'FAIL'}`);

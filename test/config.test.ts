@@ -95,6 +95,15 @@ describe('defaults live in code', () => {
     assert.deepEqual(shown, { PORT: String(c.port), LLM_PROVIDER: c.llmProvider, OLLAMA_URL: c.ollamaUrl, OLLAMA_MODEL: c.ollamaModel });
   });
 
+  it('the model path settings: gated, four leads preparing and one model call at a time unless the environment says otherwise', () => {
+    const d = makeConfig({}, {});
+    assert.deepEqual([d.modelBeforeRoute, d.prepareConcurrency, d.modelConcurrency], ['gated', 4, 1]);
+    const e = makeConfig({}, { MODEL_BEFORE_ROUTE: 'all', PREPARE_CONCURRENCY: '8', MODEL_CONCURRENCY: '2' });
+    assert.deepEqual([e.modelBeforeRoute, e.prepareConcurrency, e.modelConcurrency], ['all', 8, 2]);
+    const bad = makeConfig({}, { MODEL_BEFORE_ROUTE: 'sometimes', PREPARE_CONCURRENCY: '0', MODEL_CONCURRENCY: 'two' });
+    assert.deepEqual([bad.modelBeforeRoute, bad.prepareConcurrency, bad.modelConcurrency], ['gated', 4, 1], 'an unreadable value keeps the default');
+  });
+
   it('settings in the environment still win', () => {
     const c = makeConfig({}, { PORT: '4000', LLM_PROVIDER: 'rules', OLLAMA_URL: 'http://127.0.0.1:9', OLLAMA_MODEL: 'm', CALENDLY_SIGNING_KEY: 'k' });
     assert.deepEqual([c.port, c.llmProvider, c.ollamaUrl, c.ollamaModel, c.calendlyKey], [4000, 'rules', 'http://127.0.0.1:9', 'm', 'k']);

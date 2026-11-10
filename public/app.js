@@ -496,10 +496,11 @@ function renderDetail(d) {
         ${row('Buying role', 'role', 'buyingRole', fz.buyingRole, llmVal('buying_role', 'buyingRole'), rules.buyingRole ?? rules.buying_role)}
         ${row('Disqualifier', 'disq', 'disqualifier', fz.disqualifier, llmVal('disqualifier', 'disqualifier'), rules.disqualifier)}
       </tbody></table>
-      <div class="agree ${disagreements.length ? 'no' : 'yes'}">${!llm ? 'Rules only: the model was not called for this lead.' : disagreements.length ? `Model and rules disagree on ${esc(disagreements.map((k) => ({ useCase: 'use case', buyingRole: 'buying role' }[k] || k)).join(', '))}.` : 'Model and rules agree.'}</div>
+      <div class="agree ${disagreements.length ? 'no' : 'yes'}">${!llm && String(q.fallbackReason || '').startsWith('model_after_alert') ? 'Routed on the rules: they settled the use case, so the model was asked after the alert.' : !llm ? 'Rules only: the model was not called for this lead.' : disagreements.length ? `Model and rules disagree on ${esc(disagreements.map((k) => ({ useCase: 'use case', buyingRole: 'buying role' }[k] || k)).join(', '))}.` : 'Model and rules agree.'}</div>
       ${cue}
       ${q.fallbackReason && llm == null ? '' : q.fallbackReason ? `<div class="meta-line">Fallback: ${esc(q.fallbackReason)}</div>` : ''}
-      ${q.reviewReason ? `<div class="meta-line" style="color:var(--warn)">Sent to a person: ${esc(q.reviewReason.replace(/_/g, ' '))}</div>` : ''}`);
+      ${q.reviewReason ? `<div class="meta-line" style="color:var(--warn)">Sent to a person: ${esc(q.reviewReason.replace(/_/g, ' '))}</div>` : ''}
+      ${secondOpinionLine(d.secondOpinion)}`);
   } else {
     html += stage(stageState(d, 'qualified', false), 'Qualified', '', t.qualify, null);
   }
@@ -732,7 +733,7 @@ function renderQuality() {
 // Charts are plain HTML: thin bars, a 2px surface gap between stacked parts, values at the bar tips,
 // and a Table button on every chart card that shows the same numbers as a table.
 
-const OV_REASON = { ambiguous_company: 'More than one possible account', unresolved_company: 'No organization matched', llm_only_disqualifier: 'Model-only disqualifier' };
+const OV_REASON = { ambiguous_company: 'More than one possible account', unresolved_company: 'No organization matched', llm_only_disqualifier: 'Model-only disqualifier', model_doubt_after_alert: 'Model doubt after the alert' };
 const KEY_KIND = { ahrq: 'AHRQ system', ccn: 'CMS CCN', payer: 'payer', npi: 'NPI', domain: 'domain' };
 const LIFECYCLE = { salesqualifiedlead: ['Sales qualified', 'A'], marketingqualifiedlead: ['Marketing qualified', 'B'], lead: ['Lead', 'C'], not_set: ['Not set', 'X'] };
 const TIER_ORDER = ['A', 'B', 'C', 'D', 'X'];
@@ -897,6 +898,20 @@ function ovWindow(d) {
   </div>`;
 }
 
+/** One line on the model's second opinion after the alert: what it said and what it would have changed. */
+function secondOpinionLine(so) {
+  if (!so) return '';
+  if (so.state !== 'done' || !so.result) return `<div class="meta-line">Second opinion: due, the model is asked after the alert.</div>`;
+  const r = so.result;
+  if (r.error) return `<div class="meta-line" style="color:var(--warn)">Second opinion failed: ${esc(r.error)}</div>`;
+  const field = { useCase: 'use case', buyingRole: 'buying role', disqualifier: 'disqualifier', reviewReason: 'review' };
+  const when = r.afterAlertMs != null ? ` ${esc(fmtMs(r.afterAlertMs))} after the alert` : '';
+  if (!r.answered) return `<div class="meta-line">Second opinion${when}: no answer (${esc(r.fallbackReason || 'model unavailable')}).</div>`;
+  if (r.doubt) return `<div class="meta-line" style="color:var(--warn)">Second opinion${when}: the model flagged ${esc(r.doubt.disqualifier.replace(/_/g, ' '))} at ${esc(r.doubt.confidence.toFixed(2))} and no rule agreed. ${r.followedUp ? 'RevOps is checking it; the alert channel was told.' : 'Recorded only: this route would not have changed.'}</div>`;
+  if (r.agreed) return `<div class="meta-line">Second opinion${when}: the model agrees with the route.</div>`;
+  return `<div class="meta-line">Second opinion${when}: it would change ${esc(r.changed.map((k) => field[k] || k).join(', '))}${r.roleFilled ? ` (buying role ${esc(lab('role', r.roleFilled))})` : ''}; the route stands.</div>`;
+}
+
 function ovPath(d) {
   const counts = { ok: 0, warn: 0, bad: 0, idle: 0 };
   for (const p of d.path) counts[p.status] = (counts[p.status] || 0) + 1;
@@ -981,7 +996,10 @@ function ovSpeed(d) {
   const rows = [{ id: 'queue', label: 'Queue wait', ...sp.queue, wait: true }];
   const stages = sp.stages.map((s) => ({ id: s.stage, label: stageLabel[s.stage] || s.stage, ...s }));
   const slowest = stages.reduce((a, s) => ((s.p50 ?? -1) > (a?.p50 ?? -1) ? s : a), null);
-  const max = Math.max(1, ...[...rows, ...stages, sp.model || {}].map((r) => r.p90 || 0));
+  const so = sp.secondOpinion || { ran: 0 }; // absent in sample data recorded before the model moved off the path
+  const alert = sp.timeToAlert || { n: 0, p50: null, p90: null };
+  const opinion = so.ran ? { label: 'Second opinion', sub: true, n: so.answered, p50: so.p50, p90: so.p90 } : null;
+  const max = Math.max(1, ...[...rows, ...stages, sp.model || {}, opinion || {}].map((r) => r.p90 || 0));
   const scale = niceScale(max, 4, false);
   const srow = (r, cls = '') => `<div class="srow ${cls}">
       <div class="lab">${r.sub ? `<small>${esc(r.label)}</small>` : esc(r.label)}</div>
@@ -993,16 +1011,26 @@ function ovSpeed(d) {
     chart += srow(s, s === slowest && (s.p50 || 0) > 0 ? 'is-key' : '');
     if (s.id === 'qualify' && sp.model) chart += srow({ label: 'model call', sub: true, ...sp.model }, 'sub');
   }
+  // the second opinion runs after the alert, off the path: drawn below a divider so it is not read as part of the route
+  if (opinion) chart += '<div class="srow-div"></div>' + srow({ ...opinion, label: 'second opinion' }, 'sub');
   const axis = `<div class="axis" style="grid-template-columns:104px minmax(0,1fr) 112px;--r:0px" aria-hidden="true"><span></span><div class="ticks">${scale.ticks.map((t) => `<span style="left:${scalePos(t / scale.max)}">${esc(t === 0 ? '0' : fmtMs(t))}</span>`).join('')}</div><span></span></div>`;
   const sum = `<div class="speed-sum">
     <div><div class="k"><i class="sw p50"></i>Processing</div><div class="v">${esc(fmtMs(sp.processing.p50))}<small>p90 ${esc(fmtMs(sp.processing.p90))}</small></div></div>
     <div><div class="k"><i class="sw wait"></i>Queue wait</div><div class="v">${esc(fmtMs(sp.queue.p50))}<small>p90 ${esc(fmtMs(sp.queue.p90))}</small></div></div>
     <div><div class="k">Time to route</div><div class="v">${esc(fmtMs(sp.timeToRoute.p50))}<small>p90 ${esc(fmtMs(sp.timeToRoute.p90))}</small></div></div>
+    <div><div class="k">Time to alert</div><div class="v">${esc(fmtMs(alert.p50))}<small>p90 ${esc(fmtMs(alert.p90))}</small></div></div>
   </div>`;
   const legend = `<div class="legend"><span><i class="sw p50"></i>p50</span><span><i class="sw p90"></i>p90</span></div>`;
-  const table = dtable(['Step', 'Leads', 'p50', 'p90'], [rows[0], ...stages, ...(sp.model ? [{ label: 'Model call (part of Qualify)', ...sp.model }] : [])].map((r) => [r.label, r.n, fmtMs(r.p50), fmtMs(r.p90)]));
+  const table = dtable(['Step', 'Leads', 'p50', 'p90'], [
+    rows[0], ...stages,
+    ...(sp.model ? [{ label: 'Model call the route waited for (part of Qualify)', ...sp.model }] : []),
+    ...(opinion ? [{ ...opinion, label: 'Second opinion, after the alert (off the path)' }] : []),
+    { label: 'Time to alert, sales routes', ...alert },
+  ].map((r) => [r.label, r.n, fmtMs(r.p50), fmtMs(r.p90)]));
+  const waited = sp.model ? `The route waited for the model on <b>${nf(sp.model.n)}</b> lead${sp.model.n === 1 ? '' : 's'}` : 'No route waited for the model';
+  const after = so.ran ? ` · second opinion on <b>${nf(so.ran)}</b> after the alert: <b>${nf(so.changed)}</b> would change a field, <b>${nf(so.doubts)}</b> raised a doubt` : '';
   return vcard({ id: 'speed', title: 'Where the time goes', legend, body: sum + chart + axis, table, span: 'span-5',
-    foot: sp.model ? `<span>Model called on <b>${nf(sp.model.n)}</b> leads, answered on <b>${nf(sp.model.answered)}</b></span>` : `<span>No model calls in this data: the classifier ran on rules alone</span>` });
+    foot: sp.model || so.ran ? `<span>${waited}${after}${so.due ? ` · ${nf(so.due)} still due` : ''}</span>` : `<span>No model calls in this data: the classifier ran on rules alone</span>` });
 }
 
 function ovSpeedBy(d) {
@@ -1327,7 +1355,9 @@ function openDrawer() {
   $('#drawer').setAttribute('aria-hidden', 'false');
   $('#scrim').hidden = false;
   $('#formMsg').textContent = '';
-  setTimeout(() => $('#leadForm [name=name]').focus(), 50);
+  // focus the first field once the drawer is open, unless the person (or a browser test) is already typing in the form:
+  // a late focus would move their next keystrokes into the name field
+  setTimeout(() => { if (!$('#leadForm').contains(document.activeElement)) $('#leadForm [name=name]').focus(); }, 50);
 }
 function closeDrawer() {
   $('#drawer').classList.remove('is-open');
@@ -1472,9 +1502,9 @@ boot();
       facts: [[`Language`, `TypeScript`], [`Shape`, `A Web-standard handler (Request in, Response out), so it can run on a serverless platform. Locally a small node:http server sits in front of it, bound to 127.0.0.1 unless HOST says otherwise.`], [`Crypto`, `node:crypto: HMAC-SHA256 and a constant-time compare.`]],
       sections: [
         { h: `Each request`, ordered: true, items: [`A signed door with no key configured answers 503. It fails closed.`, `Signature: HMAC-SHA256 over the timestamp and the raw body. A timestamp more than 5 minutes old is rejected, which stops replays. A bad signature gets 401.`, `The payload is adapted to the canonical event.`, `Insert, in one transaction, with a unique key on (source, source event id). The id comes from the payload's own timestamp, or from a SHA-256 of the body when there is none, never from server time. A re-delivery hits the key and gets 200 with no work done.`, `A new event gets 202 Accepted and is processed off the request path.`] },
-        { h: `After the 202`, items: [`A single-flight queue runs one lead at a time through normalize, resolve, qualify, score, route, alert and then the HubSpot write, so round-robin and dedupe never race and the alert never waits on HubSpot.`, `Each stage writes its result and its duration to a stage log in SQLite (node:sqlite, WAL).`, `Re-running a lead replaces its derived rows, so a restart re-runs anything unfinished. A re-run can repeat an alert.`, `Time to route is measured from the 202. CI replays the 40-event day (39 leads) and fails if the p90 goes over 150 ms with the model off.`] },
+        { h: `After the 202`, items: [`Each lead's order-independent work (normalize, resolve with its lookups, the rules and, when the route needs it, the model) starts at once, four leads at a time.`, `An ordered section then takes one lead at a time, in the order they were accepted, for everything that depends on earlier leads: dedupe, the account, score, route, round-robin, the alert and the HubSpot plan. Round-robin and dedupe never race, and the alert never waits on HubSpot.`, `Each stage writes its result and its duration to a stage log in SQLite (node:sqlite, WAL).`, `Re-running a lead replaces its derived rows, so a restart re-runs anything unfinished. A re-run can repeat an alert.`, `Time to route is measured from the 202. CI replays the 40-event day (39 leads) and fails if the p90 goes over 150 ms with the model off.`] },
       ],
-      prod: `Parallel workers with a per-account lock instead of the single-flight queue, and a dead-letter queue for events that keep failing.`,
+      prod: `Parallel workers with a per-account lock instead of the one ordered section, and a dead-letter queue for events that keep failing.`,
     },
     normalize: {
       title: `Normalize`, files: `src/normalize.ts`,
@@ -1502,6 +1532,7 @@ boot();
       sections: [
         { h: `Rules`, items: [`Weighted keyword tables, run on every lead, with the matched words kept as evidence.`, `A clear winner stands without asking the model.`] },
         { h: `Date parser`, items: [`A regex grammar for month names, weekdays, number words, quarters and ASAP.`, `Each phrase becomes a calendar date relative to receipt, in Eastern time. The earliest future date wins.`, `Within 92 days is now, within 183 is this quarter, beyond that is exploring. No timing language is unknown.`] },
+        { h: `When the model runs`, items: [`Before the route only when its answer can change it: free text and no clear keyword use case, since the use case can change the team.`, `Every other free-text lead is routed and alerted on the rules in milliseconds, and the same call runs after the alert as a second opinion. A disqualifier only the model raised then opens a review item and a follow-up to the alert's channel and RevOps; the lead is not quietly un-routed.`, `MODEL_BEFORE_ROUTE=all puts the model before every free-text route, as before.`] },
         { h: `Model call`, items: [`The prompt is versioned, so eval runs stay comparable.`, `The JSON schema puts reasons first, so the model quotes the prospect before it decides.`, `Enum validation: one off-list value invalidates the answer. A timeout, error or invalid answer falls back to the rules.`] },
         { h: `Who decides each field`, items: [`Use case: a clear keyword winner, else the model at 0.6 confidence or more, else the rules.`, `Buying role: title seniority, else the model.`, `Urgency: the date parser only.`, `Route: rules only. The model cannot override a rule or write alert text, but its use-case label can change the team for API-type leads.`, `Disqualifier: a rule hit counts. A model-only call for spam or a vendor pitch always goes to a person. For any other disqualifier the model alone counts at 0.8 or more, and below that a person reviews it.`] },
       ],

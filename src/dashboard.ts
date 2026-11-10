@@ -2,8 +2,10 @@
 // Every number is computed on request from the app database, fixtures/owners.json (via ctx.owners), or an artifact that already
 // exists (out/eval.json, out/hubspot/*.jsonl, docs/hubspot-properties.json). Nothing is hard-coded, and nothing here writes.
 //
-// Timing: time_to_route_ms runs from the 202 to the routing decision, so it includes the wait in this prototype's single-flight
-// queue (timings.queued). Processing is reported as time_to_route_ms minus queued; the queue wait is reported on its own.
+// Timing: time_to_route_ms runs from the 202 to the routing decision, so it includes the wait for earlier leads in the ordered
+// section (timings.queued). Processing is reported as time_to_route_ms minus queued; the queue wait is reported on its own.
+// A lead's order-independent work (src/stages.ts prepareLead) runs alongside that wait, so stage times overlap it. Time to
+// alert (timings.alerted) is what the rep experiences; the model's second opinion runs after it and is reported apart.
 // Clocks: received_at is the lead's own time (a replay keeps the fixture times); stage_log, review_queue.created_at and
 // generatedAt are the server's wall clock. Each figure below says which one it uses.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -12,8 +14,10 @@ import { evaluateGate, FLOORS, RULES_FLOORS, type SetCounts } from '../scripts/l
 import type { Ctx } from './context';
 import { parse } from './db';
 import { computeMetrics } from './hygiene';
+import { waitedForModel } from './modelPath';
 import { computeScorecard } from './quality';
 import { SOURCES, type Segment, type Source } from './schema';
+import type { SecondOpinion, StoredSecondOpinion } from './secondOpinion';
 import { SIGNED_DOORS, unkeyedSignedDoors } from './sources';
 import { isBusinessTime } from './time';
 
@@ -57,6 +61,7 @@ interface Lead {
   source: Source; receivedAt: string; createdAt: string | null; updatedAt: string | null; synthetic: boolean;
   name: string | null; title: string | null; companyRaw: string | null;
   res: any; qual: any; route: any; crm: any; alert: any; timings: Record<string, number> | null;
+  secondOpinionState: 'pending' | 'running' | 'done' | null; secondOpinion: StoredSecondOpinion | null;
 }
 
 /** The columns loadLeads selects. */
@@ -66,13 +71,15 @@ type LeadRow = {
   first_name: string | null; last_name: string | null; email: string | null; title: string | null; company_name_raw: string | null;
   created_at: string | null; updated_at: string | null; resolution_json: string | null; qualification_json: string | null; route_json: string | null;
   crm_json: string | null; alert_json: string | null; timings_json: string | null; source: Source; received_at: string; synthetic: number;
+  second_opinion: 'pending' | 'running' | 'done' | null; second_opinion_json: string | null;
 };
 type ActivityRow = { rid: number; lead_id: string; stage: string; started_at: string; ok: number; note: string | null };
 
 function loadLeads(ctx: Ctx): Lead[] {
   const rows = ctx.db.prepare(`SELECT l.id, l.status, l.tier, l.segment, l.route_action, l.route_team, l.owner, l.sla_due_at, l.time_to_route_ms,
       l.account_id, l.duplicate_of, l.is_disposable, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.created_at, l.updated_at,
-      l.resolution_json, l.qualification_json, l.route_json, l.crm_json, l.alert_json, l.timings_json, e.source, e.received_at, e.synthetic
+      l.resolution_json, l.qualification_json, l.route_json, l.crm_json, l.alert_json, l.timings_json, l.second_opinion, l.second_opinion_json,
+      e.source, e.received_at, e.synthetic
     FROM leads l JOIN lead_events e ON e.id = l.id ORDER BY e.received_at, l.created_at`).all() as LeadRow[];
   return rows.map(r => ({
     id: r.id, status: r.status, tier: r.tier ?? null, segment: r.segment ?? null, action: r.route_action ?? null, team: r.route_team ?? null,
@@ -82,13 +89,17 @@ function loadLeads(ctx: Ctx): Lead[] {
     name: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || null, title: r.title ?? null, companyRaw: r.company_name_raw ?? null,
     res: parse(r.resolution_json), qual: parse(r.qualification_json), route: parse(r.route_json), crm: parse(r.crm_json), alert: parse(r.alert_json),
     timings: parse<Record<string, number>>(r.timings_json),
+    secondOpinionState: r.second_opinion ?? null, secondOpinion: r.second_opinion === 'done' ? parse<StoredSecondOpinion>(r.second_opinion_json) : null,
   }));
 }
 
 const isMatched = (l: Lead) => l.res?.status === 'resolved' && !!l.accountId;
 const alertSent = (l: Lead) => !!l.alert?.slack && !l.alert?.suppressed;
 const suppressedRepeat = (l: Lead) => l.action === 'attach_to_existing' && !!l.route?.alertSuppressed;
-const modelCalled = (l: Lead) => !!l.qual && l.qual.provider !== 'rules' && !String(l.qual.fallbackReason ?? '').startsWith('no_free_text');
+/** The route waited for a model call (decision 19: only when it could change the team, unless MODEL_BEFORE_ROUTE=all). */
+const modelCalled = (l: Lead) => !!l.qual && waitedForModel(l.qual);
+/** A second opinion that finished with a result (an error stored instead is a bug in the worker, counted apart). */
+const secondOpinionOf = (l: Lead): SecondOpinion | null => (l.secondOpinion && !('error' in l.secondOpinion) ? l.secondOpinion : null);
 const processingMs = (l: Lead) => (l.ttr != null && typeof l.timings?.queued === 'number' ? Math.max(0, l.ttr - l.timings.queued) : null);
 const marketOf = (seg: Segment | null) => (seg ? MARKETS.find(m => m.segments.includes(seg))?.id ?? 'other' : null);
 
@@ -181,7 +192,10 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
   const processed = leads.map(l => l.updatedAt).filter((x): x is string => !!x).sort();
   const env = {
     hubspot: hubspotMode,
-    model: { provider: ctx.cfg.llmProvider, name: ctx.cfg.llmProvider === 'ollama' ? ctx.cfg.ollamaModel : null, called: leads.filter(modelCalled).length, answered: leads.filter(l => !!l.qual?.llm).length },
+    model: {
+      provider: ctx.cfg.llmProvider, name: ctx.cfg.llmProvider === 'ollama' ? ctx.cfg.ollamaModel : null, beforeRoute: ctx.cfg.modelBeforeRoute,
+      called: leads.filter(modelCalled).length, answered: leads.filter(l => !!l.qual?.llm).length, secondOpinions: leads.filter(l => !!secondOpinionOf(l)).length,
+    },
     registry: ctx.registry.kind,
     people: { total: people.length, synthetic: people.filter(l => l.synthetic).length },
     signedDoorsMissingKey: unkeyedSignedDoors(ctx.cfg).map(d => d.setting),
@@ -259,10 +273,28 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     const t = rows.filter(l => timedSet.has(l));
     return { n: t.length, processingP50: percentile(t.map(l => processingMs(l)!), 50), queueP50: percentile(t.map(l => l.timings!.queued), 50), routeP50: percentile(t.map(l => l.ttr!), 50) };
   };
+  // time to alert: the 202 to the alert on a sales route (a rep, the account owner or a team queue), which is what a rep feels
+  const alertedSales = done.filter(l => SALES_ROUTES.has(l.action ?? '') && alertSent(l) && typeof l.timings?.alerted === 'number');
+  const opinions = leads.map(secondOpinionOf).filter((o): o is SecondOpinion => !!o);
   const speed = {
     processing: spread(processing), queue: spread(queue), timeToRoute: spread(routeTotal),
+    timeToAlert: spread(alertedSales.map(l => l.timings!.alerted)),
     stages: stageSpread,
+    // the model call a route waited for
     model: modelLeads.length ? { ...spread(modelLeads.map(l => Number(l.qual.latencyMs ?? 0))), answered: modelLeads.filter(l => !!l.qual?.llm).length } : null,
+    // the same call after the alert, off the path, for leads routed on the rules
+    secondOpinion: {
+      due: leads.filter(l => l.secondOpinionState === 'pending' || l.secondOpinionState === 'running').length,
+      ran: opinions.length,
+      answered: opinions.filter(o => o.answered).length,
+      agreed: opinions.filter(o => o.agreed).length,
+      changed: opinions.filter(o => o.changed.length > 0).length,
+      roleFilled: opinions.filter(o => !!o.roleFilled).length,
+      doubts: opinions.filter(o => !!o.doubt).length,
+      followedUp: opinions.filter(o => o.followedUp).length,
+      ...spread(opinions.filter(o => o.answered).map(o => o.latencyMs)),
+      afterAlert: spread(opinions.map(o => o.afterAlertMs).filter((x): x is number => x != null)),
+    },
     byDoor: SOURCES.map(source => ({ source, ...speedFor(leads.filter(l => l.source === source)) })).filter(r => r.n > 0),
     byMarket: MARKETS.map(m => ({ id: m.id, label: m.label, ...speedFor(leads.filter(l => marketOf(l.segment) === m.id)) })).filter(r => r.n > 0),
   };
@@ -442,6 +474,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     leadsIn: { value: leads.length, doors: dataWindow.doors, webhooks: dataWindow.webhooks },
     salesReady: { value: ready, pct: share(ready, leads.length), a: readyLeads.filter(l => l.tier === 'A').length, b: readyLeads.filter(l => l.tier === 'B').length, heldForPerson: leads.filter(l => (l.tier === 'A' || l.tier === 'B') && l.action === 'review').length },
     timeToRoute: { processingP50: speed.processing.p50, processingP90: speed.processing.p90, queueP50: speed.queue.p50, queueP90: speed.queue.p90, totalP50: speed.timeToRoute.p50, totalP90: speed.timeToRoute.p90, n: speed.processing.n },
+    timeToAlert: { p50: speed.timeToAlert.p50, p90: speed.timeToAlert.p90, n: speed.timeToAlert.n },
     sla: { aRouted: sla.aTier.routed, aWithin: sla.aTier.within, atRisk: sla.atRisk, nextDueAt: sla.nextDueAt },
     matched: { pct: matching.pct, matched, of: reached.length, topMethods: matching.methods.slice(0, 3).map(m => ({ method: m.method, n: m.n })), otherMethods: matching.methods.slice(3).reduce((a, m) => a + m.n, 0) },
     needsPerson: { open: review.length, oldestWaitMs: oldest?.waitMs ?? null, oldestSince: oldest?.createdAt ?? null },

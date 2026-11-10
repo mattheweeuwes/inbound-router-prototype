@@ -66,6 +66,38 @@ export function buildFailureAlert(i: FailureInput): SlackPayload {
   };
 }
 
+export interface DoubtFollowUpInput {
+  /** where the follow-up goes: the channel the alert went to, or #revops-review */
+  channel: string;
+  person: string;
+  org: string;
+  /** the sentence from doubtAfterAlert in src/route.ts */
+  sentence: string;
+  /** the prospect's own words, quoted as in the alert; nothing here is written by the model */
+  quote: string | null;
+  synthetic: boolean;
+}
+
+/** The follow-up to a doubt the model raised after the alert: the same lead, what was flagged, and that RevOps is checking. */
+export function buildDoubtFollowUp(i: DoubtFollowUpInput): SlackPayload {
+  const header = 'Follow-up: RevOps is checking this lead';
+  const f = (label: string, value: string) => ({ type: 'mrkdwn', text: `*${label}*\n${value.slice(0, 1800)}` });
+  return {
+    channel: i.channel,
+    text: `${header}: ${i.person}`,
+    dryRun: true,
+    blocks: [
+      { type: 'header', text: { type: 'plain_text', text: header } },
+      { type: 'section', fields: [
+        f('Person', i.person),
+        f('Organization', i.org),
+        f('What changed', i.sentence + (i.quote ? `\n> ${i.quote}` : '')),
+      ] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead' }] },
+    ],
+  };
+}
+
 export function recordSlack(ctx: Ctx, leadId: string, p: SlackPayload, at: string) {
   const dir = join(ctx.cfg.outDir, 'slack');
   mkdirSync(dir, { recursive: true });

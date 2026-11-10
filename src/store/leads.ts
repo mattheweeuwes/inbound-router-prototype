@@ -22,6 +22,13 @@ export interface NormalizedColumns {
   normalized_json: string | null;
 }
 
+/** What the second-opinion worker reads to make the model call again and to word a follow-up. */
+export type SecondOpinionInputRow = {
+  source: Source; received_at: string; raw_json: string; synthetic: number; normalized_json: string | null; resolution_json: string | null;
+  qualification_json: string | null; route_json: string | null; alert_json: string | null; timings_json: string | null; second_opinion_json: string | null;
+  created_at: string;
+};
+
 export interface RoutedColumns { route_json: string | null; route_action: string; route_team: string; owner: string; sla_due_at: string | null; time_to_route_ms: number }
 
 const NORMALIZED_COLS: (keyof NormalizedColumns)[] = [
@@ -56,6 +63,17 @@ export function leadStore(db: Db) {
     retrying: p(`UPDATE leads SET status = 'retrying', updated_at = ?, attempts = ?, retry_at = ? WHERE id = ?`),
     failed: p(`UPDATE leads SET status = 'failed', updated_at = ?, attempts = ?, retry_at = NULL WHERE id = ?`),
     crm: p(`UPDATE leads SET crm_json = ?, updated_at = ? WHERE id = ?`),
+    secondOpinionDue: p(`UPDATE leads SET second_opinion = 'pending', second_opinion_json = ? WHERE id = ?`),
+    clearSecondOpinion: p(`UPDATE leads SET second_opinion = NULL, second_opinion_json = NULL WHERE id = ?`),
+    // only a finished lead: its alert is out, which is the point of asking afterwards
+    nextSecondOpinion: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.second_opinion = 'pending' AND l.status = 'done' ORDER BY e.accepted_at, e.rowid LIMIT 1`),
+    claimSecondOpinion: p(`UPDATE leads SET second_opinion = 'running' WHERE id = ? AND second_opinion = 'pending' AND status = 'done'`),
+    secondOpinionInput: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.normalized_json, l.resolution_json, l.qualification_json, l.route_json,
+      l.alert_json, l.timings_json, l.second_opinion_json, l.created_at FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.id = ?`),
+    // a re-run of the lead resets the column, so a call that was in flight for the earlier run is not stored over the new one
+    saveSecondOpinion: p(`UPDATE leads SET second_opinion = 'done', second_opinion_json = ?, updated_at = ? WHERE id = ? AND second_opinion = 'running'`),
+    requeueSecondOpinions: p(`UPDATE leads SET second_opinion = 'pending' WHERE second_opinion = 'running'`),
+    followUpAlerts: p(`UPDATE leads SET alert_json = json_set(COALESCE(alert_json, '{"slack":null}'), '$.followUp', json(?)), updated_at = ? WHERE id = ?`),
     failureAlert: p(`UPDATE leads SET alert_json = json_set(COALESCE(alert_json, '{"slack":null}'), '$.failure', json(?)), updated_at = ? WHERE id = ?`),
   };
 
@@ -90,6 +108,20 @@ export function leadStore(db: Db) {
     markFailed: (id: string, at: string, attempts: number) => { s.failed.run(at, attempts, id); },
     /** The HubSpot record, rewritten by the outbox worker as delivery moves on. The status is not touched. */
     setCrm: (id: string, at: string, crmJson: string) => { s.crm.run(crmJson, at, id); },
+    /** Marks the lead for a second opinion after its alert. shownJson is what the model call will be shown that the lead row does not keep. */
+    markSecondOpinionDue: (id: string, shownJson: string) => { s.secondOpinionDue.run(shownJson, id); },
+    clearSecondOpinion: (id: string) => { s.clearSecondOpinion.run(id); },
+    /** The oldest finished lead whose second opinion is due, or null. */
+    nextSecondOpinion: (): string | null => getRow<{ id: string }>(s.nextSecondOpinion)?.id ?? null,
+    /** Takes the lead's second opinion for this worker. False when it is no longer due (done, re-run, or taken). */
+    claimSecondOpinion: (id: string): boolean => Number(s.claimSecondOpinion.run(id).changes) > 0,
+    secondOpinionInput: (id: string) => getRow<SecondOpinionInputRow>(s.secondOpinionInput, id),
+    /** Stores the result. False when the lead was re-run while the call was in flight; nothing is written then. */
+    saveSecondOpinion: (id: string, at: string, resultJson: string): boolean => Number(s.saveSecondOpinion.run(resultJson, at, id).changes) > 0,
+    /** Boot: a call a stopped process left in flight is due again. Returns how many. */
+    requeueSecondOpinions: (): number => Number(s.requeueSecondOpinions.run().changes),
+    /** Adds the follow-up a doubt after the alert sends, under alert_json.followUp, leaving the alert itself as it was. */
+    addFollowUpAlerts: (id: string, at: string, payloadsJson: string) => { s.followUpAlerts.run(payloadsJson, at, id); },
     /** Adds the RevOps give-up alert under alert_json.failure, leaving any rep alert in alert_json.slack as it was. */
     addFailureAlert: (id: string, at: string, payloadJson: string) => { s.failureAlert.run(payloadJson, at, id); },
   };

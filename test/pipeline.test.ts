@@ -202,9 +202,11 @@ describe('end to end on the mini registry', () => {
   });
 });
 
+// These run with the model before the route for every free-text lead (MODEL_BEFORE_ROUTE=all), the path whose guard rails they
+// check. test/model-path.test.ts covers the gated default, where the same answers arrive as a second opinion after the alert.
 describe('qualification degrades safely', () => {
   it('with Ollama down the lead still routes on rules and says why', async () => {
-    const ctx = testCtx({ llmProvider: 'ollama' }, async () => { throw new TypeError('fetch failed: ECONNREFUSED'); });
+    const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => { throw new TypeError('fetch failed: ECONNREFUSED'); });
     const { lead } = await submit(ctx, 'calendly_demo');
     assert.equal(lead.status, 'done');
     assert.equal(lead.qualification.llm, null);
@@ -214,7 +216,7 @@ describe('qualification degrades safely', () => {
   });
   it('a model-only disqualifier below 0.8 confidence sends the lead to review instead of dropping it', async () => {
     const body = { message: { content: JSON.stringify({ reasons: 'sounds like a pitch', use_case: 'vendor_pitch', urgency: 'unknown', buying_role: 'unknown', disqualifier: 'vendor_pitch', confidence: 0.7 }) } };
-    const ctx = testCtx({ llmProvider: 'ollama' }, async () => new Response(JSON.stringify(body), { status: 200 }));
+    const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => new Response(JSON.stringify(body), { status: 200 }));
     const { lead } = await submit(ctx, 'calendly_demo', { message: 'We would like to talk about a partnership with your team.' });
     assert.equal(lead.qualification.final.disqualifier, 'none');
     assert.equal(lead.qualification.reviewReason, 'llm_only_disqualifier');
@@ -224,7 +226,7 @@ describe('qualification degrades safely', () => {
   it('a model-only spam or vendor-pitch call goes to RevOps review even at high confidence, and is not dropped', async () => {
     for (const d of ['spam', 'vendor_pitch'] as const) {
       const body = { message: { content: JSON.stringify({ reasons: 'reads like one', use_case: 'other', urgency: 'unknown', buying_role: 'unknown', disqualifier: d, confidence: 0.95 }) } };
-      const ctx = testCtx({ llmProvider: 'ollama' }, async () => new Response(JSON.stringify(body), { status: 200 }));
+      const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => new Response(JSON.stringify(body), { status: 200 }));
       const { lead } = await submit(ctx, 'calendly_demo', { message: 'We would like to talk about a partnership with your team.' });
       assert.equal(lead.qualification.final.disqualifier, 'none', d);
       assert.equal(lead.qualification.reviewReason, 'llm_only_disqualifier', d);
@@ -234,7 +236,7 @@ describe('qualification degrades safely', () => {
     }
   });
   it('a model disqualifier at 0.8 or above counts, a low-confidence classification falls back to rules', async () => {
-    const mk = (o: object) => testCtx({ llmProvider: 'ollama' }, async () => new Response(JSON.stringify({ message: { content: JSON.stringify({ reasons: 'r', use_case: 'other', urgency: 'unknown', buying_role: 'unknown', disqualifier: 'none', confidence: 0.9, ...o }) } }), { status: 200 }));
+    const mk = (o: object) => testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => new Response(JSON.stringify({ message: { content: JSON.stringify({ reasons: 'r', use_case: 'other', urgency: 'unknown', buying_role: 'unknown', disqualifier: 'none', confidence: 0.9, ...o }) } }), { status: 200 }));
     const hi = (await submit(mk({ disqualifier: 'job_seeker', confidence: 0.9 }), 'calendly_demo', { message: 'x'.repeat(10) })).lead;
     assert.equal(hi.qualification.final.disqualifier, 'job_seeker');
     assert.equal(hi.route.action, 'careers');
@@ -244,14 +246,14 @@ describe('qualification degrades safely', () => {
   });
   it('invalid model JSON is retried once, then falls back', async () => {
     let calls = 0;
-    const ctx = testCtx({ llmProvider: 'ollama' }, async () => { calls++; return new Response(JSON.stringify({ message: { content: 'not json' } }), { status: 200 }); });
+    const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => { calls++; return new Response(JSON.stringify({ message: { content: 'not json' } }), { status: 200 }); });
     const { lead } = await submit(ctx, 'calendly_demo');
     assert.equal(calls, 2);
     assert.match(lead.qualification.fallbackReason, /llm_invalid_output/);
   });
   it('the model is never called for a lead with no free text', async () => {
     let calls = 0;
-    const ctx = testCtx({ llmProvider: 'ollama' }, async () => { calls++; throw new Error('should not be called'); });
+    const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => { calls++; throw new Error('should not be called'); });
     await submit(ctx, 'guide_download', { message: undefined, guide: 'Health System Executive Guide' });
     assert.equal(calls, 0);
   });

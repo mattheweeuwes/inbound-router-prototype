@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { makeConfig, type Config } from './config';
 import { chooseRegistry, openDb, type Db, type RegistryChoice } from './db';
 import type { CrmMirrorEntry, Owners } from './schema';
+import type { PrepareOutcome } from './stages';
 import { storeFor, type Store } from './store';
 
 export type FetchFn = typeof fetch;
@@ -18,8 +19,8 @@ export interface Ctx {
   bus: EventEmitter;
   owners: Owners;
   mirror: CrmMirrorEntry[];
-  /** pipeline queue state, owned by pipeline.ts */
-  q: { chain: Promise<unknown>; pending: number; };
+  /** pipeline queue state, owned by pipeline.ts: the ordered section's chain, leads in it, and each lead's prepared work by id */
+  q: { chain: Promise<unknown>; pending: number; prepared: Map<string, Promise<PrepareOutcome>> };
 }
 
 const readJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
@@ -37,7 +38,7 @@ export function createCtx(over: Partial<Config> = {}, fetchImpl?: FetchFn): Ctx 
     bus: new EventEmitter(),
     owners: readJson<Owners>(join(cfg.fixturesDir, 'owners.json')),
     mirror: existsSync(join(cfg.fixturesDir, 'crm-mirror.json')) ? readJson<CrmMirrorEntry[]>(join(cfg.fixturesDir, 'crm-mirror.json')) : [],
-    q: { chain: Promise.resolve(), pending: 0 },
+    q: { chain: Promise.resolve(), pending: 0, prepared: new Map() },
   };
 }
 

@@ -46,6 +46,12 @@ export interface Config {
   crmMaxAttempts: number; // a HubSpot delivery is marked dead after this many attempts
   leadRetryDelayMs: number; // first backoff step for a lead whose pipeline threw; it doubles per attempt
   leadMaxAttempts: number; // a lead is given up (status failed, RevOps alerted) after this many failed runs
+  // 'gated': the model runs before routing only when it can change the route (free text and no clear keyword use case); every
+  // other free-text lead is alerted on the rules and gets the same model call afterwards as a second opinion. 'all': the model
+  // runs before routing for every free-text lead, as it did before the gate (MODEL_BEFORE_ROUTE=all).
+  modelBeforeRoute: 'gated' | 'all';
+  prepareConcurrency: number; // leads whose order-independent work (adapt, normalize, resolve, rules, a gated model call) runs at once
+  modelConcurrency: number; // model calls in flight at once, before-route calls first; second opinions take a slot only when none waits
   network: boolean; // site-title + NPPES lookups allowed
   now: () => number; // injectable clock for wall-clock measurements
 }
@@ -65,6 +71,12 @@ function envPath(value: string | undefined, fallback: string): string {
   if (!v) return fallback;
   if (v === ':memory:') return v; // SQLite in-memory database
   return isAbsolute(v) ? v : resolve(ROOT, v);
+}
+
+/** A whole number of at least 1 from the environment, or the fallback when it is unset, blank or not one. */
+function positiveInt(value: string | undefined, fallback: number): number {
+  const n = Number(value?.trim());
+  return Number.isInteger(n) && n >= 1 ? n : fallback;
 }
 
 /** `env` is the environment to read; tests pass {} to see the defaults with nothing set. */
@@ -95,6 +107,9 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     crmMaxAttempts: 8, // waits of 2, 4, 8 ... 128 s between them: about four minutes of trying before a plan is dead
     leadRetryDelayMs: 5_000,
     leadMaxAttempts: 3, // runs at 0 s, 5 s and 15 s
+    modelBeforeRoute: env.MODEL_BEFORE_ROUTE === 'all' ? 'all' : 'gated',
+    prepareConcurrency: positiveInt(env.PREPARE_CONCURRENCY, 4),
+    modelConcurrency: positiveInt(env.MODEL_CONCURRENCY, 1), // one local model on one machine: parallel calls only queue inside Ollama, and its queue counts against the 8 s timeout
     network: env.OFFLINE !== '1', // OFFLINE=1 turns the site-title and NPPES lookups off
     now: () => Date.now(),
     ...over,

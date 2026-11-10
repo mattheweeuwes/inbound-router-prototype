@@ -1,9 +1,12 @@
 // The pipeline's own decisions, as pure functions: which earlier touch owns a repeat contact, how much account intent a
-// lead earns, which rep round-robin picks, whether an alert claims the account, whether a route wants a Slack alert.
+// lead earns, which rep round-robin picks, whether an alert claims the account, whether a route wants a Slack alert, when the
+// model runs for a lead, and what its second opinion after the alert would have changed.
 // The stages in src/stages.ts read the database, call these, and write the result. Tests call them directly.
 import type { DuplicateInfo, Rep } from './route';
 import type { SlackPayload } from './notify/slack';
-import type { CrmMirrorEntry, Firmographics, Normalized, Owners, Qualification, Resolution, Route, RouteAction, Source, Team } from './schema';
+import type {
+  BuyingRole, CrmMirrorEntry, Disqualifier, Firmographics, Normalized, Owners, Qualification, Resolution, Route, RouteAction, Source, Team,
+} from './schema';
 
 export const DAY = 86_400_000;
 /** A contact seen again within this many days is a repeat touch of the same lead. */
@@ -12,7 +15,13 @@ export const DEDUPE_DAYS = 30;
 export const WEB_INTENT_POINTS = 6, WEB_INTENT_CAP = 12, OTHER_LEAD_POINTS = 4, ACCOUNT_INTENT_CAP = 12;
 
 /** What leads.alert_json holds: the Slack payload (null when the route sends none), and, for a lead that was given up, the RevOps alert. */
-export interface StoredAlert { slack: SlackPayload | null; suppressed?: boolean; failure?: SlackPayload }
+export interface StoredAlert {
+  slack: SlackPayload | null;
+  suppressed?: boolean;
+  failure?: SlackPayload;
+  /** the follow-up a model doubt after the alert sends: where the alert went, and RevOps */
+  followUp?: SlackPayload[];
+}
 
 /** An earlier finished lead from the same contact inside the dedupe window. */
 export interface PriorTouch { id: string; owner: string; team: Team; action: RouteAction | null; alert: StoredAlert | null; receivedAt: string }
@@ -120,3 +129,74 @@ export function webIntentDetail(context: Record<string, unknown>): string {
   const paths = Array.isArray(context.paths) ? context.paths : [];
   return `${visits.length} page view(s), ${context.visitors ?? '?'} visitor(s): ${paths.join(', ')}`;
 }
+
+// ---- when the model runs (decision 19) -------------------------------------------------------------------------------
+
+/** before_route: the route waits for the model. after_alert: the lead is alerted on the rules and the model gives a second opinion. */
+export type ModelTiming = 'before_route' | 'after_alert' | 'not_called';
+
+export interface ModelTimingInput {
+  setting: 'gated' | 'all';
+  /** false for the rules provider, which answers at once without a model, so waiting for it costs nothing */
+  providerIsModel: boolean;
+  freeText: boolean;
+  /** rulesUseCaseIsClear: a clear keyword winner, which combine v4 never lets the model replace */
+  rulesUseCaseClear: boolean;
+}
+
+/**
+ * Under combine v4 the model never sets urgency, and it changes the route in only two ways: the use case when the rules have
+ * no clear winner (which can change the team), and a disqualifier the rules missed. The first is known before the call, so
+ * that lead waits for the model. Every other free-text lead is routed and alerted on the rules, and the same call runs
+ * afterwards; a disqualifier it raises then follows the alert as a doubt. The buying role it might fill carries no points
+ * and no routing. 'all' puts the model before the route for every free-text lead.
+ */
+export function modelTiming(i: ModelTimingInput): ModelTiming {
+  if (!i.freeText) return 'not_called';
+  if (!i.providerIsModel || i.setting === 'all' || !i.rulesUseCaseClear) return 'before_route';
+  return 'after_alert';
+}
+
+/** The fields a second opinion is compared on: the three the model can decide under v4, and whether a person would have been asked. */
+export const OPINION_FIELDS = ['useCase', 'buyingRole', 'disqualifier', 'reviewReason'] as const;
+export type OpinionField = typeof OPINION_FIELDS[number];
+
+/** A disqualifier only the model raised, after the alert. heldForPerson: the old path would have held the lead for RevOps (R6) rather than act on it. */
+export interface Doubt { disqualifier: Disqualifier; confidence: number; heldForPerson: boolean }
+
+export interface SecondOpinionFinding {
+  /** the model gave a valid answer */
+  answered: boolean;
+  /** it answered and the full combine would have decided every field the same as the route did */
+  agreed: boolean;
+  /** what the full combine (rules plus this answer) would have decided differently from what the route used */
+  changed: OpinionField[];
+  /** the buying role it supplies where the title carried no seniority */
+  roleFilled: BuyingRole | null;
+  doubt: Doubt | null;
+}
+
+/**
+ * Compares what the route used (the rules alone) with the full combine of the same rules and the model's answer. A doubt is
+ * a disqualifier only the model raised: one the combine would have sent to a person (llm_only_disqualifier), or one it would
+ * have counted (job seeker, student or media at 0.8 or above).
+ */
+export function compareSecondOpinion(used: Qualification, full: Qualification): SecondOpinionFinding {
+  const answered = !!full.llm;
+  const changed = OPINION_FIELDS.filter(f => (f === 'reviewReason' ? used.reviewReason !== full.reviewReason : used.final[f] !== full.final[f]));
+  const roleFilled = changed.includes('buyingRole') && full.final.sources?.buyingRole === 'model' ? full.final.buyingRole : null;
+  const modelOnly = full.reviewReason === 'llm_only_disqualifier' || full.final.sources?.disqualifier === 'model';
+  const disqualifier = full.llmDisqualifier ?? full.final.disqualifier;
+  const doubt = modelOnly && full.llm && disqualifier !== 'none'
+    ? { disqualifier, confidence: full.llm.confidence, heldForPerson: !!full.reviewReason }
+    : null;
+  return { answered, agreed: answered && changed.length === 0, changed, roleFilled, doubt };
+}
+
+/**
+ * Whether a doubt after the alert needs a follow-up and a review item. Only routes the old order would have changed or
+ * annotated: R5 (the owner was told of the doubt in the reason, or R4 took a counted disqualifier first) and R8 (R6 held the
+ * lead for RevOps before any rep heard). Earlier rules (a drop, a repeat touch, a competitor, R4) and R6 itself decide the
+ * same with or without the doubt, so it is recorded only.
+ */
+export const doubtNeedsFollowUp = (route: Route) => route.rule === 'R5' || route.rule === 'R8';

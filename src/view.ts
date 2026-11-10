@@ -5,6 +5,9 @@ import { adapt } from './sources';
 import { matchMirror } from './mirror';
 import { afterHours } from './route';
 import type { Qualification, Resolution, Route, Source } from './schema';
+import type { StoredSecondOpinion } from './secondOpinion';
+
+type SecondOpinionState = 'pending' | 'running' | 'done';
 
 export interface LeadSummary {
   id: string; receivedAt: string; source: string; synthetic: boolean; status: string;
@@ -19,7 +22,7 @@ export type LeadViewRow = {
   id: string; status: string; email: string | null; is_free_mail: number | null; first_name: string | null; last_name: string | null; title: string | null;
   company_name_raw: string | null; contact_key: string | null; duplicate_of: string | null; account_id: string | null; segment: string | null;
   normalized_json: string | null; resolution_json: string | null; qualification_json: string | null; score_json: string | null; route_json: string | null;
-  crm_json: string | null; alert_json: string | null; timings_json: string | null;
+  crm_json: string | null; alert_json: string | null; timings_json: string | null; second_opinion: SecondOpinionState | null; second_opinion_json: string | null;
   tier: string | null; score: number | null; route_action: string | null; route_team: string | null; owner: string | null; time_to_route_ms: number | null;
   source: Source; received_at: string; synthetic: number; raw_json: string; replays: number;
 };
@@ -96,6 +99,8 @@ export function leadDetail(ctx: Ctx, id: string) {
     crm: parse(r.crm_json),
     alert: parse(r.alert_json),
     timings: parse(r.timings_json),
+    // the model's answer after the alert, for a lead routed on the rules (decision 19); null when none was due
+    secondOpinion: r.second_opinion ? { state: r.second_opinion, result: r.second_opinion === 'done' ? parse<StoredSecondOpinion>(r.second_opinion_json) : null } : null,
     account,
     stages,
     replays: r.replays,

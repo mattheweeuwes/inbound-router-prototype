@@ -177,7 +177,8 @@ describe('counts on a small fixture', () => {
 
   it('a model-only disqualifier below 0.8 confidence is counted as cleared to review', async () => {
     const body = { message: { content: JSON.stringify({ reasons: 'sounds like a pitch', use_case: 'vendor_pitch', urgency: 'unknown', buying_role: 'unknown', disqualifier: 'vendor_pitch', confidence: 0.7 }) } };
-    const ctx = testCtx({ llmProvider: 'ollama' }, async () => new Response(JSON.stringify(body), { status: 200 }));
+    // the model before the route, where this reason is set (a doubt after the alert has its own reason, model_doubt_after_alert)
+    const ctx = testCtx({ llmProvider: 'ollama', modelBeforeRoute: 'all' }, async () => new Response(JSON.stringify(body), { status: 200 }));
     await submit(ctx, 'calendly_demo', { message: 'We would like to talk about a partnership with your team.' });
     const c = byId(computeScorecard(ctx.db, { now: NOW }).controls, 'llm_only_to_review');
     assert.deepEqual([c.value, c.denominator], [1, 1]);

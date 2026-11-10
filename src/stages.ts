@@ -1,26 +1,31 @@
 // The seven stages of a run, in order: normalize, resolve, qualify, score, route, notify, crm.
-// Each takes what the earlier stages produced, writes its result on the lead in one UPDATE, announces the new status on
-// the bus for the cockpit, and returns what the later stages need. Every stage is timed into stage_log and run.timings.
+// The first three need nothing from earlier leads, so prepareLead runs them as soon as a lead is accepted, alongside other
+// leads, and keeps their results in memory. In the lead's turn, commitPrepared writes them and adds what does depend on
+// earlier leads (prior touches, the account); the last four stages then run in order. Each writes its result on the lead in
+// one UPDATE, announces the new status on the bus for the cockpit, and returns what the later stages need. Every stage is
+// timed into stage_log and run.timings.
 // Decisions that need no database are in src/decisions.ts; the SQL is in src/store.
 import { buildBrief, type Brief } from './brief';
 import type { Ctx } from './context';
 import { json } from './db';
 import {
   accountIds, accountIntent, assignsRep, claimDetail, claimsAccount, DAY, DEDUPE_DAYS, hubspotOwnerIdOf, pickRoundRobin,
-  reviewReason, summarizeTouches, wantsSlackAlert, webIntentDetail, webIntentPoints, type PriorTouch, type StoredAlert, type TouchSummary,
+  reviewReason, summarizeTouches, wantsSlackAlert, webIntentDetail, webIntentPoints, type ModelTiming, type PriorTouch, type StoredAlert,
+  type TouchSummary,
 } from './decisions';
 import { crmMode, planCrm, recordDryRun } from './crm/hubspot';
 import { enqueuePlan, type CrmRecord } from './crm/outbox';
 import { crmIdentity, matchMirror } from './mirror';
+import { qualifyForRoute } from './modelPath';
 import { normalizeEvent } from './normalize';
 import { buildSlackPayload, recordSlack } from './notify/slack';
-import { qualify } from './qualify';
 import { inferEmployer, resolve } from './resolve';
 import { registryLookups } from './resolve/domain';
 import { afterHours, decideRoute, type Rep } from './route';
 import type { CrmMirrorEntry, LeadEvent, Normalized, Qualification, Resolution, Route, Score, Team } from './schema';
 import { scoreLead } from './score';
-import type { NormalizedColumns } from './store/leads';
+import { adapt } from './sources';
+import type { LeadInputRow, NormalizedColumns } from './store/leads';
 
 /** The pipeline stages, in order, as stage_log names them. */
 export const STAGES = ['normalize', 'resolve', 'qualify', 'score', 'route', 'notify', 'crm'] as const;
@@ -32,7 +37,11 @@ export interface Run {
   id: string;
   ev: LeadEvent;
   t0: number;
-  /** milliseconds per stage, plus queued (the wait before the run started), alerted and total */
+  /**
+   * milliseconds per stage, plus: queued (the 202 to this lead's turn in the ordered section), prepared (the 202 to its
+   * prepared result), waitedForPrepare (its turn to that result), prepare (the prepare work itself), modelBeforeRoute (the
+   * model call the route waited for, when there was one), alerted and total
+   */
   timings: Record<string, number>;
   /** known once scored and routed, and carried on every later status event */
   tier?: string;
@@ -65,19 +74,103 @@ async function timed<T>(run: Run, stage: Stage, fn: () => Promise<T> | T): Promi
   }
 }
 
-// ---- normalize -----------------------------------------------------------------------------------------------------
+// ---- prepare: the order-independent work ---------------------------------------------------------------------------
+// Adapt, normalize, resolve (with its network lookups), the rules and, when the route needs it, the model. None of it reads
+// what an earlier lead wrote, so it starts as soon as the lead is accepted and runs alongside other leads. It writes nothing
+// to the database: its stage times are kept here and written when the lead's turn comes in the ordered section.
 
-export interface Normalize { n: Normalized; touches: TouchSummary }
+/** One stage's time, measured while preparing and written to stage_log when the lead is committed. */
+export interface StageRecord { stage: Stage; startedAt: string; ms: number; ok: boolean; note: string | null }
 
-export function normalizeStage(run: Run): Promise<Normalize> {
-  return timed(run, 'normalize', () => {
-    const { ctx, id, ev } = run;
-    const n = normalizeEvent(ev, registryLookups(ctx.db));
-    const touches = n.contactKey ? summarizeTouches(priorTouches(ctx, id, n.contactKey, ev.receivedAt)) : { duplicate: null, priorTouches: 0 };
-    ctx.store.leads.markNormalized(id, nowIso(ctx), normalizedColumns(n, touches.duplicate?.leadId ?? null));
-    announce(run, 'normalized');
-    return { n, touches };
-  });
+/** What a lead's order-independent work produces, for the ordered section to commit. */
+export interface Prepared {
+  ev: LeadEvent;
+  n: Normalized;
+  /** the resolution before the use case refined it (inferEmployer): what the model is shown */
+  resolved: Resolution;
+  /** the resolution the lead is scored and routed on */
+  res: Resolution;
+  qual: Qualification;
+  timing: ModelTiming;
+  records: StageRecord[];
+  /** ms from the 202 to the moment this was ready */
+  readyMs: number;
+  /** ms the work took from its start, a wait for a model slot included */
+  workMs: number;
+}
+
+/** prepareLead never throws: a failure is handed to the ordered section, which records it in the lead's turn. */
+export type PrepareOutcome = { ok: true; value: Prepared } | { ok: false; error: unknown; records: StageRecord[] };
+
+/** Times one prepare stage into records; a failure is recorded and rethrown. */
+async function measure<T>(ctx: Ctx, records: StageRecord[], stage: Stage, fn: () => Promise<T> | T): Promise<T> {
+  const startedAt = nowIso(ctx);
+  const t = performance.now();
+  const record = (ok: boolean, note: string | null) => records.push({ stage, startedAt, ms: Math.round(performance.now() - t), ok, note });
+  try {
+    const out = await fn();
+    record(true, null);
+    return out;
+  } catch (e) {
+    record(false, (e as Error).message.slice(0, 300));
+    throw e;
+  }
+}
+
+export async function prepareLead(ctx: Ctx, input: LeadInputRow): Promise<PrepareOutcome> {
+  const records: StageRecord[] = [];
+  const startedMs = ctx.cfg.now();
+  try {
+    const ev = adapt(input.source, JSON.parse(input.raw_json), input.received_at);
+    ev.receivedAt = input.received_at;
+    const n = await measure(ctx, records, 'normalize', () => normalizeEvent(ev, registryLookups(ctx.db)));
+    // an account in the CRM that no public registry knows keeps the CRM record's identity and segment (before anything stores or scores it)
+    const resolved = await measure(ctx, records, 'resolve', async () => crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror));
+    const { qual, timing } = await measure(ctx, records, 'qualify', () => qualifyForRoute(ctx, ev, n, resolved));
+    // the use case refines an unplaced resolution (a benefits contact at an unknown company)
+    const res = inferEmployer(resolved, n, qual.final.useCase);
+    const now = ctx.cfg.now();
+    return { ok: true, value: { ev, n, resolved, res, qual, timing, records, readyMs: now - Date.parse(input.created_at), workMs: now - startedMs } };
+  } catch (error) {
+    return { ok: false, error, records };
+  }
+}
+
+/** Writes the prepare stages' times to stage_log, and into run.timings when there is a run. */
+export function logPrepared(ctx: Ctx, id: string, records: StageRecord[], run?: Run) {
+  for (const r of records) {
+    ctx.store.stages.log({ leadId: id, ...r });
+    if (run && r.ok) run.timings[r.stage] = r.ms;
+  }
+}
+
+// ---- commit the prepared work, in order ------------------------------------------------------------------------------
+
+export interface Committed { n: Normalized; res: Resolution; qual: Qualification; touches: TouchSummary }
+
+/**
+ * The prepared lead's turn: the parts that depend on earlier leads (its prior touches from the same contact, the account
+ * upsert) and the normalized, resolved and qualified writes, in that order. A lead alerted on the rules is marked for its
+ * second opinion here, so a crash before it is done re-runs it and marks it again.
+ */
+export function commitPrepared(run: Run, p: Prepared): Committed {
+  const { ctx, id, ev } = run;
+  logPrepared(ctx, id, p.records, run);
+  const { n, resolved, res, qual } = p;
+
+  const touches = n.contactKey ? summarizeTouches(priorTouches(ctx, id, n.contactKey, ev.receivedAt)) : { duplicate: null, priorTouches: 0 };
+  ctx.store.leads.markNormalized(id, nowIso(ctx), normalizedColumns(n, touches.duplicate?.leadId ?? null));
+  announce(run, 'normalized');
+
+  saveAccount(ctx, resolved, n, ev.receivedAt);
+  ctx.store.leads.markResolved(id, nowIso(ctx), json(resolved), resolved.accountId, resolved.segment);
+  announce(run, 'resolved');
+
+  if (res !== resolved) saveAccount(ctx, res, n, ev.receivedAt);
+  ctx.store.leads.markQualified(id, nowIso(ctx), json(qual), json(res), res.segment);
+  if (p.timing === 'after_alert') ctx.store.leads.markSecondOpinionDue(id, json({ shownSegment: resolved.segment })!);
+  announce(run, 'qualified');
+  return { n, res, qual, touches };
 }
 
 /** Finished leads from the same contact in the dedupe window before this one, oldest first. */
@@ -100,18 +193,6 @@ function normalizedColumns(n: Normalized, duplicateOf: string | null): Normalize
   };
 }
 
-// ---- resolve -------------------------------------------------------------------------------------------------------
-
-export async function resolveStage(run: Run, n: Normalized): Promise<Resolution> {
-  const { ctx, id, ev } = run;
-  // an account in the CRM that no public registry knows keeps the CRM record's identity and segment (before anything stores or scores it)
-  const res = await timed(run, 'resolve', async () => crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror));
-  saveAccount(ctx, res, n, ev.receivedAt);
-  ctx.store.leads.markResolved(id, nowIso(ctx), json(res), res.accountId, res.segment);
-  announce(run, 'resolved');
-  return res;
-}
-
 /** Creates or refreshes the resolved account. Its owner is never set here; only a claim sets it. */
 function saveAccount(ctx: Ctx, res: Resolution, n: Normalized, at: string) {
   if (!res.accountId) return;
@@ -119,21 +200,6 @@ function saveAccount(ctx: Ctx, res: Resolution, n: Normalized, at: string) {
     id: res.accountId, name: res.accountName, segment: res.segment, subsegment: res.subsegment, domain: n.companyDomain,
     idsJson: json(accountIds(res.accountId, res.firmographics)), firmographicsJson: json(res.firmographics), at,
   });
-}
-
-// ---- qualify -------------------------------------------------------------------------------------------------------
-
-export interface Qualify { qual: Qualification; res: Resolution }
-
-/** Classifies the lead, then lets the use case refine an unplaced resolution (a benefits contact at an unknown company). */
-export async function qualifyStage(run: Run, n: Normalized, resolved: Resolution): Promise<Qualify> {
-  const { ctx, id, ev } = run;
-  const qual = await timed(run, 'qualify', () => qualify(ctx, ev, n, resolved));
-  const res = inferEmployer(resolved, n, qual.final.useCase);
-  if (res !== resolved) saveAccount(ctx, res, n, ev.receivedAt);
-  ctx.store.leads.markQualified(id, nowIso(ctx), json(qual), json(res), res.segment);
-  announce(run, 'qualified');
-  return { qual, res };
 }
 
 // ---- score ---------------------------------------------------------------------------------------------------------

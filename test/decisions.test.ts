@@ -1,9 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accountIds, accountIntent, assignsRep, claimsAccount, hubspotOwnerIdOf, pickRoundRobin, reviewReason, summarizeTouches,
-  wantsSlackAlert, webIntentDetail, webIntentPoints, type PriorTouch,
+  accountIds, accountIntent, assignsRep, claimsAccount, compareSecondOpinion, doubtNeedsFollowUp, hubspotOwnerIdOf, modelTiming,
+  pickRoundRobin, reviewReason, summarizeTouches, wantsSlackAlert, webIntentDetail, webIntentPoints, type PriorTouch,
 } from '../src/decisions';
+import { AFTER_ALERT_REASON, fastPathOf } from '../src/modelPath';
+import { combine } from '../src/qualify/combine';
+import type { LlmOutcome } from '../src/qualify/llm';
+import type { Classification } from '../src/schema';
 import type { SlackPayload } from '../src/notify/slack';
 import type { CrmMirrorEntry, Owners, Qualification, Resolution, Route } from '../src/schema';
 
@@ -129,5 +133,72 @@ describe('small lookups', () => {
   it('webIntentDetail describes the visit without the lead id', () => {
     assert.equal(webIntentDetail({ visits: [{}, {}], visitors: 2, paths: ['/a', '/b'] }), '2 page view(s), 2 visitor(s): /a, /b');
     assert.equal(webIntentDetail({}), '0 page view(s), ? visitor(s): ');
+  });
+});
+
+describe('modelTiming: which leads wait for the model (decision 19)', () => {
+  const base = { setting: 'gated' as const, providerIsModel: true, freeText: true, rulesUseCaseClear: true };
+  it('a clear keyword use case is alerted on the rules and gets the model after the alert', () => {
+    assert.equal(modelTiming(base), 'after_alert');
+  });
+  it('a use case the rules cannot settle waits for the model, because it can change the team', () => {
+    assert.equal(modelTiming({ ...base, rulesUseCaseClear: false }), 'before_route');
+  });
+  it('no free text: the model is never called', () => {
+    assert.equal(modelTiming({ ...base, freeText: false }), 'not_called');
+    assert.equal(modelTiming({ ...base, freeText: false, setting: 'all' }), 'not_called');
+  });
+  it('the old setting puts the model before every free-text route', () => {
+    assert.equal(modelTiming({ ...base, setting: 'all' }), 'before_route');
+  });
+  it('the rules provider answers at once, so its record stays where it always was', () => {
+    assert.equal(modelTiming({ ...base, providerIsModel: false }), 'before_route');
+  });
+});
+
+describe('compareSecondOpinion: what the model would have changed after the alert', () => {
+  const ev = { useCaseScore: 3, useCaseRunnerUp: 0, urgencyCue: null, urgencyDate: null, urgencyDays: null, urgencyKind: 'none' as const, urgencyParsed: null, legacyUrgencyCue: null, hasFreeText: true, roleFromTitle: true };
+  const rules = (over: Partial<Classification> = {}, e = {}): Classification => ({ reasons: 'rules', useCase: 'contract_negotiation', urgency: 'unknown', buyingRole: 'decision_maker', disqualifier: 'none', confidence: 0.8, evidence: { ...ev, ...e }, ...over });
+  const answer = (over: Partial<Classification> = {}): LlmOutcome => ({ ok: true, provider: 'ollama:test', latencyMs: 2000, value: { reasons: 'model', useCase: 'contract_negotiation', urgency: 'now', buyingRole: 'decision_maker', disqualifier: 'none', confidence: 0.9, ...over } });
+  const pair = (r: Classification, a: LlmOutcome) => [combine(r, null, AFTER_ALERT_REASON, 'ollama'), combine(r, a, null, 'ollama')] as const;
+
+  it('agreement: nothing would change (urgency is never the model\'s, so it is not compared)', () => {
+    const f = compareSecondOpinion(...pair(rules(), answer()));
+    assert.deepEqual(f, { answered: true, agreed: true, changed: [], roleFilled: null, doubt: null });
+  });
+  it('a role the title did not give is filled; a title role is never replaced', () => {
+    assert.deepEqual(compareSecondOpinion(...pair(rules({ buyingRole: 'unknown' }, { roleFromTitle: false }), answer({ buyingRole: 'influencer' }))).roleFilled, 'influencer');
+    assert.deepEqual(compareSecondOpinion(...pair(rules(), answer({ buyingRole: 'user' }))).changed, []);
+  });
+  it('spam or a vendor pitch only the model saw is a doubt a person decides, whatever the confidence', () => {
+    const f = compareSecondOpinion(...pair(rules(), answer({ disqualifier: 'vendor_pitch', confidence: 0.99 })));
+    assert.deepEqual(f.doubt, { disqualifier: 'vendor_pitch', confidence: 0.99, heldForPerson: true });
+    assert.deepEqual(f.changed, ['reviewReason']);
+    assert.equal(f.agreed, false);
+  });
+  it('a job seeker at 0.8 or above is a doubt the old path would have counted; below 0.8 it would have held it', () => {
+    assert.deepEqual(compareSecondOpinion(...pair(rules(), answer({ disqualifier: 'job_seeker', confidence: 0.85 }))).doubt, { disqualifier: 'job_seeker', confidence: 0.85, heldForPerson: false });
+    assert.deepEqual(compareSecondOpinion(...pair(rules(), answer({ disqualifier: 'job_seeker', confidence: 0.7 }))).doubt, { disqualifier: 'job_seeker', confidence: 0.7, heldForPerson: true });
+  });
+  it('a disqualifier the rules already had is no doubt', () => {
+    assert.equal(compareSecondOpinion(...pair(rules({ disqualifier: 'student' }), answer({ disqualifier: 'student' }))).doubt, null);
+  });
+  it('no answer: not agreed, nothing changed', () => {
+    const down: LlmOutcome = { ok: false, reason: 'timeout', detail: 'Ollama call exceeded 8s', latencyMs: 8000, provider: 'ollama:test' };
+    assert.deepEqual(compareSecondOpinion(...pair(rules(), down)), { answered: false, agreed: false, changed: [], roleFilled: null, doubt: null });
+  });
+  it('fastPathOf rebuilds the gated record from a full one: the rules alone when the model would have waited', () => {
+    const full = combine(rules(), answer({ disqualifier: 'spam', confidence: 0.9 }), null, 'ollama');
+    assert.equal(fastPathOf(full).fallbackReason, AFTER_ALERT_REASON);
+    assert.equal(fastPathOf(full).reviewReason, null);
+    const unclear = combine(rules({ useCase: 'other' }, { useCaseScore: 0 }), answer(), null, 'ollama');
+    assert.equal(fastPathOf(unclear), unclear, 'an unclear use case waited for the model, so the record is the full one');
+  });
+});
+
+describe('doubtNeedsFollowUp', () => {
+  it('only routes the old order would have changed or annotated: R5 and R8', () => {
+    for (const rule of ['R5', 'R8'] as const) assert.equal(doubtNeedsFollowUp(route({ rule })), true, rule);
+    for (const rule of ['R1', 'R2', 'R3', 'R4', 'R6', 'R9'] as const) assert.equal(doubtNeedsFollowUp(route({ rule })), false, rule);
   });
 });

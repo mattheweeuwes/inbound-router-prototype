@@ -1,5 +1,6 @@
 // Ordered routing rules R1..R9. First match wins; every decision records the rule and a one-line reason.
 import type { CrmMirrorEntry, LeadEvent, Normalized, Owners, Qualification, Resolution, Route, Score, Segment, Team, UseCase } from './schema';
+import type { Doubt } from './decisions';
 import { PERSON_DECIDES_IF_MODEL_ONLY } from './qualify/combine';
 import { addBusinessMinutes, iso, isBusinessTime, nextBusinessOpen } from './time';
 
@@ -81,6 +82,18 @@ const modelDoubt = (qual: Qualification) => {
   const neverDropped = !!qual.llmDisqualifier && PERSON_DECIDES_IF_MODEL_ONLY.includes(qual.llmDisqualifier);
   return { what, neverDropped };
 };
+
+/**
+ * The sentence a doubt that arrives after the alert carries to the alert's channel and to RevOps (decision 19). Worded like
+ * the R5 and R6 reasons: what the model said, that no rule agreed, why that is not acted on alone, and who decides.
+ */
+export function doubtAfterAlert(d: Doubt, owner: string): string {
+  const what = d.disqualifier.replace(/_/g, ' ');
+  const why = PERSON_DECIDES_IF_MODEL_ONLY.includes(d.disqualifier)
+    ? `, and ${what} is never dropped on the model's word alone`
+    : d.heldForPerson ? ' and the model was less than 0.8 confident' : `, at ${d.confidence.toFixed(2)} confidence`;
+  return `After the alert went out, the model flagged this lead as ${what} but no rule agreed${why}, so RevOps is checking it. ${owner} keeps the lead unless RevOps withdraws it.`;
+}
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
