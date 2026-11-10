@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import handler from '../api/outbound';
 import { buildAddress, parseAddress } from '../public/address-model.js';
 import {
-  bandWords, chartGeometry, chipCounts, confirmWords, filterGroups, formCounts, formLabel, fromParams, headline, linkValue, linksToConfirm, median, panelRows,
+  bandWords, chartGeometry, chipCounts, confirmWords, filterGroups, formCounts, firstLinks, formLabel, fromParams, headline, linkValue, linksToConfirm, median, panelRows,
   pickStatus, sortGroups, statesOf, statusLabel, statusOfWord, toParams, wordOfStatus, workCounts,
   type Group, type Loaded,
 } from '../public/outbound-model.js';
@@ -166,6 +166,10 @@ describe('cockpit outbound: links to confirm', () => {
     const names = (rows: Array<{ kind: 'link'; group: Group } | { kind: 'line'; line: { ein: string; index: number } }>) => rows.map(r => (r.kind === 'link' ? r.group.ein : `line:${r.line.ein}`));
     assert.deepEqual(names(panelRows(links, [], false)), ['a']);
     assert.deepEqual(names(panelRows(links, [], true)), ['a', 'b', 'c', 'd']);
+    // every link that would put its group in a play shows without asking: those are the ones worth a person's minute
+    const useful = [probable(base, { ein: 'p1', clinicians: 10, ifConfirmed: 'system_gap', basis: 'name' }), probable(base, { ein: 'p2', clinicians: 9, ifConfirmed: 'system_gap', basis: 'name' }), ...links];
+    assert.equal(firstLinks(useful), 2);
+    assert.deepEqual(names(panelRows(useful, [], false)), ['p1', 'p2']);
     // "b" was the second row when it was decided; it has left the waiting links, and its line takes its place
     const line = { ein: 'b0', index: 1, decision: 'confirm' as const, name: 'B', candidate: null };
     assert.deepEqual(names(panelRows([links[0], links[2], links[3]], [line], true)), ['a', 'line:b0', 'c', 'd']);

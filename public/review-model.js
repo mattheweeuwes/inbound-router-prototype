@@ -89,7 +89,20 @@ export function itemButtons(/** @type {OpenItem} */ item) {
 /** "Send all 16 to nurture". */
 export const nurtureAllLabel = (/** @type {number} */ n) => `Send all ${n} to nurture`;
 
-/** The question the list-wide button asks before it acts. */
+/**
+ * The lead ids the server holds open that the tab has not shown: items that arrived while it was open. The tab does not
+ * redraw under a person mid-decision, so it says they are there and lets the person bring them in.
+ * @param {string[]} liveIds @param {string[]} shownIds
+ */
+export const arrivedSince = (liveIds, shownIds) => liveIds.filter((id) => !shownIds.includes(id));
+
+/** "1 more item arrived while this was open." */
+export const arrivedLine = (/** @type {number} */ n) => `${n} more item${n === 1 ? '' : 's'} arrived while this was open.`;
+
+/** What the list-wide button reads once it is armed: the second click is the confirmation. */
+export const nurtureAllYes = (/** @type {number} */ n) => `Yes, send ${n} to nurture`;
+
+/** The question the list-wide button asks, in the page, before it acts. */
 export const nurtureAllConfirm = (/** @type {number} */ n, /** @type {string} */ list) =>
   `Send all ${n} rows from ${list} that nobody could place to marketing's nurture track? Each one is recorded with your name.`;
 

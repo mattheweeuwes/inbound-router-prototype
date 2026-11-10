@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  decidedHeading, decidedRow, displayOrder, groupItems, itemButtons, nextFocus, nurtureAllConfirm, nurtureAllLabel, openHeadline, reasonWords, rowsLeft,
+  arrivedLine, arrivedSince, decidedHeading, decidedRow, displayOrder, groupItems, itemButtons, nextFocus, nurtureAllConfirm, nurtureAllLabel, nurtureAllYes, openHeadline, reasonWords, rowsLeft,
   type OpenItem, type ReviewView,
 } from '../public/review-model.js';
 import reviewApi from '../api/review';
@@ -55,6 +55,9 @@ describe('cockpit Needs a person: grouping, buttons and focus', () => {
     assert.equal(rowsLeft(1), '1 row from this list needs a person');
     assert.equal(rowsLeft(0), 'every row decided');
     assert.equal(nurtureAllLabel(16), 'Send all 16 to nurture');
+    assert.equal(nurtureAllYes(16), 'Yes, send 16 to nurture');
+    assert.deepEqual(arrivedSince(['a', 'b', 'c'], ['a', 'c']), ['b'], 'an item decided in the tab is still one the tab has shown');
+    assert.deepEqual([arrivedLine(1), arrivedLine(3)], ['1 more item arrived while this was open.', '3 more items arrived while this was open.']);
     assert.match(nurtureAllConfirm(16, 'HLTH'), /^Send all 16 rows from HLTH that nobody could place to marketing's nurture track\?/);
     assert.equal(reasonWords('ambiguous_company'), 'Which organization is it?');
     assert.equal(decidedHeading(3), 'Decided, newest first (3)');

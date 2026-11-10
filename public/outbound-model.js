@@ -137,9 +137,13 @@ export function confirmWords(/** @type {Group} */ g) {
   return g.link.ifConfirmed ? `Confirming puts it in the ${PLAY_WORDS[g.link.ifConfirmed]} play` : 'Confirming links it to the organization; it stays in no play';
 }
 
+/** How many links show before the person opens the rest: every one whose confirmation would put its group in a play, and at least one. */
+export const firstLinks = (/** @type {Group[]} */ probable) => Math.max(1, probable.filter((g) => g.link.ifConfirmed).length);
+
 /**
- * The panel's rows. Only the first link shows until the person opens the rest; a decision made here stays in the place its row was, as
- * a one-line notice, so nothing below it moves. `lines` carry the index the row had when it was decided.
+ * The panel's rows. The links worth a person's minute show first (the ones that would put a group in a play, which the order
+ * already brings to the top); the rest wait behind one control. A decision made here stays in the place its row was, as a
+ * one-line notice, so nothing below it moves. `lines` carry the index the row had when it was decided.
  * @template {{ index: number }} L
  * @param {Group[]} probable the links still waiting, in order
  * @param {L[]} lines the decisions made in this visit
@@ -147,7 +151,7 @@ export function confirmWords(/** @type {Group} */ g) {
  * @returns {Array<{ kind: 'link', group: Group } | { kind: 'line', line: L }>}
  */
 export function panelRows(probable, lines, all) {
-  const shown = all ? probable : probable.slice(0, 1);
+  const shown = all ? probable : probable.slice(0, firstLinks(probable));
   /** @type {Array<{ kind: 'link', group: Group } | { kind: 'line', line: L }>} */
   const out = shown.map((group) => ({ kind: 'link', group }));
   for (const line of [...lines].sort((a, b) => a.index - b.index)) out.splice(Math.min(line.index, out.length), 0, { kind: 'line', line });

@@ -50,16 +50,22 @@ export function recordDecision(ctx: Ctx, leadId: string, req: ReviewRequest): { 
   });
   if (saved === 'decided') return fail(409, alreadyDecided(ctx, leadId));
   ctx.bus.emit('lead', { id: leadId, status: rerun ? 'received' : 'done', review: 'decided' });
-  if (rerun) rerunWithTouches(ctx, leadId);
+  if (rerun) rerunWithTouches(ctx, leadId, checked.kind);
   return { ok: true, decision: checked, rerun };
 }
 
+/** Decisions that send the lead back toward sales, where its later touches should follow it to the new owner. */
+const TOWARD_SALES: readonly ReviewDecisionKind[] = ['use_account', 'is_buyer'];
+
 /**
- * Runs the lead again, then the later touches from the same contact that attached to it (R2), so they follow its new
- * owner. They are re-run only when finished; one that is not is picked up by its own run.
+ * Runs the lead again. When the decision sends it toward sales, the later touches from the same contact that attached to
+ * it (R2) run again after it, so they follow its new owner; they are re-run only when finished, and one that is not is
+ * picked up by its own run. When a person rules the lead out of sales (nurture, or not a buyer), its attached touches stay
+ * attached: run again, a repeat scan would find no first lead that went to sales, be routed on its own, and put the same
+ * person back in the queue the reviewer just cleared.
  */
-function rerunWithTouches(ctx: Ctx, leadId: string) {
-  const touches = ctx.store.leads.attachedTouches(leadId);
+function rerunWithTouches(ctx: Ctx, leadId: string, kind: ReviewDecisionKind) {
+  const touches = TOWARD_SALES.includes(kind) ? ctx.store.leads.attachedTouches(leadId) : [];
   enqueue(ctx, leadId);
   for (const id of touches) if (ctx.store.leads.requeue(id, nowIso(ctx))) enqueue(ctx, id);
 }

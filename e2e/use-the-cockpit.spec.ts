@@ -40,6 +40,8 @@ test.beforeAll(async ({ playwright, baseURL }) => {
   await submit({ source: 'calendly_demo', email: 'second.ent.use@commonspirit.org', name: 'Marcus Teller-Use', title: 'VP, Network Strategy', company: 'CommonSpirit Health', state: 'IL', message: 'We want a demo next week.' });
   // a referral from a customer
   await submit({ source: 'calendly_demo', email: 'ref.use@intermountainhealthcare.org', name: 'Rosa Lindgren-Use', title: 'Director, Payer Contracting', company: 'Intermountain Health', state: 'UT', message: 'We renegotiate in Q1. The contracting VP at Wrenfield Health recommended you.' });
+  // an account nobody owns: a guide download that goes to nurture claims nothing (the Today accounts task filters on it)
+  await submit({ source: 'guide_download', email: 'nurture.use@tanner.org', name: 'Pat Holloway-Use', title: 'Analyst', company: 'Tanner Health', state: 'GA' });
   // a customer asking about a feature that has not launched
   await submit({ source: 'signal_ask_waitlist', email: 'asks.use@brindlewoodhealth.example', name: 'Marguerite Oyelaran-Use', title: 'Director, Provider Network', company: 'Brindlewood Mutual Health', state: 'OH', message: 'We use Signal weekly. Would Signal Ask cover our out-of-network exposure by market?' });
   // a conference list, scanned at once
@@ -341,4 +343,27 @@ test('at 390 px the filters wrap and nothing scrolls the page sideways on the ta
   await expect(page.locator('#overview .sec-index')).toBeVisible();
   expect((await fits()).page).toBe(true);
   expect(problems, problems.join('\n')).toEqual([]);
+});
+
+test('a lead arriving while the Team menu is in use leaves the menu alone, and the counts catch up when it is let go', async ({ page, request }) => {
+  await page.goto('/#stream');
+  await expect(page.getByText('Live API')).toBeVisible();
+  await expect(rowsOf(page).first()).toBeVisible();
+  const team = page.locator('#view-stream select[data-select="team"]');
+  await team.focus();
+  await team.evaluate((el) => { el.setAttribute('data-kept', '1'); });
+  const before = (await countLine(page).textContent()) ?? '';
+  const sent = await request.post('/api/demo/submit', {
+    data: {
+      wait: true, source: 'calendly_demo', email: 'arrives.use@sutterhealth.org', name: 'Noor Abbasi-Use', title: 'Director, Payer Strategy',
+      company: 'Sutter Health', state: 'CA', message: 'We want peer rate benchmarks before our renewal in March.',
+    },
+  });
+  expect(sent.ok()).toBe(true);
+  // the list took the new lead, and the menu is the same node: had it been open, it would still be open
+  await expect(countLine(page)).not.toHaveText(before);
+  await expect(team).toHaveAttribute('data-kept', '1');
+  // letting go of the menu draws the strip with the new counts
+  await page.locator('#search').focus();
+  await expect(page.locator('#view-stream select[data-select="team"]')).not.toHaveAttribute('data-kept', '1');
 });

@@ -5,7 +5,7 @@
 // order are in review-model.js, which Node tests; this file only draws and listens.
 import { readDecider, saveDecider } from './decider.js';
 import {
-  DEMO_OFF, decidedRow, displayOrder, groupItems, isUnplaced, itemButtons, matchText, NOT_BUYER_REASONS, nextFocus, nurtureAllConfirm,
+  DEMO_OFF, arrivedLine, arrivedSince, decidedRow, displayOrder, groupItems, isUnplaced, itemButtons, matchText, NOT_BUYER_REASONS, nextFocus, nurtureAllConfirm, nurtureAllYes,
   decidedHeading, nurtureAllLabel, openHeadline, reasonWords, rowsLeft,
 } from './review-model.js';
 
@@ -42,7 +42,7 @@ export function mountReview(el, h) {
   root.addEventListener('click', onClick);
   root.addEventListener('input', onInput);
   // the tab has no view of its own to put in the address; an address that names a lead brings that item forward
-  return { show, focusItem, count: () => openLeft(), address: () => ({}), applyAddress };
+  return { show, focusItem, count: () => openLeft(), address: () => ({}), applyAddress, live };
 }
 
 /** The tab was opened: read again, because items arrive and leave while it is closed. */
@@ -63,6 +63,17 @@ async function show() {
 }
 
 const openLeft = () => (S.view ? S.view.open.filter((i) => !S.done.has(i.leadId)).length : 0);
+
+/**
+ * The dashboard's open review items, by lead id, each time it is read. Items the tab has not shown are announced in one
+ * line with a button that reads the tab again; nothing is inserted under the person's hands.
+ */
+function live(/** @type {string[]} */ ids) {
+  const box = root?.querySelector('#rvNew');
+  if (!box || !S.view) return;
+  const n = arrivedSince(ids, S.view.open.map((i) => i.leadId)).length;
+  box.innerHTML = n ? `${esc(arrivedLine(n))} <button type="button" class="btn-link" data-act="reload">Show ${n === 1 ? 'it' : 'them'}</button>` : '';
+}
 const demoOn = () => !!S.view?.demoActions;
 
 /** An address named a lead: bring its item forward once the items are drawn. */
@@ -99,6 +110,7 @@ function barHTML(/** @type {ReviewView} */ v) {
     <span class="rv-count" id="rvCount" aria-live="polite">${esc(openHeadline(v.open.length))}</span>
     ${v.demoActions ? '' : `<p class="rv-off">${esc(DEMO_OFF)}</p>`}
     <p class="rv-msg" id="rvMsg" role="status"></p>
+    <p class="rv-msg rv-new" id="rvNew" role="status"></p>
   </div>`;
 }
 
@@ -149,7 +161,10 @@ function onClick(/** @type {MouseEvent} */ e) {
   const btn = /** @type {HTMLButtonElement | null} */ (t.closest('button[data-act]'));
   if (!btn || btn.disabled) return;
   const act = btn.dataset.act ?? '';
-  if (act === 'nurture_all') { e.preventDefault(); void nurtureAll(btn.dataset.list ?? ''); return; } // inside a summary: do not toggle it
+  if (act === 'reload') { void show(); return; }
+  // both sit inside a summary: do not toggle it
+  if (act === 'nurture_all') { e.preventDefault(); askNurtureAll(btn); return; }
+  if (act === 'nurture_cancel') { e.preventDefault(); disarm(btn.dataset.list ?? ''); say(''); return; }
   const card = /** @type {HTMLElement | null} */ (btn.closest('.rcard'));
   if (card?.dataset.id) void decide(card, act, btn);
 }
@@ -180,13 +195,45 @@ async function decide(/** @type {HTMLElement} */ card, /** @type {string} */ act
   }
 }
 
-async function nurtureAll(/** @type {string} */ list) {
+const groupOf = (/** @type {string} */ list) => /** @type {HTMLElement | null} */ (root.querySelector(`details.rlist[data-list="${CSS.escape(list)}"]`));
+
+/** How many of a list's rows the list-wide button would send: the ones nobody could place that are still open. */
+function unplacedLeft(/** @type {string} */ list) {
   const g = groupItems(S.view?.open ?? []).lists.find((x) => x.name === list);
-  const group = /** @type {HTMLElement | null} */ (root.querySelector(`details.rlist[data-list="${CSS.escape(list)}"]`));
-  if (!g || !group || !needName(group)) return;
-  const n = g.items.filter((i) => isUnplaced(i) && !S.done.has(i.leadId)).length;
-  if (!n || !window.confirm(nurtureAllConfirm(n, list))) return;
+  return g ? g.items.filter((i) => isUnplaced(i) && !S.done.has(i.leadId)).length : 0;
+}
+
+/**
+ * The list-wide send asks once, in the page: the first click arms the button and says what it will do, the second sends,
+ * and Cancel puts it back. A browser dialog would cover the rows the person is deciding about and cannot be styled or tested.
+ */
+function askNurtureAll(/** @type {HTMLButtonElement} */ btn) {
+  const list = btn.dataset.list ?? '';
+  const group = groupOf(list);
+  const n = unplacedLeft(list);
+  if (!group || !n || !needName(group)) return;
+  if (btn.dataset.armed === '1') { void nurtureAll(list); return; }
+  btn.dataset.armed = '1';
+  btn.textContent = nurtureAllYes(n);
+  btn.insertAdjacentHTML('afterend', `<button type="button" class="btn btn-ghost btn-sm rv-all rv-all-cancel" data-act="nurture_cancel" data-list="${esc(list)}">Cancel</button>`);
+  say(nurtureAllConfirm(n, list));
+}
+
+/** Puts an armed list-wide button back as it was. */
+function disarm(/** @type {string} */ list) {
+  const group = groupOf(list);
+  const btn = /** @type {HTMLButtonElement | null} */ (group?.querySelector('[data-act="nurture_all"]') ?? null);
+  group?.querySelector('[data-act="nurture_cancel"]')?.remove();
+  if (!btn) return;
+  delete btn.dataset.armed;
+  btn.textContent = nurtureAllLabel(unplacedLeft(list));
+}
+
+async function nurtureAll(/** @type {string} */ list) {
+  const group = groupOf(list);
+  if (!group || !unplacedLeft(list)) return;
   const btn = /** @type {HTMLButtonElement | null} */ (group.querySelector('[data-act="nurture_all"]'));
+  group.querySelector('[data-act="nurture_cancel"]')?.remove();
   if (btn) btn.disabled = true;
   try {
     const r = await host.postJSON('/review/list', { list, by: S.by.trim() });
@@ -198,6 +245,7 @@ async function nurtureAll(/** @type {string} */ list) {
     void refreshDecided();
   } catch (e) {
     if (btn) btn.disabled = false;
+    disarm(list);
     say(e instanceof Error ? e.message : String(e));
   }
 }

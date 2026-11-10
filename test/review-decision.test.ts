@@ -321,4 +321,26 @@ describe("a list's unplaced rows, all to nurture", () => {
     const again = await reviewApi(new Request('http://local/api/review/list', { method: 'POST', body: JSON.stringify({ list: 'HLTH', by: 'Riley' }) }), ctx);
     assert.equal(again.status, 404, 'nothing left to send');
   });
+
+  it('a badge scanned twice does not come back: the repeat stays attached to the scan a person sent to nurture', async () => {
+    const clock = { now: Date.parse('2026-11-10T15:00:00.000Z') };
+    const ctx = testCtx({ demoRoutes: true, listQuietMs: 5_000, now: () => clock.now });
+    const badge = { email: 'twice@brightwaterschools.example', first: 'Deja', last: 'Quill', company: 'Brightwater Schools', title: 'Operations Manager' };
+    const scan = (over: Partial<PayloadSpec>) => post(ctx, 'event_scan', buildPayload('event_scan', spec({ event: 'HLTH', notes: '', message: undefined, ...over })), { wait: false });
+    const first = await scan({ ...badge, ts: '2026-11-10T13:00:00.000Z', seed: 't1' });
+    const repeat = await scan({ ...badge, ts: '2026-11-10T14:30:00.000Z', notes: 'second session scan', seed: 't2' });
+    await scan({ email: 'other@tidewaterfreight.example', first: 'Nadim', last: 'Quill', company: 'Tidewater Freight', title: 'Founder', seed: 't3' });
+    await whenIdle(ctx);
+    clock.now += 5_000;
+    flushListDigests(ctx);
+    assert.equal(detail(ctx, repeat.json.leadId).route.action, 'attach_to_existing', 'the second scan of the badge attached to the first');
+    assert.equal(openCount(ctx), 2, 'two people need a person, not three');
+    const res = await reviewApi(new Request('http://local/api/review/list', { method: 'POST', body: JSON.stringify({ list: 'HLTH', by: 'Riley' }) }), ctx);
+    const body = (await res.json()) as Answer;
+    await whenIdle(ctx);
+    assert.equal(body.count, 2);
+    assert.equal(detail(ctx, first.json.leadId).route.action, 'nurture');
+    assert.equal(detail(ctx, repeat.json.leadId).route.action, 'attach_to_existing', 'the repeat was not run again on its own');
+    assert.equal(openCount(ctx), 0, 'the person the reviewer just cleared is not back in the queue');
+  });
 });

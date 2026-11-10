@@ -1182,6 +1182,7 @@ async function loadDashboard() {
     state.dash = await getJSON('/dashboard');
     state.reviewOpen = null; // the dashboard is newer than the tab's last read
     renderReviewTabCount();
+    mounted.review?.live?.(state.dash.review.map((r) => r.leadId)); // an open Needs a person tab says what arrived, without redrawing
     renderStrip();
     renderOverview();
   } catch (e) {

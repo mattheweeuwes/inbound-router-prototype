@@ -256,7 +256,7 @@ function renderLinks() {
   const off = d.actions.linkDecisions ? '' : '<p class="ob-links-off"><b>Demo actions are off on this server,</b> so a decision cannot be recorded here. Start it with <code>npm run dev</code> (it sets <code>DEMO_ROUTES=1</code>).</p>';
   const items = rows.map((r) => (r.kind === 'link' ? linkItem(r.group) : lineItem(r.line))).join('');
   const showAll = probable.length > 1
-    ? `<button type="button" class="btn-link ob-links-all" data-links-all data-fk="links-all" aria-expanded="${S.linksAll}">${S.linksAll ? 'Show only the first' : `Show all ${nf(probable.length)}`}</button>`
+    ? `<button type="button" class="btn-link ob-links-all" data-links-all data-fk="links-all" aria-expanded="${S.linksAll}">${S.linksAll ? 'Show fewer' : `Show all ${nf(probable.length)}`}</button>`
     : '';
   box.innerHTML = `<section class="card ob-links" id="obLinksCard" aria-labelledby="obLinksTitle">
     <div class="ob-links-head">

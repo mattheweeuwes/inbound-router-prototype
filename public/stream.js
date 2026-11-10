@@ -23,8 +23,8 @@ import { SRC_SHORT, TEAM_SHORT, actionPill, esc, fmtMs, tierBadge } from './ui.j
  * @typedef {{ chips: HTMLElement, bar: HTMLElement, count: HTMLElement, head: HTMLElement, list: HTMLElement, search: HTMLInputElement, pane: HTMLElement }} Els
  */
 
-/** @type {{ leads: Lead[], loaded: boolean, fresh: Set<string>, view: View, open: Set<string>, shown: number }} */
-const S = { leads: [], loaded: false, fresh: new Set(), view: defaultView(), open: new Set(), shown: 0 };
+/** @type {{ leads: Lead[], loaded: boolean, fresh: Set<string>, view: View, open: Set<string>, shown: number, waiting: boolean }} */
+const S = { leads: [], loaded: false, fresh: new Set(), view: defaultView(), open: new Set(), shown: 0, waiting: false };
 
 /** @type {Host} */
 let host;
@@ -42,9 +42,11 @@ export function mountStream(els, h) {
   el.search.addEventListener('input', debounced(() => { S.view = { ...S.view, q: el.search.value }; render(); host.onChange('search'); }, 120));
   el.pane.addEventListener('click', onClick);
   el.pane.addEventListener('change', onChange);
+  // a strip that waited for a select to be let go is drawn once the person leaves the control
+  el.pane.addEventListener('focusout', (e) => { if (S.waiting && e.target instanceof HTMLSelectElement) setTimeout(() => render(), 0); });
   el.list.addEventListener('keydown', onKey);
   render();
-  return { setLeads, applyParams, address: () => toParams(S.view), view: () => S.view, markSelected, reveal, openListOf, firstLeadId, render };
+  return { setLeads, applyParams, address: () => toParams(S.view), view: () => S.view, markSelected, reveal, openListOf, firstLeadId, render: () => render() };
 }
 
 /** @param {() => void} fn @param {number} ms */
@@ -59,7 +61,7 @@ function setLeads(/** @type {Lead[]} */ leads, /** @type {Set<string>} */ fresh)
   S.leads = leads;
   S.loaded = true;
   S.fresh = fresh;
-  render();
+  render(true);
 }
 
 /** The address named a view: take it, show it in the search box, and draw. */
@@ -98,7 +100,25 @@ function reveal(/** @type {string} */ id) {
 
 // ─── drawing ─────────────────────────────────────────────────────────────────
 
-function render() {
+/** What each control strip last drew, so a strip that would come out the same is left alone. */
+const drawn = new WeakMap();
+
+/**
+ * Writes a control strip. A strip whose HTML has not changed keeps its nodes, so leads arriving do not replace the chip a
+ * person is about to click. When leads arrive while a select in the strip is in use, the strip waits: replacing an open
+ * select closes its menu under the person's hand. It is drawn when they pick a value or leave the control.
+ * @param {HTMLElement} node @param {string} html @param {boolean} arriving
+ */
+function put(node, html, arriving) {
+  if (drawn.get(node) === html) return;
+  const active = document.activeElement;
+  if (arriving && active instanceof HTMLSelectElement && node.contains(active)) { S.waiting = true; return; }
+  node.innerHTML = html;
+  drawn.set(node, html);
+}
+
+/** @param {boolean} [arriving] true when new leads caused this draw, false when the person did */
+function render(arriving = false) {
   keepFocus(el.pane, () => {
     const v = S.view;
     const counts = facetCounts(S.leads, v);
@@ -106,10 +126,11 @@ function render() {
     S.shown = shown.length;
     const rows = rowsWithGroups(shown, v, S.open);
     const folded = rows.filter((r) => r.kind === 'group').length;
-    el.chips.innerHTML = routeChips(counts);
-    el.bar.innerHTML = filterBar(counts);
+    S.waiting = false;
+    put(el.chips, routeChips(counts), arriving);
+    put(el.bar, filterBar(counts), arriving);
     el.count.textContent = S.loaded ? countLine(shown.length, S.leads.length, folded) : '';
-    el.head.innerHTML = headRow();
+    put(el.head, headRow(), arriving);
     drawRows(rows);
   });
 }
