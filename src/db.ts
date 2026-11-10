@@ -76,7 +76,7 @@ export function openDb(cfg: Config, registry: RegistryChoice): Db {
 }
 
 /** Every table the router writes, children first. schema_migrations is not app data and stays. */
-const APP_TABLES = ['crm_outbox', 'account_claims', 'assignments', 'stage_log', 'review_queue', 'account_signals', 'accounts', 'leads', 'lead_events'];
+const APP_TABLES = ['list_digests', 'crm_outbox', 'account_claims', 'assignments', 'stage_log', 'review_queue', 'account_signals', 'accounts', 'leads', 'lead_events'];
 
 export function clearAppData(db: Db) {
   for (const t of APP_TABLES) db.exec(`DELETE FROM ${t}`);

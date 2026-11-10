@@ -2,6 +2,8 @@
 // Every number is computed on request from the app database, fixtures/owners.json (via ctx.owners), or an artifact that already
 // exists (out/eval.json, out/hubspot/*.jsonl, docs/hubspot-properties.json). Nothing is hard-coded, and nothing here writes.
 //
+// Lists: a list lead folded into its list's digest (decision 24) counts as alerted once the digest is recorded, at the digest's
+// time; until then it is assigned and not yet alerted.
 // Timing: time_to_route_ms runs from the 202 to the routing decision, so it includes the wait for earlier leads in the ordered
 // section (timings.queued). Processing is reported as time_to_route_ms minus queued; the queue wait is reported on its own.
 // A lead's order-independent work (src/stages.ts prepareLead) runs alongside that wait, so stage times overlap it. Time to
@@ -62,6 +64,8 @@ interface Lead {
   name: string | null; title: string | null; companyRaw: string | null;
   res: any; qual: any; route: any; crm: any; alert: any; timings: Record<string, number> | null;
   secondOpinionState: 'pending' | 'running' | 'done' | null; secondOpinion: StoredSecondOpinion | null;
+  /** the uploaded list it came in on (decision 24), and when the server accepted it */
+  listName: string | null; acceptedAt: string | null;
 }
 
 /** The columns loadLeads selects. */
@@ -71,7 +75,7 @@ type LeadRow = {
   first_name: string | null; last_name: string | null; email: string | null; title: string | null; company_name_raw: string | null;
   created_at: string | null; updated_at: string | null; resolution_json: string | null; qualification_json: string | null; route_json: string | null;
   crm_json: string | null; alert_json: string | null; timings_json: string | null; source: Source; received_at: string; synthetic: number;
-  second_opinion: 'pending' | 'running' | 'done' | null; second_opinion_json: string | null;
+  second_opinion: 'pending' | 'running' | 'done' | null; second_opinion_json: string | null; list_name: string | null; accepted_at: string | null;
 };
 type ActivityRow = { rid: number; lead_id: string; stage: string; started_at: string; ok: number; note: string | null };
 
@@ -79,7 +83,7 @@ function loadLeads(ctx: Ctx): Lead[] {
   const rows = ctx.db.prepare(`SELECT l.id, l.status, l.tier, l.segment, l.route_action, l.route_team, l.owner, l.sla_due_at, l.time_to_route_ms,
       l.account_id, l.duplicate_of, l.is_disposable, l.first_name, l.last_name, l.email, l.title, l.company_name_raw, l.created_at, l.updated_at,
       l.resolution_json, l.qualification_json, l.route_json, l.crm_json, l.alert_json, l.timings_json, l.second_opinion, l.second_opinion_json,
-      e.source, e.received_at, e.synthetic
+      e.source, e.received_at, e.synthetic, e.list_name, e.accepted_at
     FROM leads l JOIN lead_events e ON e.id = l.id ORDER BY e.received_at, l.created_at`).all() as LeadRow[];
   return rows.map(r => ({
     id: r.id, status: r.status, tier: r.tier ?? null, segment: r.segment ?? null, action: r.route_action ?? null, team: r.route_team ?? null,
@@ -90,11 +94,15 @@ function loadLeads(ctx: Ctx): Lead[] {
     res: parse(r.resolution_json), qual: parse(r.qualification_json), route: parse(r.route_json), crm: parse(r.crm_json), alert: parse(r.alert_json),
     timings: parse<Record<string, number>>(r.timings_json),
     secondOpinionState: r.second_opinion ?? null, secondOpinion: r.second_opinion === 'done' ? parse<StoredSecondOpinion>(r.second_opinion_json) : null,
+    listName: r.list_name ?? null, acceptedAt: r.accepted_at ?? null,
   }));
 }
 
 const isMatched = (l: Lead) => l.res?.status === 'resolved' && !!l.accountId;
-const alertSent = (l: Lead) => !!l.alert?.slack && !l.alert?.suppressed;
+/** Its own alert went out, or the list digest it was folded into did (decision 24). */
+const alertSent = (l: Lead) => (!!l.alert?.slack && !l.alert?.suppressed) || !!l.alert?.digest?.at;
+/** A list lead routed on the rules is unknown to the registry, or placed only by inference: the same test as the digest's. */
+const unknownOrg = (l: Lead) => !l.res || l.res.status !== 'resolved' || !!l.res.inferred;
 const suppressedRepeat = (l: Lead) => l.action === 'attach_to_existing' && !!l.route?.alertSuppressed;
 /** The route waited for a model call (decision 19: only when it could change the team, unless MODEL_BEFORE_ROUTE=all). */
 const modelCalled = (l: Lead) => !!l.qual && waitedForModel(l.qual);
@@ -241,7 +249,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     { id: 'qualified', label: 'Qualified', def: 'Matched, scored and not disqualified (tier A to D).', keep: l => !!l.tier && l.tier !== 'X' },
     { id: 'sales_ready', label: 'Sales-ready', def: 'Qualified and scored A or B.', keep: l => l.tier === 'A' || l.tier === 'B' },
     { id: 'assigned', label: 'Assigned to a rep or team', def: 'Sales-ready and routed to a rep, the account owner or a team queue (a repeat contact stays with its first owner).', keep: l => ASSIGNED_ROUTES.has(l.action ?? '') },
-    { id: 'alerted', label: 'Alerted', def: 'Assigned and a Slack alert went to the rep or the team channel. A repeat contact inside 24 hours is attached without a new alert.', keep: alertSent },
+    { id: 'alerted', label: 'Alerted', def: 'Assigned and a Slack alert went to the rep or the team channel, or, for a row of an uploaded list, the list digest it was folded into went out. A repeat contact inside 24 hours is attached without a new alert.', keep: alertSent },
     { id: 'synced', label: sDry ? 'HubSpot sync planned' : 'Synced to HubSpot', def: sDry ? 'Alerted, and the HubSpot requests for it were built and recorded (dry-run: nothing is sent).' : 'Alerted, and every HubSpot request for it answered 2xx.', keep: l => (l.crm?.requests?.length ?? 0) > 0 && (l.crm?.mode !== 'live' || l.crm?.ok === true) },
   ];
   let pool = leads;
@@ -351,8 +359,13 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     return {
       leadId: r.lead_id, reason: r.reason, createdAt: r.created_at, waitMs: Math.max(0, now - Date.parse(r.created_at)),
       name: l?.name ?? null, title: l?.title ?? null, company: l?.companyRaw ?? null, tier: l?.tier ?? null, source: l?.source ?? null,
+      list: l?.listName ?? null,
     };
   });
+
+  // ---- uploaded lists (decision 24): one row per list, from its leads and the digests recorded for it ----------------------
+  const digestCounts = new Map((db.prepare(`SELECT list_name, COUNT(*) AS n FROM list_digests GROUP BY list_name`).all() as { list_name: string; n: number }[]).map(r => [r.list_name, Number(r.n)]));
+  const lists = listsBlock(leads, digestCounts);
 
   // ---- reps and queues (owners.json); load is the router's own rolling 24 hours before the newest lead -------------------
   const anchor = dataWindow.to ? Date.parse(dataWindow.to) : now;
@@ -458,7 +471,7 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     if (!r.ok) { activity.push({ ...base, kind: 'failed', stage: r.stage, note: r.note }); continue; }
     if (r.stage === 'idempotent_replay') activity.push({ ...base, kind: 'duplicate' });
     else if (r.stage === 'crm') { const n = l.crm?.requests?.length ?? 0; if (n) activity.push({ ...base, kind: 'crm', requests: n, mode: l.crm.mode }); }
-    else if (r.stage === 'notify') { if (alertSent(l)) activity.push({ ...base, kind: 'alerted', channel: l.alert.slack.channel ?? null }); }
+    else if (r.stage === 'notify') { if (alertSent(l)) activity.push({ ...base, kind: 'alerted', channel: l.alert.slack?.channel ?? l.alert.digest?.channel ?? null, ...(l.alert.digest ? { digest: l.alert.digest.list } : {}) }); }
     else if (r.stage === 'route' && !(alertSent(l) && l.status === 'done')) {
       const kind = l.action === 'review' ? 'review' : l.action === 'nurture' ? 'nurture' : l.action === 'account_signal' ? 'signal'
         : l.action === 'attach_to_existing' ? 'attached' : ['drop', 'careers', 'press', 'competitor_flag'].includes(l.action ?? '') ? 'not_for_sales' : 'routed';
@@ -487,9 +500,35 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     motions, doors: doorRows, funnel, markets, unsegmented, notForSales,
     speed, sla, reps, queues,
     hubspot, matching, hygiene: metrics.hygiene, stageFailures,
-    activity, review,
+    activity, review, lists,
     eval: ev,
   };
+}
+
+/** Per uploaded list: rows, tiers, actions, repeats attached, unknown organizations, digests recorded, first and last accepted. */
+function listsBlock(leads: Lead[], digestCounts: ReadonlyMap<string, number>) {
+  const byList = new Map<string, Lead[]>();
+  for (const l of leads) if (l.listName) byList.set(l.listName, [...(byList.get(l.listName) ?? []), l]);
+  return [...byList.entries()].map(([name, rows]) => {
+    const byTier = emptyTiers();
+    const byAction: Record<string, number> = {};
+    for (const l of rows) {
+      byTier[l.tier && ['A', 'B', 'C', 'D', 'X'].includes(l.tier) ? l.tier : 'pending']++;
+      const a = l.action ?? 'pending';
+      byAction[a] = (byAction[a] ?? 0) + 1;
+    }
+    const accepted = rows.map(l => l.acceptedAt).filter((x): x is string => !!x).sort();
+    return {
+      name, rows: rows.length, byTier, byAction,
+      repeatsAttached: rows.filter(l => l.action === 'attach_to_existing').length,
+      unknownOrgs: rows.filter(l => l.status === 'done' && unknownOrg(l)).length,
+      inFlight: rows.filter(l => l.status !== 'done' && l.status !== 'failed').length,
+      folded: rows.filter(l => !!l.alert?.digest).length,
+      waitingForDigest: rows.filter(l => !!l.alert?.digest && !l.alert.digest.at).length,
+      digests: digestCounts.get(name) ?? 0,
+      firstAccepted: accepted[0] ?? null, lastAccepted: accepted[accepted.length - 1] ?? null,
+    };
+  }).sort((a, b) => (b.lastAccepted ?? '').localeCompare(a.lastAccepted ?? ''));
 }
 
 export type Dashboard = ReturnType<typeof computeDashboard>;

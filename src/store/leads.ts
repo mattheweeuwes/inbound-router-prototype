@@ -5,12 +5,16 @@ import { allRows, getRow, tx, type Db } from '../db';
 import type { Source } from '../schema';
 
 /** What processLead needs to start a run. */
-export type LeadInputRow = { source: Source; received_at: string; raw_json: string; synthetic: number; created_at: string; attempts: number };
+export type LeadInputRow = { source: Source; received_at: string; raw_json: string; synthetic: number; created_at: string; attempts: number; list_name: string | null };
 
-/** An earlier lead from the same contact inside the dedupe window, oldest first. */
+/** A lead from the same contact accepted before this one, inside the dedupe window, in acceptance order. */
 export type PriorTouchRow = { id: string; owner: string | null; route_team: string | null; route_action: string | null; alert_json: string | null; received_at: string };
 
-export interface AcceptedEvent { id: string; source: string; sourceEventId: string; receivedAt: string; synthetic: boolean; rawJson: string; acceptedAt: string }
+export interface AcceptedEvent {
+  id: string; source: string; sourceEventId: string; receivedAt: string; synthetic: boolean; rawJson: string; acceptedAt: string;
+  /** the uploaded list the event belongs to (decision 24), or null */
+  listName: string | null;
+}
 
 /** Columns written when a lead is normalized. */
 export interface NormalizedColumns {
@@ -41,14 +45,17 @@ export function leadStore(db: Db) {
   const p = (sql: string): StatementSync => db.prepare(sql);
   const s = {
     eventByKey: p(`SELECT id FROM lead_events WHERE source = ? AND source_event_id = ?`),
-    insertEvent: p(`INSERT INTO lead_events (id, source, source_event_id, received_at, synthetic, raw_json, accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?)`),
+    insertEvent: p(`INSERT INTO lead_events (id, source, source_event_id, received_at, synthetic, raw_json, accepted_at, list_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
     insertLead: p(`INSERT INTO leads (id, status, created_at, updated_at) VALUES (?, 'received', ?, ?)`),
     unfinished: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.status NOT IN ('done', 'failed') ORDER BY e.accepted_at, e.rowid`),
     dueRetries: p(`SELECT id FROM leads WHERE status = 'retrying' AND retry_at <= ? ORDER BY retry_at, rowid`),
     nextRetryAfter: p(`SELECT MIN(retry_at) AS at FROM leads WHERE status = 'retrying' AND retry_at > ?`),
-    input: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.created_at, l.attempts FROM lead_events e JOIN leads l ON l.id = e.id WHERE e.id = ?`),
+    input: p(`SELECT e.source, e.received_at, e.raw_json, e.synthetic, l.created_at, l.attempts, e.list_name FROM lead_events e JOIN leads l ON l.id = e.id WHERE e.id = ?`),
+    // Earlier means accepted earlier (lead_events rowid), not an earlier source timestamp: a list arrives out of time order,
+    // and its second scan of a badge often carries the earlier time. The window is the 30 days either side of this lead's time.
     priorTouches: p(`SELECT l.id, l.owner, l.route_team, l.route_action, l.alert_json, e.received_at FROM leads l JOIN lead_events e ON e.id = l.id
-      WHERE l.contact_key = ? AND l.id != ? AND e.received_at < ? AND e.received_at >= ? AND l.status = 'done' ORDER BY e.received_at ASC`),
+      WHERE l.contact_key = ? AND l.id != ? AND e.rowid < (SELECT rowid FROM lead_events WHERE id = ?)
+        AND e.received_at >= ? AND e.received_at <= ? AND l.status = 'done' ORDER BY e.rowid ASC`),
     otherContacts: p(`SELECT COUNT(DISTINCT l.contact_key) AS n FROM leads l JOIN lead_events e ON e.id = l.id
       WHERE l.account_id = ? AND l.id != ? AND l.contact_key IS NOT NULL AND l.contact_key != ? AND e.received_at >= ? AND e.received_at < ?
         AND l.status = 'done' AND COALESCE(l.route_action, '') NOT IN ('drop', 'careers', 'press')`),
@@ -65,6 +72,7 @@ export function leadStore(db: Db) {
     crm: p(`UPDATE leads SET crm_json = ?, updated_at = ? WHERE id = ?`),
     secondOpinionDue: p(`UPDATE leads SET second_opinion = 'pending', second_opinion_json = ? WHERE id = ?`),
     clearSecondOpinion: p(`UPDATE leads SET second_opinion = NULL, second_opinion_json = NULL WHERE id = ?`),
+    clearDigest: p(`UPDATE leads SET digest_team = NULL, digest_id = NULL WHERE id = ?`),
     // only a finished lead: its alert is out, which is the point of asking afterwards
     nextSecondOpinion: p(`SELECT l.id FROM leads l JOIN lead_events e ON e.id = l.id WHERE l.second_opinion = 'pending' AND l.status = 'done' ORDER BY e.accepted_at, e.rowid LIMIT 1`),
     claimSecondOpinion: p(`UPDATE leads SET second_opinion = 'running' WHERE id = ? AND second_opinion = 'pending' AND status = 'done'`),
@@ -82,7 +90,7 @@ export function leadStore(db: Db) {
     /** The event and its lead in one transaction: an event recorded without its lead would block the re-delivery (same key) and never be processed. */
     accept(e: AcceptedEvent) {
       tx(db, () => {
-        s.insertEvent.run(e.id, e.source, e.sourceEventId, e.receivedAt, e.synthetic ? 1 : 0, e.rawJson, e.acceptedAt);
+        s.insertEvent.run(e.id, e.source, e.sourceEventId, e.receivedAt, e.synthetic ? 1 : 0, e.rawJson, e.acceptedAt, e.listName);
         s.insertLead.run(e.id, e.acceptedAt, e.acceptedAt);
       });
     },
@@ -91,7 +99,7 @@ export function leadStore(db: Db) {
     /** The earliest retry still in the future; the due ones are already queued. */
     nextRetryAfter: (nowMs: number): number | null => getRow<{ at: number | null }>(s.nextRetryAfter, nowMs)?.at ?? null,
     input: (id: string) => getRow<LeadInputRow>(s.input, id),
-    priorTouches: (contactKey: string, leadId: string, receivedAt: string, since: string) => allRows<PriorTouchRow>(s.priorTouches, contactKey, leadId, receivedAt, since),
+    priorTouches: (contactKey: string, leadId: string, since: string, until: string) => allRows<PriorTouchRow>(s.priorTouches, contactKey, leadId, leadId, since, until),
     /** Other contacts at the account with a finished, live lead in [since, until). */
     otherContactsAt: (accountId: string, leadId: string, contactKey: string | null, since: string, until: string): number =>
       Number(getRow<{ n: number }>(s.otherContacts, accountId, leadId, contactKey ?? '', since, until)?.n ?? 0),
@@ -112,6 +120,8 @@ export function leadStore(db: Db) {
     /** Marks the lead for a second opinion after its alert. shownJson is what the model call will be shown that the lead row does not keep. */
     markSecondOpinionDue: (id: string, shownJson: string) => { s.secondOpinionDue.run(shownJson, id); },
     clearSecondOpinion: (id: string) => { s.clearSecondOpinion.run(id); },
+    /** A re-run takes the lead out of any digest it waited for; the next run folds it again if it still should. */
+    clearDigest: (id: string) => { s.clearDigest.run(id); },
     /** The oldest finished lead whose second opinion is due, or null. */
     nextSecondOpinion: (): string | null => getRow<{ id: string }>(s.nextSecondOpinion)?.id ?? null,
     /** Takes the lead's second opinion for this worker. False when it is no longer due (done, re-run, or taken). */

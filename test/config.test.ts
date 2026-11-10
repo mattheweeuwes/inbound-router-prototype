@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { ROOT, hubspotKey, makeConfig } from '../src/config';
+import { ROOT, commitGrace, hubspotKey, listDoorsFrom, makeConfig } from '../src/config';
 
 // HubSpot stopped allowing new private apps on October 26, 2026. A service key is the replacement,
 // and an existing private-app token keeps working, so both names are read, service key first.
@@ -107,5 +107,28 @@ describe('defaults live in code', () => {
   it('settings in the environment still win', () => {
     const c = makeConfig({}, { PORT: '4000', LLM_PROVIDER: 'rules', OLLAMA_URL: 'http://127.0.0.1:9', OLLAMA_MODEL: 'm', CALENDLY_SIGNING_KEY: 'k' });
     assert.deepEqual([c.port, c.llmProvider, c.ollamaUrl, c.ollamaModel, c.calendlyKey], [4000, 'rules', 'http://127.0.0.1:9', 'm', 'k']);
+  });
+});
+
+// Lanes and lists (decisions 23 and 24): the commit grace, the list doors and their model rule, read from the environment.
+describe('commit grace and list settings', () => {
+  it('COMMIT_GRACE_MS: unset is 250 ms, never or off keeps strict acceptance order, a whole number is used as given', () => {
+    assert.equal(commitGrace(undefined), 250);
+    assert.equal(commitGrace('never'), null);
+    assert.equal(commitGrace('OFF'), null);
+    assert.equal(commitGrace('0'), 0);
+    assert.equal(commitGrace('1000'), 1000);
+    assert.equal(commitGrace('soon'), 250, 'an unusable value falls back to the default');
+  });
+  it('LIST_DOORS: unset is event_scan, none or blank is no list doors, a comma list is taken as given', () => {
+    assert.deepEqual(listDoorsFrom(undefined), ['event_scan']);
+    assert.deepEqual(listDoorsFrom('none'), []);
+    assert.deepEqual(listDoorsFrom(' '), []);
+    assert.deepEqual(listDoorsFrom('event_scan, guide_download'), ['event_scan', 'guide_download']);
+  });
+  it('the defaults with nothing set', () => {
+    const c = makeConfig({}, {});
+    assert.deepEqual([c.commitGraceMs, c.listDoors, c.listDoorModel, c.listQuietMs], [250, ['event_scan'], 'after_alert', 5000]);
+    assert.equal(makeConfig({}, { LIST_DOOR_MODEL: 'gated' }).listDoorModel, 'gated');
   });
 });

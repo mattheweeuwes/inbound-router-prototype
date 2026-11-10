@@ -16,6 +16,8 @@ export interface LeadSummary {
   org: { name: string | null; accountId: string | null; segment: string | null; matchedBy: string | null; confidence: string | null };
   tier: string | null; score: number | null; routeAction: string | null; routeTeam: string | null; owner: string | null;
   useCase: string | null; urgency: string | null; timeToRouteMs: number | null; flags: string[];
+  /** the uploaded list it came in on (decision 24), or null */
+  list: string | null;
 }
 
 /** A leads row joined with its event, as SELECT below returns it. */
@@ -24,16 +26,16 @@ export type LeadViewRow = {
   company_name_raw: string | null; contact_key: string | null; duplicate_of: string | null; account_id: string | null; segment: string | null;
   normalized_json: string | null; resolution_json: string | null; qualification_json: string | null; score_json: string | null; route_json: string | null;
   crm_json: string | null; alert_json: string | null; timings_json: string | null; second_opinion: SecondOpinionState | null; second_opinion_json: string | null;
-  rate_fact_json: string | null;
+  rate_fact_json: string | null; digest_team: string | null;
   tier: string | null; score: number | null; route_action: string | null; route_team: string | null; owner: string | null; time_to_route_ms: number | null;
-  source: Source; received_at: string; synthetic: number; raw_json: string; replays: number;
+  source: Source; received_at: string; synthetic: number; raw_json: string; replays: number; list_name: string | null;
 };
 type AccountRow = { name: string | null; domain: string | null; owner: string | null };
 type OtherLeadRow = { id: string; first_name: string | null; last_name: string | null; title: string | null; source: string; received_at: string };
 type SignalRow = { type: string; detail: string; at: string };
 type ReviewRow = { reason: string; candidates_json: string | null; resolved: number };
 
-const SELECT = `SELECT l.*, e.source, e.received_at, e.synthetic, e.raw_json,
+const SELECT = `SELECT l.*, e.source, e.received_at, e.synthetic, e.raw_json, e.list_name,
   (SELECT COUNT(*) FROM stage_log s WHERE s.lead_id = l.id AND s.stage = 'idempotent_replay') AS replays
   FROM leads l JOIN lead_events e ON e.id = l.id`;
 
@@ -54,12 +56,14 @@ export function toSummary(r: LeadViewRow): LeadSummary {
   if (afterHours(r.received_at)) flags.push('after_hours');
   if (route?.rule === 'R5') flags.push('existing_account');
   if (r.replays > 0) flags.push('idempotent_replay');
+  if (r.digest_team) flags.push('in_digest');
   return {
     id: r.id, receivedAt: r.received_at, source: r.source, synthetic: !!r.synthetic, status: r.status,
     person: r.source === 'web_intent' ? null : { name: name || email || 'Unknown', title: title ?? null, email: email ?? null },
     org: { name: res?.accountName ?? r.company_name_raw ?? null, accountId: r.account_id, segment: r.segment, matchedBy: res?.method ?? null, confidence: res?.confidence ?? null },
     tier: r.tier, score: r.score, routeAction: r.route_action, routeTeam: r.route_team, owner: r.owner,
     useCase: qual?.final?.useCase ?? null, urgency: qual?.final?.urgency ?? null, timeToRouteMs: r.time_to_route_ms, flags,
+    list: r.list_name ?? null,
   };
 }
 

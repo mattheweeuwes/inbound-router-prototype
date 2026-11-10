@@ -52,7 +52,7 @@ const L = {
   },
   flag: {
     free_mail: 'free-mail', duplicate: 'repeat', review: 'review', competitor: 'competitor', after_hours: 'after hours',
-    existing_account: 'owned account', idempotent_replay: 'replay',
+    existing_account: 'owned account', idempotent_replay: 'replay', in_digest: 'in a list digest',
   },
 };
 const lab = (map, v, fallback) => (v == null || v === '' ? (fallback ?? '—') : (L[map][v] ?? String(v).replace(/_/g, ' ')));
@@ -535,8 +535,10 @@ function renderDetail(d) {
   // 7 alert (it goes out before the HubSpot write)
   const al = d.alert;
   if (al) {
-    html += stage(stageState(d, 'notified', true), 'Alert', al.slack ? 'Slack message built' : 'No alert for this outcome', t.notify,
-      al.slack ? renderSlack(al.slack) : '');
+    const dg = al.digest;
+    const alertLine = al.slack ? 'Slack message built' : dg ? `Folded into the ${dg.list} digest for ${dg.channel}` : 'No alert for this outcome';
+    const digestBody = dg ? `<div class="meta-line">This row came in on the uploaded list ${esc(dg.list)}. Its route, SLA and CRM task are its own; its alert is one line in the list's digest to ${esc(dg.channel)} instead of a message of its own. ${dg.at ? `The digest went out ${esc(fmtFull(dg.at))}.` : 'The digest goes out when the list has settled.'}</div>` : '';
+    html += stage(stageState(d, 'notified', true), 'Alert', alertLine, t.notify, al.slack ? renderSlack(al.slack) : digestBody);
   } else {
     html += stage(stageState(d, 'notified', false), 'Alert', '', t.notify, null);
   }
@@ -604,7 +606,13 @@ async function renderReview() {
     box.innerHTML = '<div class="none">Nothing is waiting for a person right now.</div>';
     return;
   }
-  box.innerHTML = items.map((l) => `<div class="rcard" data-id="${esc(l.id)}"><div class="rcard-top"><span class="rcard-name">${esc(l.person?.name || 'Account signal')}</span><span style="color:var(--muted)">${esc(l.person?.title || '')}${l.org?.name ? ` · said "${esc(l.org.name)}"` : ''}</span><button class="btn btn-ghost open" data-id="${esc(l.id)}">Open the trail</button></div><div class="rcard-why">Loading the reason…</div></div>`).join('');
+  const card = (l) => `<div class="rcard" data-id="${esc(l.id)}"><div class="rcard-top"><span class="rcard-name">${esc(l.person?.name || 'Account signal')}</span><span style="color:var(--muted)">${esc(l.person?.title || '')}${l.org?.name ? ` · said "${esc(l.org.name)}"` : ''}</span><button class="btn btn-ghost open" data-id="${esc(l.id)}">Open the trail</button></div><div class="rcard-why">Loading the reason…</div></div>`;
+  // rows from one uploaded list read as one thing: a collapsible heading per list, the other items as before
+  const lists = new Map();
+  for (const l of items) if (l.list) lists.set(l.list, [...(lists.get(l.list) || []), l]);
+  const single = items.filter((l) => !l.list);
+  box.innerHTML = [...lists.entries()].map(([name, rows]) => `<details class="rlist"><summary><b>${esc(name)}</b> · ${nf(rows.length)} row${rows.length === 1 ? '' : 's'} from this list need a person</summary>${rows.map(card).join('')}</details>`).join('')
+    + single.map(card).join('');
   for (const l of items) {
     try {
       const d = state.details.get(l.id) || await getJSON(`/leads/${encodeURIComponent(l.id)}`);
@@ -1000,6 +1008,21 @@ function ovNotForSales(d) {
     foot: `<span><b>${nf(n.total)}</b> of ${nf(d.kpis.leadsIn.value)} leads</span><span><b>${nf(n.nurture)}</b> to nurture below the rep threshold</span>` });
 }
 
+function ovLists(d) {
+  const lists = d.lists || [];
+  if (!lists.length) return '';
+  const tiers = (t) => TIER_ORDER.filter((k) => t[k]).map((k) => `${k} ${nf(t[k])}`).join(' · ') || '—';
+  const actions = (a) => Object.entries(a).sort((x, y) => y[1] - x[1]).map(([k, n]) => `${lab('action', k)} ${nf(n)}`).join(' · ');
+  const rows = lists.map((l) => [l.name, l.rows, tiers(l.byTier), actions(l.byAction), l.repeatsAttached, l.unknownOrgs, l.digests, l.firstAccepted ? fmtFull(l.firstAccepted) : '—', l.lastAccepted ? fmtFull(l.lastAccepted) : '—']);
+  const body = `<ul class="fq" aria-label="Uploaded lists">${lists.map((l) => `<li>
+      <div class="who"><span class="who-line"><b>${esc(l.name)}</b></span><span class="d">${nf(l.rows)} rows · ${esc(tiers(l.byTier))}</span><span class="d">${esc(actions(l.byAction))}</span></div>
+      <div class="act"><span class="wait">${nf(l.digests)} digest${l.digests === 1 ? '' : 's'}${l.waitingForDigest ? ` · ${nf(l.waitingForDigest)} waiting` : ''}</span><span class="wait">${nf(l.repeatsAttached)} repeat${l.repeatsAttached === 1 ? '' : 's'} · ${nf(l.unknownOrgs)} unknown</span></div>
+    </li>`).join('')}</ul>`;
+  const table = dtable(['List', 'Rows', 'By tier', 'By action', 'Repeats attached', 'Unknown organizations', 'Digests', 'First accepted', 'Last accepted'], rows, 9);
+  return vcard({ id: 'lists', title: 'Uploaded lists', sub: `${nf(lists.length)} list${lists.length === 1 ? '' : 's'}`, body, table, span: 'span-5',
+    foot: '<span>One Slack digest per list and team in place of one alert per row; a rep alert still goes out on its own.</span>' });
+}
+
 function ovSpeed(d) {
   const sp = d.speed;
   const stageLabel = { normalize: 'Normalize', resolve: 'Resolve', qualify: 'Qualify', score: 'Score', route: 'Route', crm: 'CRM plan', notify: 'Alert' };
@@ -1181,7 +1204,14 @@ function ovActivity(d) {
 }
 function ovFollowUp(d, span = 'span-5') {
   const r = d.review;
-  const body = r.length ? `<ul class="fq" aria-label="Leads waiting for a person">${r.map((x) => `<li>
+  // a list's review rows collapse to one line here; the Needs a person tab lists them under the list's heading
+  const byList = new Map();
+  for (const x of r) if (x.list) byList.set(x.list, [...(byList.get(x.list) || []), x]);
+  const listLines = [...byList.entries()].map(([name, rows]) => `<li>
+      <div class="who"><span class="who-line"><b>${esc(name)}</b></span><span class="d">${nf(rows.length)} row${rows.length === 1 ? '' : 's'} from this uploaded list</span></div>
+      <div class="act"><button class="btn btn-sm fq-open" type="button" data-id="${esc(rows[0].leadId)}" aria-label="Open the ${esc(name)} rows in Needs a person">Open</button></div>
+    </li>`).join('');
+  const body = r.length ? `<ul class="fq" aria-label="Leads waiting for a person">${listLines}${r.filter((x) => !x.list).map((x) => `<li>
       <div class="who"><span class="who-line">${tierBadge(x.tier)}<b>${esc(x.name || 'Unknown')}</b></span><span class="d">${esc([x.title, x.company ? `said "${x.company}"` : null].filter(Boolean).join(' · '))}</span>
         <span class="why">${SICON.warn.replace('<svg', '<svg width="12" height="12"')}${esc(OV_REASON[x.reason] || x.reason)}</span></div>
       <div class="act"><span class="wait" title="Queued ${esc(fmtFull(x.createdAt))}">${esc(dur(x.createdAt ? Date.now() - Date.parse(x.createdAt) : x.waitMs))}</span><button class="btn btn-sm fq-open" type="button" data-id="${esc(x.leadId)}" aria-label="Open ${esc(x.name || 'this lead')} in Needs a person">Open</button></div>
@@ -1207,7 +1237,7 @@ function renderOverview() {
   if (d.empty) {
     html += `<div class="card empty-card"><h3>No leads yet</h3></div>`;
   } else {
-    html += section('Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d));
+    html += section('Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d) + ovLists(d));
     html += section('Speed to lead', ovSpeed(d) + ovSpeedBy(d) + ovReps(d));
     html += section('HubSpot and data quality', `<div class="span-5 colstack">${ovSync(d, '')}${ovLifecycle(d, '')}</div>` + ovProps(d) + ovMatching(d) + ovHygiene(d));
     html += section('Live', ovActivity(d) + `<div class="span-5 colstack">${ovFollowUp(d, '')}${ovClocks(d, '')}</div>`);
@@ -1261,6 +1291,7 @@ function connectStream() {
   };
   es.addEventListener('lead', onEvent);
   es.addEventListener('replay', () => { refreshList(); scheduleDashboard(); });
+  es.addEventListener('list', () => { state.details.clear(); refreshList(); scheduleDashboard(); if (state.selectedId) refreshDetail(); });
   es.onmessage = onEvent;
   es.onerror = () => {
     if (es.readyState === EventSource.CLOSED) {
@@ -1502,6 +1533,8 @@ function wire() {
     if (o) {
       showTab('review');
       const card = document.querySelector(`.rcard[data-id="${CSS.escape(o.dataset.id)}"]`);
+      const group = card?.closest('details.rlist');
+      if (group) group.open = true; // a list's rows sit under its collapsed heading
       if (card) { card.scrollIntoView({ block: 'center' }); card.classList.add('is-flash'); setTimeout(() => card.classList.remove('is-flash'), 1700); }
     }
   });
@@ -1537,7 +1570,7 @@ boot();
       facts: [[`Language`, `TypeScript`], [`Shape`, `A Web-standard handler (Request in, Response out), so it can run on a serverless platform. Locally a small node:http server sits in front of it, bound to 127.0.0.1 unless HOST says otherwise.`], [`Crypto`, `node:crypto: HMAC-SHA256 and a constant-time compare.`]],
       sections: [
         { h: `Each request`, ordered: true, items: [`A signed door with no key configured answers 503. It fails closed.`, `Signature: HMAC-SHA256 over the timestamp and the raw body. A timestamp more than 5 minutes old is rejected, which stops replays. A bad signature gets 401.`, `The payload is adapted to the canonical event.`, `Insert, in one transaction, with a unique key on (source, source event id). The id comes from the payload's own timestamp, or from a SHA-256 of the body when there is none, never from server time. A re-delivery hits the key and gets 200 with no work done.`, `A new event gets 202 Accepted and is processed off the request path.`] },
-        { h: `After the 202`, items: [`Each lead's order-independent work (normalize, resolve with its lookups, the rules and, when the route needs it, the model) starts at once, four leads at a time.`, `An ordered section then takes one lead at a time, in the order they were accepted, for everything that depends on earlier leads: dedupe, the account, score, route, round-robin, the alert and the HubSpot plan. Round-robin and dedupe never race, and the alert never waits on HubSpot.`, `Each stage writes its result and its duration to a stage log in SQLite (node:sqlite, WAL).`, `Re-running a lead replaces its derived rows, so a restart re-runs anything unfinished. A re-run can repeat an alert.`, `Time to route is measured from the 202. CI replays the 40-event day (39 leads) and fails if the p90 goes over 150 ms with the model off.`] },
+        { h: `After the 202`, items: [`Each lead's order-independent work (normalize, resolve with its lookups, the rules and, when the route needs it, the model) starts at once, four leads at a time.`, `An ordered section then takes one lead at a time, in the order they were accepted, for everything that depends on earlier leads: dedupe, the account, score, route, round-robin, the alert and the HubSpot plan. Round-robin and dedupe never race, and the alert never waits on HubSpot.`, `Leads commit in the order they were accepted within a lane (the email's domain, or the address on free mail). A lead still waiting for the model or a lookup holds only its lane: after a 250 ms grace, a ready lead from another organization goes ahead of it.`, `An uploaded list (conference badge scans) is routed on the rules, with the model after the alert, and its queue, owner-task, nurture and review rows go out as one Slack digest per list and team once the list has settled. A rep alert still goes out on its own.`, `Each stage writes its result and its duration to a stage log in SQLite (node:sqlite, WAL).`, `Re-running a lead replaces its derived rows, so a restart re-runs anything unfinished. A re-run can repeat an alert.`, `Time to route is measured from the 202. CI replays the 40-event day (39 leads) and fails if the p90 goes over 150 ms with the model off.`] },
       ],
       prod: `Parallel workers with a per-account lock instead of the one ordered section, and a dead-letter queue for events that keep failing.`,
     },

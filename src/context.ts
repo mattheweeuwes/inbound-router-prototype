@@ -6,7 +6,7 @@ import { chooseRegistry, openDb, type Db, type RegistryChoice } from './db';
 import { loadOutbound, type OutboundLoad } from './outbound/load';
 import { loadUsage, type UsageLoad } from './usage/load';
 import type { CrmMirrorEntry, Owners } from './schema';
-import type { PrepareOutcome } from './stages';
+import type { CommitQueue } from './pipeline';
 import { storeFor, type Store } from './store';
 
 export type FetchFn = typeof fetch;
@@ -21,8 +21,8 @@ export interface Ctx {
   bus: EventEmitter;
   owners: Owners;
   mirror: CrmMirrorEntry[];
-  /** pipeline queue state, owned by pipeline.ts: the ordered section's chain, leads in it, and each lead's prepared work by id */
-  q: { chain: Promise<unknown>; pending: number; prepared: Map<string, Promise<PrepareOutcome>> };
+  /** pipeline queue state, owned by pipeline.ts: the leads waiting for their commit, in acceptance order, with their lanes and prepared work */
+  q: CommitQueue;
   /** how the rate file was loaded at startup (src/outbound/load.ts); the outbound API explains an empty state from it */
   outbound: OutboundLoad;
   /** how the synthetic usage fixtures were loaded at startup (src/usage/load.ts); the attribution API explains an empty state from it */
@@ -44,7 +44,7 @@ export function createCtx(over: Partial<Config> = {}, fetchImpl?: FetchFn): Ctx 
     bus: new EventEmitter(),
     owners: readJson<Owners>(join(cfg.fixturesDir, 'owners.json')),
     mirror: existsSync(join(cfg.fixturesDir, 'crm-mirror.json')) ? readJson<CrmMirrorEntry[]>(join(cfg.fixturesDir, 'crm-mirror.json')) : [],
-    q: { chain: Promise.resolve(), pending: 0, prepared: new Map() },
+    q: { waiting: [], committing: false, pending: 0, head: null, idle: [] },
     outbound: { status: 'missing', path: cfg.ratesCsv, message: 'not loaded yet', rows: 0, groups: 0, ms: 0 },
     usage: { status: 'off', message: 'not loaded yet', features: 0, deals: 0, events: 0, ms: 0 },
   };

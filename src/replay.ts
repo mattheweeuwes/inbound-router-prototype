@@ -5,6 +5,7 @@ import inbound from '../api/inbound';
 import type { Ctx } from './context';
 import { clearAppData } from './db';
 import { loadFixtures, type Fixture } from './fixtures';
+import { flushListDigests } from './listDigest';
 import { whenIdle } from './pipeline';
 import { signCalendly, signingKey } from './sources';
 
@@ -46,6 +47,8 @@ export async function runReplay(ctx: Ctx, opts: ReplayOptions = {}) {
     if (opts.paceMs) await new Promise(res => setTimeout(res, opts.paceMs));
   }
   await whenIdle(ctx);
+  // everything is posted and settled, so the day's lists need not wait out their quiet period for their digests
+  flushListDigests(ctx, { force: true });
   ctx.bus.emit('replay', { state: 'done', count: fixtures.length });
   return results;
 }

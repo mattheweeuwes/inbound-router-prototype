@@ -156,6 +156,22 @@ describe('modelTiming: which leads wait for the model (decision 19)', () => {
   });
 });
 
+describe('modelTiming: a list door never waits for the model (decision 24)', () => {
+  const base = { setting: 'gated' as const, providerIsModel: true, freeText: true, rulesUseCaseClear: false, listDoorAfterAlert: true };
+  it('a list lead whose use case the rules cannot settle is still routed on the rules, with the model after the alert', () => {
+    assert.equal(modelTiming(base), 'after_alert');
+    assert.equal(modelTiming({ ...base, rulesUseCaseClear: true }), 'after_alert');
+  });
+  it('without the list rule (LIST_DOOR_MODEL=gated, or a door that is not a list) the gate decides as before', () => {
+    assert.equal(modelTiming({ ...base, listDoorAfterAlert: false }), 'before_route');
+  });
+  it('the old setting, the rules provider and a lead with no free text are unchanged', () => {
+    assert.equal(modelTiming({ ...base, setting: 'all' }), 'before_route');
+    assert.equal(modelTiming({ ...base, providerIsModel: false }), 'before_route');
+    assert.equal(modelTiming({ ...base, freeText: false }), 'not_called');
+  });
+});
+
 describe('compareSecondOpinion: what the model would have changed after the alert', () => {
   const ev = { useCaseScore: 3, useCaseRunnerUp: 0, urgencyCue: null, urgencyDate: null, urgencyDays: null, urgencyKind: 'none' as const, urgencyParsed: null, legacyUrgencyCue: null, hasFreeText: true, roleFromTitle: true };
   const rules = (over: Partial<Classification> = {}, e = {}): Classification => ({ reasons: 'rules', useCase: 'contract_negotiation', urgency: 'unknown', buyingRole: 'decision_maker', disqualifier: 'none', confidence: 0.8, evidence: { ...ev, ...e }, ...over });
@@ -189,10 +205,16 @@ describe('compareSecondOpinion: what the model would have changed after the aler
   });
   it('fastPathOf rebuilds the gated record from a full one: the rules alone when the model would have waited', () => {
     const full = combine(rules(), answer({ disqualifier: 'spam', confidence: 0.9 }), null, 'ollama');
-    assert.equal(fastPathOf(full).fallbackReason, AFTER_ALERT_REASON);
-    assert.equal(fastPathOf(full).reviewReason, null);
+    const doors = { listDoors: ['event_scan'], listDoorModel: 'after_alert' as const };
+    assert.equal(fastPathOf(full, 'calendly_demo', doors).fallbackReason, AFTER_ALERT_REASON);
+    assert.equal(fastPathOf(full, 'calendly_demo', doors).reviewReason, null);
     const unclear = combine(rules({ useCase: 'other' }, { useCaseScore: 0 }), answer(), null, 'ollama');
-    assert.equal(fastPathOf(unclear), unclear, 'an unclear use case waited for the model, so the record is the full one');
+    assert.equal(fastPathOf(unclear, 'calendly_demo', doors), unclear, 'an unclear use case waited for the model, so the record is the full one');
+  });
+  it('fastPathOf counts the list door rule: an unclear badge scan was routed on the rules alone (decision 24)', () => {
+    const unclear = combine(rules({ useCase: 'other' }, { useCaseScore: 0 }), answer(), null, 'ollama');
+    assert.equal(fastPathOf(unclear, 'event_scan', { listDoors: ['event_scan'], listDoorModel: 'after_alert' }).fallbackReason, AFTER_ALERT_REASON);
+    assert.equal(fastPathOf(unclear, 'event_scan', { listDoors: ['event_scan'], listDoorModel: 'gated' }), unclear, 'LIST_DOOR_MODEL=gated restores the gate');
   });
 });
 

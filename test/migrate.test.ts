@@ -46,7 +46,7 @@ describe('the migration runner', () => {
     oldDatabase(path);
     const ctx = testCtx({ appDb: path });
     const applied = (ctx.db.prepare(`SELECT name FROM schema_migrations ORDER BY name`).all() as { name: string }[]).map(r => r.name);
-    assert.deepEqual(applied, ['001_init.sql', '002_claims_outbox_retries.sql', '003_second_opinion.sql', '004_outbound_rates.sql', '005_usage_deals.sql']);
+    assert.deepEqual(applied, ['001_init.sql', '002_claims_outbox_retries.sql', '003_second_opinion.sql', '004_outbound_rates.sql', '005_usage_deals.sql', '006_list_digests.sql']);
 
     // claims: in their own table, owner from the account, with the two-word name intact
     assert.deepEqual({ ...(ctx.db.prepare(`SELECT lead_id, account_id, owner, at FROM account_claims`).get() as object) }, { lead_id: CLAIMER, account_id: ACCOUNT, owner: 'Avery Smith', at: '2026-11-05T15:00:00.000Z' });

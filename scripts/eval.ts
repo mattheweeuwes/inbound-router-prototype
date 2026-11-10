@@ -48,7 +48,8 @@ const FILES = RULES_ONLY ? { json: 'eval-rules.json', md: 'eval-rules.md', manif
 const GATE_FLOORS = RULES_ONLY ? RULES_FLOORS : FLOORS;
 // The dev replay posts the Calendly fixtures through the real handler, which refuses unsigned traffic; sign with a key that lives only in this process.
 // The eval runs synthetic items through the real pipeline: it never writes to HubSpot, whatever .env says.
-const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', modelBeforeRoute: 'all', ...NO_OUTSIDE_WRITES });
+// Commits follow acceptance order exactly (no lane passing, decision 23), so a rules-only run is reproducible byte for byte.
+const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', modelBeforeRoute: 'all', commitGraceMs: null, ...NO_OUTSIDE_WRITES });
 const modelReachable = ctx.cfg.llmProvider === 'ollama' && await warmOllama(ctx);
 if (RULES_ONLY) {
   const problems = rulesGatePreflight({ provider: ctx.cfg.llmProvider, sealedExists: !!sealed });
@@ -177,7 +178,7 @@ const ROUTE_INPUTS: readonly OpinionField[] = ['useCase', 'disqualifier', 'revie
 const DECIDED_FIRST = ['R1', 'R2', 'R3', 'R9'];
 function fastPathSet(name: string, rows: Row[]) {
   const items = rows.map(r => {
-    const fast = fastPathOf(r.q);
+    const fast = fastPathOf(r.q, r.source, ctx.cfg);
     const fields = compareSecondOpinion(fast, r.q).changed.filter(f => ROUTE_INPUTS.includes(f));
     // dev rows carry the route the full combine produced; the item sets have no earlier rule that could decide first
     const decidedFirst = !!r.route && DECIDED_FIRST.includes(r.route.rule);
@@ -285,8 +286,8 @@ for (const s of sets) {
 }
 md.push(`Idempotent re-delivery (F27) creates no new lead: ${idempotency.every(i => i.ok) ? 'yes' : 'NO'}.`, ``,
   `## Latency`, ``, `- rules: p50 ${out.rulesLatencyMs.p50} ms, p90 ${out.rulesLatencyMs.p90} ms per lead`, `- model: ${out.modelCalls} calls, p50 ${latency.p50} ms, p90 ${latency.p90} ms`, ``,
-  `## Fast path (decision 19)`, ``,
-  `Items the gated pipeline would route on different classifier inputs than the full combine above, because the model's answer that changes them would arrive after the alert. Use case never differs: a lead whose use case the model can change waits for it. ${RULES_ONLY ? 'With no model, nothing waits and nothing differs.' : ''}`, ``,
+  `## Fast path (decisions 19 and 24)`, ``,
+  `Items the gated pipeline would route on different classifier inputs than the full combine above, because the model's answer that changes them would arrive after the alert. A lead whose use case the model can change waits for it, so use case differs only on a list door (decision 24), which never waits and is counted here. ${RULES_ONLY ? 'With no model, nothing waits and nothing differs.' : ''}`, ``,
   `| set | items | waited for the model | model after the alert | routed differently | which |`, `|---|---|---|---|---|---|`,
   ...fastPath.map(f => `| ${f.name} | ${f.n} | ${f.waitedForModel} | ${f.afterAlert} | ${f.routesDifferently} | ${f.items.map(i => `${i.id} (${i.fields.join(', ')})`).join('; ')} |`), ``,
   `## Misses (v4 result; ${misses.length})`, ``, `| set | id | field | expected | got | rules | model | reasons |`, `|---|---|---|---|---|---|---|---|`,

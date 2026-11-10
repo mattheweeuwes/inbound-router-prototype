@@ -3,6 +3,7 @@
 // model runs for a lead, and what its second opinion after the alert would have changed.
 // The stages in src/stages.ts read the database, call these, and write the result. Tests call them directly.
 import type { DuplicateInfo, Rep } from './route';
+import type { DigestFold } from './lists';
 import type { SlackPayload } from './notify/slack';
 import type {
   BuyingRole, CrmMirrorEntry, Disqualifier, Firmographics, Normalized, Owners, Qualification, Resolution, Route, RouteAction, Source, Team,
@@ -21,6 +22,8 @@ export interface StoredAlert {
   failure?: SlackPayload;
   /** the follow-up a model doubt after the alert sends: where the alert went, and RevOps */
   followUp?: SlackPayload[];
+  /** a list lead whose alert was folded into its list's digest for a team (decision 24): no Slack payload of its own */
+  digest?: DigestFold;
 }
 
 /** An earlier finished lead from the same contact inside the dedupe window. */
@@ -39,15 +42,17 @@ const WENT_TO_SALES: readonly (RouteAction | null)[] = ['rep_alert', 'owner_task
 /**
  * Which prior touch, if any, owns this lead. Every live touch counts for scoring, but only a touch that went to sales carries
  * an owner worth attaching to: a guide download that went to nurture (Marketing) must not swallow the demo request that
- * follows it, or R2 would attach the demo to Marketing and write no CRM task. `prior` is oldest first; the oldest sales
- * touch owns the lead, and the newest alert that actually went out (not suppressed) is the one the 24-hour rule measures from.
+ * follows it, or R2 would attach the demo to Marketing and write no CRM task. `prior` is in acceptance order; the first sales
+ * touch owns the lead, and the latest alert that actually went out (not suppressed, or in a list digest) is the one the
+ * 24-hour rule measures from.
  */
 export function summarizeTouches(prior: PriorTouch[]): TouchSummary {
   const live = prior.filter(p => !NOT_LIVE.includes(p.action));
   const withOwner = live.filter(p => WENT_TO_SALES.includes(p.action));
   if (!withOwner.length) return { duplicate: null, priorTouches: live.length };
   let lastAlertAt: string | null = null;
-  for (const p of live) if (p.alert?.slack && !p.alert.suppressed) lastAlertAt = p.receivedAt;
+  // a list lead folded into a digest was alerted through it, so a repeat scan of the same badge stays quiet like any repeat
+  for (const p of live) if ((p.alert?.slack && !p.alert.suppressed) || p.alert?.digest) lastAlertAt = p.receivedAt;
   const first = withOwner[0];
   return { duplicate: { leadId: first.id, owner: first.owner, team: first.team, lastAlertAt }, priorTouches: live.length };
 }
@@ -137,6 +142,8 @@ export type ModelTiming = 'before_route' | 'after_alert' | 'not_called';
 
 export interface ModelTimingInput {
   setting: 'gated' | 'all';
+  /** the lead came through a list door (decision 24) and list doors never wait for the model (LIST_DOOR_MODEL is not 'gated') */
+  listDoorAfterAlert?: boolean;
   /** false for the rules provider, which answers at once without a model, so waiting for it costs nothing */
   providerIsModel: boolean;
   freeText: boolean;
@@ -150,11 +157,15 @@ export interface ModelTimingInput {
  * that lead waits for the model. Every other free-text lead is routed and alerted on the rules, and the same call runs
  * afterwards; a disqualifier it raises then follows the alert as a doubt. The buying role it might fill carries no points
  * and no routing. 'all' puts the model before the route for every free-text lead.
+ * A list door is the exception to the gate (decision 24): an uploaded list must not queue on the model, so its leads are
+ * routed on the rules whatever the note says, and the model's answer, a different use case included, arrives as the second
+ * opinion. The note on a badge scan is written by Serif's own booth staff.
  */
 export function modelTiming(i: ModelTimingInput): ModelTiming {
   if (!i.freeText) return 'not_called';
-  if (!i.providerIsModel || i.setting === 'all' || !i.rulesUseCaseClear) return 'before_route';
-  return 'after_alert';
+  if (!i.providerIsModel || i.setting === 'all') return 'before_route';
+  if (i.listDoorAfterAlert) return 'after_alert';
+  return i.rulesUseCaseClear ? 'after_alert' : 'before_route';
 }
 
 /** The fields a second opinion is compared on: the three the model can decide under v4, and whether a person would have been asked. */

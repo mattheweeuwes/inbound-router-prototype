@@ -14,6 +14,7 @@ import {
   type TouchSummary,
 } from './decisions';
 import { crmMode, planCrm, recordDryRun } from './crm/hubspot';
+import { digestChannel, foldsIntoDigest } from './lists';
 import { enqueuePlan, type CrmRecord } from './crm/outbox';
 import { crmIdentity, matchMirror } from './mirror';
 import { qualifyForRoute } from './modelPath';
@@ -44,6 +45,8 @@ export interface Run {
    * model call the route waited for, when there was one), alerted and total
    */
   timings: Record<string, number>;
+  /** the uploaded list the lead came in on (decision 24), or null */
+  listName: string | null;
   /** known once scored and routed, and carried on every later status event */
   tier?: string;
   routeAction?: string;
@@ -118,15 +121,28 @@ async function measure<T>(ctx: Ctx, records: StageRecord[], stage: Stage, fn: ()
   }
 }
 
-export async function prepareLead(ctx: Ctx, input: LeadInputRow): Promise<PrepareOutcome> {
+/** Runs a piece of prepare work in a bounded slot; the pipeline passes its lookup limiter, a direct call runs it at once. */
+export type Slot = <T>(fn: () => Promise<T>) => Promise<T>;
+const direct: Slot = fn => fn();
+
+/**
+ * The lookups (adapt, normalize, resolve) run in lookupSlot, which bounds how many leads hit the network at once. The
+ * qualify step runs after the slot is released: a model call waits in the model's own slots (src/modelPath.ts), so a lead
+ * waiting for the model does not keep another lead's lookups from starting.
+ */
+export async function prepareLead(ctx: Ctx, input: LeadInputRow, lookupSlot: Slot = direct): Promise<PrepareOutcome> {
   const records: StageRecord[] = [];
-  const startedMs = ctx.cfg.now();
+  let startedMs = ctx.cfg.now();
   try {
-    const ev = adapt(input.source, JSON.parse(input.raw_json), input.received_at);
-    ev.receivedAt = input.received_at;
-    const n = await measure(ctx, records, 'normalize', () => normalizeEvent(ev, registryLookups(ctx.db)));
-    // an account in the CRM that no public registry knows keeps the CRM record's identity and segment (before anything stores or scores it)
-    const resolved = await measure(ctx, records, 'resolve', async () => crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror));
+    const { ev, n, resolved } = await lookupSlot(async () => {
+      startedMs = ctx.cfg.now();
+      const ev = adapt(input.source, JSON.parse(input.raw_json), input.received_at);
+      ev.receivedAt = input.received_at;
+      const n = await measure(ctx, records, 'normalize', () => normalizeEvent(ev, registryLookups(ctx.db)));
+      // an account in the CRM that no public registry knows keeps the CRM record's identity and segment (before anything stores or scores it)
+      const resolved = await measure(ctx, records, 'resolve', async () => crmIdentity(await resolve(ctx, ev, n), n, ctx.mirror));
+      return { ev, n, resolved };
+    });
     const { qual, timing } = await measure(ctx, records, 'qualify', () => qualifyForRoute(ctx, ev, n, resolved));
     // the use case refines an unplaced resolution (a benefits contact at an unknown company)
     const res = inferEmployer(resolved, n, qual.final.useCase);
@@ -174,10 +190,14 @@ export function commitPrepared(run: Run, p: Prepared): Committed {
   return { n, res, qual, touches };
 }
 
-/** Finished leads from the same contact in the dedupe window before this one, oldest first. */
+/**
+ * Finished leads from the same contact accepted before this one, within the dedupe window either side of its time, in the
+ * order they were accepted. Acceptance order, not the source timestamps: a list's repeat scan can carry the earlier time.
+ */
 function priorTouches(ctx: Ctx, id: string, contactKey: string, receivedAt: string): PriorTouch[] {
-  const since = new Date(Date.parse(receivedAt) - DEDUPE_DAYS * DAY).toISOString();
-  return ctx.store.leads.priorTouches(contactKey, id, receivedAt, since).map(r => ({
+  const at = Date.parse(receivedAt);
+  const since = new Date(at - DEDUPE_DAYS * DAY).toISOString(), until = new Date(at + DEDUPE_DAYS * DAY).toISOString();
+  return ctx.store.leads.priorTouches(contactKey, id, since, until).map(r => ({
     id: r.id, owner: r.owner ?? '', team: r.route_team as Team, action: r.route_action as PriorTouch['action'],
     alert: r.alert_json ? (JSON.parse(r.alert_json) as StoredAlert) : null, receivedAt: r.received_at,
   }));
@@ -286,8 +306,9 @@ export interface NotifyInputs extends RouteInputs { routed: Routed }
 
 /**
  * Builds and records the Slack alert. It goes out before the HubSpot write, so Slack never waits on HubSpot: the payload is
- * built from the brief, the score and the route, and nothing in it comes from the CRM stage. Returns the brief for the CRM task,
- * which carries the same rate line.
+ * built from the brief, the score and the route, and nothing in it comes from the CRM stage. A list lead whose route is not a
+ * rep's alert posts nothing of its own: it is folded into its list's digest for the team (decision 24, src/listDigest.ts),
+ * and its alert time is set when that digest goes out. Returns the brief for the CRM task, which carries the same rate line.
  */
 export async function notifyStage(run: Run, i: NotifyInputs): Promise<Brief> {
   const { ctx, id, ev } = run;
@@ -295,16 +316,21 @@ export async function notifyStage(run: Run, i: NotifyInputs): Promise<Brief> {
   // the organization's own rate, when the rate file has a group for it: one line of fact, read here and never scored
   const rateFact = rateFactFor(ctx, i.res, i.n);
   const brief = buildBrief(ev, i.n, i.res, i.qual, rateFact?.line ?? null);
+  const fold = run.listName && foldsIntoDigest(route) ? { list: run.listName, team: route.team, channel: digestChannel(route.team), at: null, id: null } : null;
   await timed(run, 'notify', () => {
     const alert: StoredAlert = { slack: null, suppressed: route.alertSuppressed ?? false };
-    if (wantsSlackAlert(route)) {
+    if (fold) {
+      alert.digest = fold;
+      ctx.store.lists.markFolded(id, fold.team);
+    } else if (wantsSlackAlert(route)) {
       alert.slack = buildSlackPayload({ brief, score: i.score, route, timeToRouteMs: ttr, synthetic: ev.synthetic, afterHours: afterHours(ev.receivedAt) });
       recordSlack(ctx, id, alert.slack, nowIso(ctx));
     }
     ctx.store.leads.markNotified(id, nowIso(ctx), json(alert), rateFact ? json(rateFact) : null);
     announce(run, 'notified');
   });
-  run.timings.alerted = ctx.cfg.now() - run.t0; // when the alert was out, which is what the response-time clock measures
+  // when the alert was out, which is what the response-time clock measures; a folded lead's is the digest's time
+  if (!fold) run.timings.alerted = ctx.cfg.now() - run.t0;
   return brief;
 }
 

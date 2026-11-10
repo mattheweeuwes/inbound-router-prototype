@@ -53,8 +53,19 @@ export interface Config {
   // other free-text lead is alerted on the rules and gets the same model call afterwards as a second opinion. 'all': the model
   // runs before routing for every free-text lead, as it did before the gate (MODEL_BEFORE_ROUTE=all).
   modelBeforeRoute: 'gated' | 'all';
-  prepareConcurrency: number; // leads whose order-independent work (adapt, normalize, resolve, rules, a gated model call) runs at once
+  prepareConcurrency: number; // leads whose lookups (adapt, normalize, resolve) run at once; a model call waits in its own slots, not here
   modelConcurrency: number; // model calls in flight at once, before-route calls first; second opinions take a slot only when none waits
+  // How long the lead at the head of the commit order may hold leads in other lanes while its own prepared result is not ready
+  // (decision 23). null never lets a lead pass: commits follow acceptance order exactly (COMMIT_GRACE_MS=never), which replay:ci,
+  // the eval and the tests pin so rules-only runs stay reproducible.
+  commitGraceMs: number | null;
+  // Doors that carry a list someone uploads (decision 24). Their leads route on the rules with the model after the alert, and an
+  // alert other than a rep's is folded into one digest per list and team (LIST_DOORS, comma-separated; 'none' for no list doors).
+  listDoors: string[];
+  // 'after_alert': a list door never waits for the model. 'gated': list doors follow the same model gate as every other door, as
+  // before (LIST_DOOR_MODEL=gated).
+  listDoorModel: 'after_alert' | 'gated';
+  listQuietMs: number; // a list has settled when none of its leads is waiting or in flight and none was accepted for this long (LIST_QUIET_MS)
   network: boolean; // site-title + NPPES lookups allowed
   now: () => number; // injectable clock for wall-clock measurements
 }
@@ -80,6 +91,28 @@ function envPath(value: string | undefined, fallback: string): string {
 function positiveInt(value: string | undefined, fallback: number): number {
   const n = Number(value?.trim());
   return Number.isInteger(n) && n >= 1 ? n : fallback;
+}
+
+/** A whole number of at least 0 from the environment, or the fallback when it is unset, blank or not one. */
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+  const n = Number(value?.trim());
+  return value?.trim() && Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+/** COMMIT_GRACE_MS: 'never' (or 'off') keeps strict acceptance order; a whole number of milliseconds is the grace; anything else is the default. */
+export function commitGrace(value: string | undefined): number | null {
+  const v = value?.trim().toLowerCase();
+  if (v === 'never' || v === 'off') return null;
+  return nonNegativeInt(value, DEFAULT_COMMIT_GRACE_MS);
+}
+export const DEFAULT_COMMIT_GRACE_MS = 250;
+
+/** LIST_DOORS: comma-separated door names; 'none' or blank means no list doors. Unset is event_scan. */
+export function listDoorsFrom(value: string | undefined): string[] {
+  if (value === undefined) return ['event_scan'];
+  const v = value.trim().toLowerCase();
+  if (!v || v === 'none') return [];
+  return [...new Set(v.split(',').map(s => s.trim()).filter(Boolean))];
 }
 
 /** `env` is the environment to read; tests pass {} to see the defaults with nothing set. */
@@ -116,6 +149,10 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     modelBeforeRoute: env.MODEL_BEFORE_ROUTE === 'all' ? 'all' : 'gated',
     prepareConcurrency: positiveInt(env.PREPARE_CONCURRENCY, 4),
     modelConcurrency: positiveInt(env.MODEL_CONCURRENCY, 1), // one local model on one machine: parallel calls only queue inside Ollama, and its queue counts against the 8 s timeout
+    commitGraceMs: commitGrace(env.COMMIT_GRACE_MS),
+    listDoors: listDoorsFrom(env.LIST_DOORS),
+    listDoorModel: env.LIST_DOOR_MODEL === 'gated' ? 'gated' : 'after_alert',
+    listQuietMs: nonNegativeInt(env.LIST_QUIET_MS, 5_000),
     network: env.OFFLINE !== '1', // OFFLINE=1 turns the site-title and NPPES lookups off
     now: () => Date.now(),
     ...over,

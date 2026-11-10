@@ -111,12 +111,15 @@ function timeToRoute(p: 50 | 90): Def {
   };
 }
 
-// A repeat contact, as the pipeline defines it: an earlier lead with the same contact_key, received in the 30 days before this one,
-// finished, and not routed away as drop/careers/press. Same window arithmetic as src/pipeline.ts (string-compared ISO timestamps).
+// A repeat contact, as the pipeline defines it (R2, src/decisions.ts summarizeTouches): an earlier-accepted lead with the same
+// contact_key, received within 30 days either side of this one (a list arrives out of time order), finished, and routed to
+// sales (a rep, an owner, a team queue or review). A touch that went to nurture counts for scoring but owns nothing
+// (decision 6), so a lead after it is not a missed link. Same window arithmetic as src/stages.ts.
 const EARLIER_LIVE_LEAD = `EXISTS (SELECT 1 FROM leads p JOIN lead_events pe ON pe.id = p.id
-  WHERE p.contact_key = l.contact_key AND p.id != l.id AND pe.received_at < e.received_at
+  WHERE p.contact_key = l.contact_key AND p.id != l.id AND pe.rowid < e.rowid
     AND pe.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', e.received_at, '-30 days')
-    AND p.status = 'done' AND COALESCE(p.route_action, '') NOT IN ('drop', 'careers', 'press'))`;
+    AND pe.received_at <= strftime('%Y-%m-%dT%H:%M:%fZ', e.received_at, '+30 days')
+    AND p.status = 'done' AND COALESCE(p.route_action, '') IN ('rep_alert', 'owner_task', 'team_queue', 'review'))`;
 
 const DEFS: Def[] = [
   // ---- intake: event grain ------------------------------------------------
@@ -147,7 +150,7 @@ const DEFS: Def[] = [
   },
   {
     id: 'repeat_not_linked', name: 'Repeat contacts not linked to their first lead (should be 0)', grain: 'lead', scope: 'window',
-    definition: 'Lead grain: leads that have an earlier live lead from the same contact in the previous 30 days but no duplicate_of, out of all such repeat leads.',
+    definition: 'Lead grain: leads that have an earlier-accepted lead from the same contact within 30 days that went to sales, but no duplicate_of, out of all such repeat leads.',
     sql: `SELECT COALESCE(SUM(l.duplicate_of IS NULL), 0) AS n, COUNT(*) AS d ${LEADS} WHERE l.contact_key IS NOT NULL AND ${IN_WINDOW} AND ${EARLIER_LIVE_LEAD}`,
     shape: rows => ({ value: num(rows[0]?.n), numerator: num(rows[0]?.n), denominator: num(rows[0]?.d) }),
   },

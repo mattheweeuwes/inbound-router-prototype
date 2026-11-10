@@ -7,10 +7,10 @@
   "scripts": {
     "dev": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret DEMO_ROUTES=1 tsx server.ts",
     "replay": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret tsx scripts/replay.ts",
-    "replay:ci": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret RATES_CSV=test/fixtures/rates-mini.csv OUTBOUND_PLATFORMS=test/fixtures/outbound-platforms-mini.json LLM_PROVIDER=rules OFFLINE=1 HUBSPOT_LIVE=0 APP_DB=out/ci/app.sqlite OUT_DIR=out/ci TTR_P90_BUDGET_MS=150 tsx scripts/replay.ts",
+    "replay:ci": "CALENDLY_SIGNING_KEY=local-demo-signing-key-not-a-secret COMMIT_GRACE_MS=never RATES_CSV=test/fixtures/rates-mini.csv OUTBOUND_PLATFORMS=test/fixtures/outbound-platforms-mini.json LLM_PROVIDER=rules OFFLINE=1 HUBSPOT_LIVE=0 APP_DB=out/ci/app.sqlite OUT_DIR=out/ci TTR_P90_BUDGET_MS=150 tsx scripts/replay.ts",
     "eval": "tsx scripts/eval.ts",
     "eval:gate": "tsx scripts/eval.ts --gate",
-    "eval:gate:rules": "LLM_PROVIDER=rules OFFLINE=1 RATES_CSV=test/fixtures/rates-mini.csv OUTBOUND_PLATFORMS=test/fixtures/outbound-platforms-mini.json HUBSPOT_LIVE=0 OUT_DIR=out/ci tsx scripts/eval.ts --gate --rules-only",
+    "eval:gate:rules": "COMMIT_GRACE_MS=never LLM_PROVIDER=rules OFFLINE=1 RATES_CSV=test/fixtures/rates-mini.csv OUTBOUND_PLATFORMS=test/fixtures/outbound-platforms-mini.json HUBSPOT_LIVE=0 OUT_DIR=out/ci tsx scripts/eval.ts --gate --rules-only",
     "quality": "tsx scripts/quality.ts",
     "hubspot:setup": "tsx scripts/hubspot-setup.ts",
     "test": "node --import tsx --test \"test/*.test.ts\"",
@@ -21,7 +21,8 @@
     "reverse-etl": "tsx scripts/reverse-etl.ts",
     "rates:fetch": "tsx scripts/fetch-rates.ts",
     "gen-fixtures": "tsx scripts/gen-fixtures.ts",
-    "gen-usage": "tsx scripts/gen-usage-fixtures.ts"
+    "gen-usage": "tsx scripts/gen-usage-fixtures.ts",
+    "list:upload": "tsx scripts/list-upload.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.59.1",
