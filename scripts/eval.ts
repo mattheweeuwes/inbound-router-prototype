@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, makeConfig } from '../src/config';
-import { COMBINED_HASH_METHOD, FLOORS, RULES_FLOORS, classifierFiles, combinedHash, compareClassifier, evaluateGate, gatePreflight, rulesGatePreflight, gateTable, infraFailures, mtimeIso, ollamaTemperature, sha256File, type SetCounts } from './lib/eval-gate';
+import { COMBINED_HASH_METHOD, RULES_FLOORS, floorsFor, classifierFiles, combinedHash, compareClassifier, evaluateGate, gatePreflight, rulesGatePreflight, gateTable, infraFailures, mtimeIso, ollamaTemperature, sha256File, type SetCounts } from './lib/eval-gate';
 import { createCtx, type Ctx } from '../src/context';
 import { NO_OUTSIDE_WRITES } from './lib/outside-writes';
 import { normalizeEvent } from '../src/normalize';
@@ -45,13 +45,14 @@ const GATE = process.argv.includes('--gate');
 // --rules-only: no model anywhere; own file names so a rules run can never replace the cockpit's eval.json or the model gate's manifest.
 const RULES_ONLY = process.argv.includes('--rules-only');
 const FILES = RULES_ONLY ? { json: 'eval-rules.json', md: 'eval-rules.md', manifest: 'eval-rules-manifest.json' } : { json: 'eval.json', md: 'eval.md', manifest: 'eval-manifest.json' };
-const GATE_FLOORS = RULES_ONLY ? RULES_FLOORS : FLOORS;
 // The dev replay posts the Calendly fixtures through the real handler, which refuses unsigned traffic; sign with a key that lives only in this process.
 // The eval runs synthetic items through the real pipeline: it never writes to HubSpot, whatever .env says.
 // Commits follow acceptance order exactly (no lane passing, decision 23), so a rules-only run is reproducible byte for byte.
 const ctx = createCtx({ appDb: ':memory:', outDir: scratch, calendlyKey: 'eval-in-process-signing-key', modelBeforeRoute: 'all', commitGraceMs: null, ...NO_OUTSIDE_WRITES });
 // The model in the loop: the local one by default, or a hosted one (LLM_PROVIDER=anthropic with a key), scored on the same sets at the same floors.
 const HOSTED = ctx.cfg.llmProvider === 'anthropic';
+// Each model is held to its own floors (scripts/lib/eval-gate.ts): the local model's, the hosted model's, or the rules' with no slack.
+const GATE_FLOORS = RULES_ONLY ? RULES_FLOORS : floorsFor(ctx.cfg.llmProvider);
 const MODEL_NAME = HOSTED ? ctx.cfg.anthropicModel : ctx.cfg.ollamaModel;
 const modelReachable = HOSTED ? !!ctx.cfg.anthropicKey : ctx.cfg.llmProvider === 'ollama' && await warmOllama(ctx);
 if (RULES_ONLY) {
@@ -276,7 +277,7 @@ const provenance: string[] = [
   `- Supporting evidence only (file modification times, which copying or touching changes): sealed set ${sealedMtime ?? 'n/a'}; newest classifier file ${newestClassifier.modified} (${newestClassifier.path}).`,
   `- What this shows: from this record on, any edit to the sealed file or the classifier code is detectable by hash. It does not show when the sealed set was written relative to the classifier; that rests on the set's own note and the file times above.`, ``,
 ];
-if (GATE) provenance.push(`## Gate (v4, ${RULES_ONLY ? 'rules only, floors are the measured results with no slack' : 'floors allow one regression per field'})`, ``, '```', gateTable(gateResult.rows), '```', ``, `${RULES_ONLY ? 'No model was called (rules only).' : `Model answered: held-out ${modelAnswered.heldout}, sealed ${modelAnswered.sealed}; model calls that failed on infrastructure (unreachable or timed out): held-out ${infra.heldout}, sealed ${infra.sealed}.`} Gate: **${gatePass ? 'PASS' : 'FAIL'}**.`, ``);
+if (GATE) provenance.push(`## Gate (v4, ${RULES_ONLY ? 'rules only, floors are the measured results with no slack' : HOSTED ? 'the hosted model\'s floors: one below the lowest of its three recorded runs' : 'the local model\'s floors: one regression allowed per field'})`, ``, '```', gateTable(gateResult.rows), '```', ``, `${RULES_ONLY ? 'No model was called (rules only).' : `Model answered: held-out ${modelAnswered.heldout}, sealed ${modelAnswered.sealed}; model calls that failed on infrastructure (unreachable or timed out): held-out ${infra.heldout}, sealed ${infra.sealed}.`} Gate: **${gatePass ? 'PASS' : 'FAIL'}**.`, ``);
 
 const pct = (x: number | null | undefined) => (x == null ? 'n/a' : `${Math.round(x * 100)}%`);
 const cell = (f: any, v: string) => (f[v] == null ? 'n/a' : `${f.counts[v]} (${pct(f[v])})`);

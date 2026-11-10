@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../src/config';
 import {
-  FLOORS, RULES_FLOORS, GATE_N, classifierFiles, combinedHash, compareClassifier, evaluateGate, gatePreflight, rulesGatePreflight, gateTable, infraFailures, ollamaTemperature, sha256, type SetCounts,
+  FLOORS, HOSTED_FLOORS, RULES_FLOORS, GATE_N, floorsFor, classifierFiles, combinedHash, compareClassifier, evaluateGate, gatePreflight, rulesGatePreflight, gateTable, infraFailures, ollamaTemperature, sha256, type SetCounts,
 } from '../scripts/lib/eval-gate';
 
 const sets = (sealed: [number, number, number], heldout: [number, number, number]): SetCounts[] => {
@@ -17,6 +17,20 @@ describe('eval gate floors', () => {
   it('the floors are the ones the claim is defended with', () => {
     assert.deepEqual(FLOORS.sealed, { urgency: 22, useCase: 17, disqualifier: 21 });
     assert.deepEqual(FLOORS.heldout, { urgency: 21, useCase: 19, disqualifier: 22 });
+  });
+  it('the hosted model has its own floors: one below the lowest of its three recorded runs, and never below the local model\'s', () => {
+    assert.deepEqual(HOSTED_FLOORS.sealed, { urgency: 22, useCase: 19, disqualifier: 21 });
+    assert.deepEqual(HOSTED_FLOORS.heldout, { urgency: 21, useCase: 20, disqualifier: 23 });
+    for (const set of ['sealed', 'heldout'] as const) for (const f of ['urgency', 'useCase', 'disqualifier'] as const) assert.ok(HOSTED_FLOORS[set][f] >= FLOORS[set][f], `${set} ${f}`);
+    // the three low-effort runs of 2026-11-10 pass, the local model's recorded result does not, and one below a hosted floor fails
+    for (const run of [[[23, 21, 22], [22, 21, 24]], [[23, 20, 22], [22, 21, 24]]] as const) assert.equal(evaluateGate(sets([...run[0]], [...run[1]]), HOSTED_FLOORS).pass, true);
+    assert.equal(evaluateGate(sets([23, 18, 21], [22, 20, 23]), HOSTED_FLOORS).pass, false);
+    assert.equal(evaluateGate(sets([23, 18, 22], [22, 21, 24]), HOSTED_FLOORS).pass, false, 'sealed use case one below its floor');
+  });
+  it('the gate takes the floors of the model in the slot', () => {
+    assert.equal(floorsFor('anthropic'), HOSTED_FLOORS);
+    assert.equal(floorsFor('ollama'), FLOORS);
+    assert.equal(floorsFor('rules'), RULES_FLOORS);
   });
   it('passes at the recorded results and exactly at the floors', () => {
     assert.equal(evaluateGate(sets([23, 18, 22], [22, 20, 23])).pass, true);

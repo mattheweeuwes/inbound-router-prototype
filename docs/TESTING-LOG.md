@@ -64,10 +64,18 @@ The eval with a model in the loop is not in CI. It needs the local model, or a k
 - **Not changed, on purpose.** The results say the rules-first policy now holds a strong model back on use case. I have seen the sealed set's results field by field, so a policy chosen on them would be tuned on the sealed set. It needs a new sealed set first.
 - **Record.** `docs/hosted-model-record-2026-11-10.md`, with the full eval output in `docs/eval-record-2026-11-10-sonnet-5-5-xhigh.md` and `-low.md` and their manifests.
 
+### 7. Which model should be the default, and at what effort? (Nov 10)
+
+- **How.** Low effort twice more, for three runs on the same 76 messages, set beside the two extra-high runs. Then the working day once more with nothing set but the key, so the default path is what ran.
+- **Found.** All three low runs pass, with the same pipeline result in every cell but one (sealed use case: 21, 20 and 20 of 24). From run to run, low changed a use-case label on 1 or 2 of the 76 messages and extra high changed none. A low-effort call took a median of 1.4 to 2.1 s and none took more than 2.4 s. The day on the default routed all 51 comparable leads as the extra-high day did, alerted the two sales leads that wait for the model in 1.7 s and 2.1 s, finished the list's second opinions in 67 s and cost $0.70. It also showed that a second lead needing the model in the same moment waits about 2 s for a slot that second opinions hold.
+- **Changed.** The hosted model is the default when a key is set, at low effort, and each model is held to its own floors, so the gate fails if the model in the slot slips (decision 41). The local model is the fallback with no key. `npm run eval:gate`, run as the README gives it, then passed at the new floors.
+- **Not changed.** The rules still go first on use case, for the reason in entry 6.
+- **Record.** `docs/hosted-model-record-2026-11-10.md`, the sections "Low effort, three runs" and "The working day on the default", with the eval records and manifests it names.
+
 ## What these tests do not show
 
 - Every person, lead, deal and usage event is invented. No result here is a result on Serif's traffic.
 - The labelled sets are 24 items each. A difference of one or two items is not a finding.
-- Timings are from one Mac, with a small local model unless an entry says otherwise. Hosted timings are from one afternoon on one network.
+- Timings are from one Mac. Hosted timings are from one day on one network, and local-model timings from that machine alone.
 - HubSpot has been written to only in a developer test portal. Slack is recorded, never sent.
 - Nobody on a sales or marketing team has used it. The hands-on pass was mine.

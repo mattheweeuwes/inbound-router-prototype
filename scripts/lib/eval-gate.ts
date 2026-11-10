@@ -11,11 +11,21 @@ export const sha256File = (path: string) => sha256(readFileSync(path));
 
 export type GateField = 'urgency' | 'useCase' | 'disqualifier';
 export const GATE_FIELDS: GateField[] = ['urgency', 'useCase', 'disqualifier'];
-/** The sets the gate scores, each out of 24. Floors allow one regression per field from the recorded results (sealed 23/18/22, held-out 22/20/23). */
+/** The sets the gate scores, each out of 24. These are the local model's floors: one regression allowed per field from its recorded results (sealed 23/18/22, held-out 22/20/23). */
 export const GATE_N = 24;
 export const FLOORS: Record<'sealed' | 'heldout', Record<GateField, number>> = {
   sealed: { urgency: 22, useCase: 17, disqualifier: 21 },
   heldout: { urgency: 21, useCase: 19, disqualifier: 22 },
+};
+
+/**
+ * Floors for the hosted model (Claude Sonnet 5.5 at low effort, the default when a key is set; docs/DECISIONS.md #41). A hosted model does not
+ * answer the same way every time, so these sit one below the lowest of three recorded runs on 2026-11-10 (sealed 23/20/22 at the lowest,
+ * held-out 22/21/24), not one below a single run. Both extra-high runs of the same day clear them too.
+ */
+export const HOSTED_FLOORS: typeof FLOORS = {
+  sealed: { urgency: 22, useCase: 19, disqualifier: 21 },
+  heldout: { urgency: 21, useCase: 20, disqualifier: 23 },
 };
 
 /**
@@ -28,6 +38,9 @@ export const RULES_FLOORS: Record<'sealed' | 'heldout', Record<GateField, number
   sealed: { urgency: 23, useCase: 13, disqualifier: 20 },
   heldout: { urgency: 22, useCase: 18, disqualifier: 23 },
 };
+
+/** The floors for whatever fills the model slot, so a slip in the model that is actually in use fails the gate. */
+export const floorsFor = (provider: string): typeof FLOORS => (provider === 'anthropic' ? HOSTED_FLOORS : provider === 'rules' ? RULES_FLOORS : FLOORS);
 
 export interface SetCounts { name: string; n: number; v4: Record<GateField, { ok: number; n: number }> }
 export interface GateRow { set: 'sealed' | 'heldout'; field: GateField; floor: number; ok: number | null; n: number | null; pass: boolean; why: string }

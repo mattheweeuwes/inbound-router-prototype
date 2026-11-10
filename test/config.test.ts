@@ -92,7 +92,22 @@ describe('defaults live in code', () => {
       if (m) shown[m[1]] = m[2];
     }
     const c = makeConfig({}, {});
-    assert.deepEqual(shown, { PORT: String(c.port), LLM_PROVIDER: c.llmProvider, OLLAMA_URL: c.ollamaUrl, OLLAMA_MODEL: c.ollamaModel });
+    assert.deepEqual(shown, { PORT: String(c.port), OLLAMA_URL: c.ollamaUrl, OLLAMA_MODEL: c.ollamaModel });
+  });
+
+  it('with LLM_PROVIDER unset the slot takes the best model it can reach: the hosted one when a key is set, else the local one', () => {
+    assert.equal(makeConfig({}, {}).llmProvider, 'ollama');
+    const keyed = makeConfig({}, { ANTHROPIC_API_KEY: 'k' });
+    assert.deepEqual([keyed.llmProvider, keyed.anthropicModel, keyed.anthropicEffort, keyed.modelConcurrency], ['anthropic', 'claude-sonnet-5-5', 'low', 4]);
+    assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: 'k', LLM_PROVIDER: '' }).llmProvider, 'anthropic', 'an empty setting is unset');
+  });
+
+  it('LLM_PROVIDER pins the provider whatever keys are set, and a value that is no provider never picks the hosted model', () => {
+    assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: 'k', LLM_PROVIDER: 'ollama' }).llmProvider, 'ollama');
+    assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: 'k', LLM_PROVIDER: 'rules' }).llmProvider, 'rules');
+    assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: 'k', LLM_PROVIDER: ' Rules ' }).llmProvider, 'rules');
+    assert.equal(makeConfig({}, { LLM_PROVIDER: 'anthropic' }).llmProvider, 'anthropic', 'pinned with no key: the provider is disabled and the rules decide');
+    assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: 'k', LLM_PROVIDER: 'rule' }).llmProvider, 'ollama', 'a typo must not send messages to a hosted model');
   });
 
   it('the model path settings: gated, four leads preparing and one model call at a time unless the environment says otherwise', () => {

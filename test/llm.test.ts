@@ -35,13 +35,13 @@ describe('anthropic provider', () => {
     assert.deepEqual([out.ok, out.ok ? '' : out.reason, calls], [false, 'disabled', 0]);
   });
 
-  it('the settings come from the environment, with Sonnet at extra-high effort, 8 s and four calls at once as the hosted defaults', () => {
+  it('the settings come from the environment, with Sonnet at low effort, 8 s and four calls at once as the hosted defaults', () => {
     const hosted = makeConfig({}, { LLM_PROVIDER: 'anthropic' });
-    assert.deepEqual([hosted.anthropicModel, hosted.anthropicEffort, hosted.modelTimeoutMs, hosted.modelConcurrency], ['claude-sonnet-5-5', 'xhigh', 8000, 4]);
+    assert.deepEqual([hosted.anthropicModel, hosted.anthropicEffort, hosted.modelTimeoutMs, hosted.modelConcurrency], ['claude-sonnet-5-5', 'low', 8000, 4]);
     assert.equal(makeConfig({}, {}).modelConcurrency, 1, 'the local model still takes one call at a time');
     assert.equal(makeConfig({}, { ANTHROPIC_MODEL: 'some-model' }).anthropicModel, 'some-model');
-    assert.equal(makeConfig({}, { ANTHROPIC_EFFORT: 'low' }).anthropicEffort, 'low');
-    assert.equal(makeConfig({}, { ANTHROPIC_EFFORT: 'turbo' }).anthropicEffort, 'xhigh', 'an effort the API does not have falls back to the default');
+    assert.equal(makeConfig({}, { ANTHROPIC_EFFORT: 'XHigh ' }).anthropicEffort, 'xhigh');
+    assert.equal(makeConfig({}, { ANTHROPIC_EFFORT: 'turbo' }).anthropicEffort, 'low', 'an effort the API does not have falls back to the default');
     assert.equal(makeConfig({}, { MODEL_TIMEOUT_MS: '30000' }).modelTimeoutMs, 30000);
     assert.equal(makeConfig({}, { ANTHROPIC_API_KEY: '' }).anthropicKey, null);
   });

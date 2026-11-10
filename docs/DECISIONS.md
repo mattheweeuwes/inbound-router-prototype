@@ -416,7 +416,7 @@ The cockpit carried sentences that told the reader the data was invented or that
 
 Nothing here changes an API shape, a route or a behaviour: the address format, filters, sorting, in-place decisions, undo, focus handling, list groups and the controls that keep their nodes (#37) are as they were, and the browser tests check them.
 
-## 39. A hosted model goes through the same gate, and the local one stays the default
+## 39. A hosted model goes through the same gate (the default changed in #41)
 
 The slot was always meant to be filled by evidence, and until Nov 10 only the small local model had been scored. I put Claude Sonnet 5.5 through the same sets at the same floors (`docs/hosted-model-record-2026-11-10.md`).
 
@@ -424,9 +424,9 @@ The slot was always meant to be filled by evidence, and until Nov 10 only the sm
 - **Called over HTTP, not through an SDK.** The repository has no runtime dependencies and this is one request. The cost is that the request shape is mine to keep current, which the test in `test/llm.test.ts` pins.
 - **No answer means the rules decide.** A decline, an answer cut off at the token limit, an answer outside the schema, an error status and a timeout all hand the fields to the rules, as with the local model. A rate-limited or overloaded call is tried once more inside the time limit. There is no fallback to a second model: the eval has to say which model answered.
 - **One time limit for both providers** (`MODEL_TIMEOUT_MS`, default 8 s). An eval of the model itself can allow longer, and its record says how many answers would have missed the default.
-- **Four calls at once for a hosted model, one for the local one** (`MODEL_CONCURRENCY`). The header chip names the model and its effort, and the dashboard reports the calls answered and the tokens they used.
+- **Four calls at once for a hosted model, one for the local one** (`MODEL_CONCURRENCY`). The strip across the top names the model and its effort, and the dashboard reports the calls answered and the tokens they used.
 - **The eval and its gate take either provider.** The floors are the same. The manifest records the provider, the model, the effort and the time limit, and that a hosted model has no temperature to record.
-- **The default does not change.** With no key the repository runs on the local model, and at Serif a hosted model would wait for data terms. What changed is that the choice now rests on a measured comparison.
+- **The default did not change here.** With no key the repository runs on the local model, and at Serif a hosted model would wait for data terms. What changed is that the choice rests on a measured comparison. Decision 41 then made the hosted model the default whenever a key is set.
 
 What the comparison found is in the record. In short: Sonnet 5.5 passes the gate and beats the local model on every field on its own; extra-high effort did no better than low on these sets; and the rules-first combine policy, built around a weak model, now costs two or three use-case answers in 24. I have not changed the policy, because I have seen this sealed set's results field by field and choosing on them would be tuning on it. That needs a fresh sealed set.
 
@@ -439,3 +439,16 @@ Running the day on the hosted model showed the list's 103 second opinions taking
 - **Still never during a burst.** No opinion starts while a lead is waiting in the ordered section.
 
 The same list then took 102 s. The test posts leads one after another, as a list arrives, and checks three run at once with four slots and one with one.
+
+## 41. The hosted model is the default when a key is set, at low effort
+
+Decision 39 kept the local model as the default after the hosted one had beaten it on every field. That was the wrong way round for a system people are meant to trust. The reasons I kept it (the repository has to run with no key, and real leads need data terms) are reasons to keep a fallback. They are not reasons to route on the weaker model when the better one is there.
+
+- **The slot takes the best model it can reach** (`providerFrom` in `src/config.ts`). With `LLM_PROVIDER` unset: Claude Sonnet 5.5 when `ANTHROPIC_API_KEY` is set, else the local model, and if that is not running the rules decide alone, as before. `LLM_PROVIDER` still pins one.
+- **The key is the opt-in.** Nothing reaches a hosted model without one, and a setting that is not a provider's name falls back to the local model, so a typo cannot send messages out. At Serif the key would be issued under the data terms. This repository's key has only ever read invented messages.
+- **Nothing that must be repeatable calls a model.** CI, the unit tests, the browser tests and `npm run day` pin the rules or their own test settings, so a key in `.env` changes none of them and costs nothing there. `npm run dev`, `npm run replay` and `npm run eval:gate` follow the default, at about half a cent a model call.
+- **Low effort is the default** (`ANTHROPIC_EFFORT`). Three runs at low and two at extra high on the same 76 messages gave the same pipeline results within one item. Low answered faster (a median of 1.4 to 2.1 s against 2.3 to 2.4 s) and cost three quarters as much. One difference goes the other way and I am keeping it in view: from run to run, low gave a different use-case label on 1 or 2 of the 76 messages, and extra high on none. On samples this small that is a hint, not a finding. If steadiness matters more than a second on real leads, extra high is one setting.
+- **Each model is held to its own floors** (`HOSTED_FLOORS` and `floorsFor` in `scripts/lib/eval-gate.ts`). Sonnet cleared the local model's floors with room to spare, which means those floors would have let it slip by two or three use-case answers unnoticed. Its floors sit one below the lowest of the three low-effort runs: sealed 22, 19 and 21 of 24 and held-out 21, 20 and 23 for urgency, use case and disqualifier. The local model keeps its floors, and the rules keep theirs with no slack. `npm run eval:gate` as the README gives it passes at the new floors (`docs/eval-record-2026-11-10-default.md`).
+- **The working day was run again on this default**, with nothing set but the key. The figures are in `docs/hosted-model-record-2026-11-10.md`.
+
+Not changed: the rules still go first on use case. That is the open question from decision 39, and it still needs a fresh sealed set.

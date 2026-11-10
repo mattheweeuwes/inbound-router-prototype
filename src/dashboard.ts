@@ -12,7 +12,7 @@
 // generatedAt are the server's wall clock. Each figure below says which one it uses.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { evaluateGate, FLOORS, RULES_FLOORS, type SetCounts } from '../scripts/lib/eval-gate';
+import { evaluateGate, floorsFor, type SetCounts } from '../scripts/lib/eval-gate';
 import type { Ctx } from './context';
 import { parse } from './db';
 import { computeMetrics } from './hygiene';
@@ -178,7 +178,8 @@ function evalSummary(outDir: string) {
     v4: Object.fromEntries(['urgency', 'useCase', 'disqualifier'].map(f => [f, { ok: Number(x.fields?.[f]?.finalOk ?? NaN), n: Number(x.fields?.[f]?.finalN ?? NaN) }])),
   }));
   const valid = sets.map(s => ({ ...s, v4: Object.fromEntries(Object.entries(s.v4).filter(([, c]) => Number.isFinite(c.ok) && Number.isFinite(c.n))) })) as SetCounts[];
-  const gate = evaluateGate(valid, withModel ? FLOORS : RULES_FLOORS);
+  // the floors of the model that made the run: an eval.json from before runs recorded their provider was the local model's
+  const gate = evaluateGate(valid, floorsFor(withModel ? String(e.provider ?? 'ollama') : 'rules'));
   return {
     recorded: true as const, generatedAt: String(e.generatedAt ?? ''), model: withModel ? String(e.model ?? '') : null, combineVersion: String(e.combineVersion ?? ''),
     floors: withModel ? 'model' as const : 'rules' as const, pass: gate.pass, passed: gate.rows.filter(r => r.pass).length,

@@ -40,7 +40,7 @@ export interface Config {
   llmProvider: 'ollama' | 'rules' | 'anthropic';
   ollamaUrl: string;
   ollamaModel: string;
-  anthropicKey: string | null; // the hosted provider needs this and llmProvider = 'anthropic'
+  anthropicKey: string | null; // the hosted provider needs this; with LLM_PROVIDER unset, having it is what picks the hosted model
   anthropicModel: string;
   anthropicEffort: HostedEffort; // how much the hosted model thinks before it answers (ANTHROPIC_EFFORT)
   modelTimeoutMs: number; // a model call that takes longer hands its fields to the rules (MODEL_TIMEOUT_MS)
@@ -120,12 +120,25 @@ export function listDoorsFrom(value: string | undefined): string[] {
 
 export const HOSTED_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type HostedEffort = (typeof HOSTED_EFFORTS)[number];
-const hostedEffort = (v: string | undefined): HostedEffort => (HOSTED_EFFORTS.find(e => e === v?.trim().toLowerCase()) ?? 'xhigh');
+/** Low is the default: on the labelled sets it was as accurate as extra high, faster and cheaper (docs/hosted-model-record-2026-11-10.md). */
+const hostedEffort = (v: string | undefined): HostedEffort => (HOSTED_EFFORTS.find(e => e === v?.trim().toLowerCase()) ?? 'low');
+
+/**
+ * What fills the model slot. LLM_PROVIDER pins one. With it unset, the best model this process can reach: the hosted one when a key is
+ * set (it beats the local model on every field of the eval), else the local one. The key is the opt-in, so nothing reaches a hosted
+ * model without one, and a value that is not a provider's name never picks it.
+ */
+function providerFrom(env: Record<string, string | undefined>): Config['llmProvider'] {
+  const asked = env.LLM_PROVIDER?.trim().toLowerCase();
+  if (asked === 'ollama' || asked === 'rules' || asked === 'anthropic') return asked;
+  if (asked) return 'ollama';
+  return env.ANTHROPIC_API_KEY ? 'anthropic' : 'ollama';
+}
 
 /** `env` is the environment to read; tests pass {} to see the defaults with nothing set. */
 export function makeConfig(over: Partial<Config> = {}, env: Record<string, string | undefined> = loadEnv()): Config {
   const dataDir = join(ROOT, 'data');
-  const provider = (env.LLM_PROVIDER ?? 'ollama') as Config['llmProvider'];
+  const provider = providerFrom(env);
   return {
     root: ROOT,
     host: env.HOST?.trim() || '127.0.0.1', // local only unless HOST says otherwise
@@ -141,7 +154,7 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     outboundPlatforms: envPath(env.OUTBOUND_PLATFORMS, join(ROOT, 'fixtures', 'outbound-platforms.json')),
     usageFixtures: envPath(env.USAGE_FIXTURES, join(ROOT, 'fixtures', 'usage')),
     calendlyKey: env.CALENDLY_SIGNING_KEY || null,
-    llmProvider: ['ollama', 'rules', 'anthropic'].includes(provider) ? provider : 'ollama',
+    llmProvider: provider,
     ollamaUrl: env.OLLAMA_URL ?? 'http://127.0.0.1:11434',
     ollamaModel: env.OLLAMA_MODEL ?? 'llama3.2:3b',
     anthropicKey: env.ANTHROPIC_API_KEY || null,
