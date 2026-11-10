@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after } from 'node:test';
 import inbound from '../api/inbound';
+import { ROOT } from '../src/config';
 import { createCtx, type Ctx, type FetchFn } from '../src/context';
 import { whenIdle } from '../src/pipeline';
 import { buildPayload, type PayloadSpec } from '../src/payloads';
@@ -11,6 +12,8 @@ import { signCalendly } from '../src/sources';
 import { leadDetail } from '../src/view';
 
 export const KEY = 'test-signing-key';
+export const RATES_MINI = join(ROOT, 'test', 'fixtures', 'rates-mini.csv');
+export const PLATFORMS_MINI = join(ROOT, 'test', 'fixtures', 'outbound-platforms-mini.json');
 
 /** A context on the hand-made mini registry, in-memory app DB, no network, no model unless asked. */
 export function testCtx(over: Parameters<typeof createCtx>[0] = {}, fetchImpl?: FetchFn): Ctx {
@@ -19,6 +22,8 @@ export function testCtx(over: Parameters<typeof createCtx>[0] = {}, fetchImpl?: 
   return createCtx({
     appDb: ':memory:', registryDb: join(dir, 'no-registry.sqlite'), cacheDir: join(dir, 'cache'), outDir: join(dir, 'out'),
     network: false, llmProvider: 'rules', calendlyKey: KEY, demoRoutes: false, anthropicKey: null,
+    // the synthetic rate file and its platform mapping, never the real export, which may or may not be on disk
+    ratesCsv: RATES_MINI, outboundPlatforms: PLATFORMS_MINI,
     // never inherit the real .env: live HubSpot and its key are opt-in per test
     hubspotLive: false, hubspotToken: null, ...over,
   }, fetchImpl ?? (async () => { throw new Error('network is off in tests'); }));

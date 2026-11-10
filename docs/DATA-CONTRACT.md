@@ -18,6 +18,7 @@ Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalize
 | qualification | `qualification_json` (rules output with its evidence, including the date parser's `urgencyCue`, `urgencyDate`, `urgencyDays` and `urgencyKind`, model output, final with per-field `sources`, per-field agreement, fallback reason, prompt and combine versions). This is what the route used: for a lead alerted on the rules (decision 19) `llm` is null and the fallback reason starts `model_after_alert`; the model's answer is in `second_opinion_json` |
 | second opinion | `second_opinion` (null when none is due; `pending`, `running` while a call is in flight, `done`), `second_opinion_json` (while due: `{shownSegment}`, the organization type the model is shown; once done: `at`, `provider`, `latencyMs`, `llm` (what the model said, or null), `fallbackReason`, `answered`, `agreed`, `changed` (any of `useCase`, `buyingRole`, `disqualifier`, `reviewReason`: what the full combine would have decided differently from the route), `roleFilled`, `doubt` (`{disqualifier, confidence, heldForPerson}` or null), `followedUp`, `afterAlertMs` (the alert to the answer), `shownSegment`; or `{at, error}` if the worker itself failed) |
 | decision | `tier`, `score`, `score_json` (itemized), `route_action`, `route_team`, `owner`, `sla_due_at`, `route_json` (rule and reason) |
+| rate fact | `rate_fact_json` (null unless the organization has a rate group in the outbound module, section 7: `ein`, `name`, `line` (the sentence the brief, the Slack alert's "Their rates" field and the CRM task carried), `matchedBy` (`registry_link` or `name_and_state`), `accountId`, `groups` (how many groups matched; the line describes the largest)). Read after the route; nothing scores or routes on it |
 | sync | `crm_json` (the exact HubSpot requests and, in live mode, how their delivery went; below), `alert_json` (`slack`: the Slack payload or null, `suppressed`, `failure`: the RevOps alert of a lead that was given up, and `followUp`: the payloads a model doubt after the alert sent, to the alert's channel and `#revops-review`) |
 | processing | `status` (`received`, then one per stage: `normalized` ... `synced`, then `done`; `retrying` while a failed run waits for its next attempt; `failed` once given up), `attempts` (failed runs), `retry_at` (epoch ms of the next run while `retrying`) |
 | timing | `time_to_route_ms` (receipt to routing decision), `timings_json` (ms per stage, plus: `queued`, the 202 to the lead's turn in the ordered section; `prepared`, the 202 to its order-independent work being ready; `waitedForPrepare`, its turn to that moment; `prepare`, the order-independent work itself, a wait for a model slot included; `modelBeforeRoute`, the model call the route waited for, when there was one; `alerted`, the 202 to the alert; and `total`. Normalize, resolve and qualify run in the prepare step, alongside other leads, so they can overlap `queued`. The alert stage runs before the HubSpot write) |
@@ -35,6 +36,7 @@ Every inbound payload is adapted to one `LeadEvent` (`src/sources/*`), normalize
 | `npi:<npi>` | provider group with one organizational NPI | NPPES NPI-2 |
 | `crm:<mirror id>` | an account in `fixtures/crm-mirror.json` that no public registry knows (the CRM record supplies the name, segment and size) | CRM mirror |
 | `domain:<domain>` | everything else: curated organizations, TLD-placed orgs, unknown orgs, and provider-group brands that span several NPI-2 records | email domain |
+| `ein:<EIN>` | a contracting group in the rate file (outbound module, section 7); keyed on the file's EIN, never its name, and linked to a registry key only on a unique, strong name match | Serif's rate file |
 
 `accounts.owner` holds a rep only after a tier-A rep alert claimed the account (see DECISIONS #5); owners seeded in `fixtures/crm-mirror.json` are never stored there. The claim itself is a row in `account_claims` (below); it is also shown as a human-readable `account_signals` row of type `claim`, and the claiming lead's company upsert carries `hubspot_owner_id`.
 
@@ -154,7 +156,42 @@ Definitions: `docs/hubspot-properties.json` (one-time setup; a test keeps it equ
 | `serif_segment`, `serif_match_method` | text | resolution result |
 | `serif_hospital_count` | number | AHRQ hospital count |
 | `serif_account_score`, `serif_open_leads`, `serif_web_intent_points` | number | written by `npm run reverse-etl` from `v_account_scores` |
+| `serif_ein`, `serif_registry_account_key`, `serif_rate_scope`, `serif_platform` | text | outbound target groups (section 7): the EIN, the registry account it links to, what the rate is for, the mapped platform |
+| `serif_rate`, `serif_rate_pct_medicare`, `serif_card_tier_pct`, `serif_conversion_factor`, `serif_clinicians`, `serif_city_top_rate`, `serif_band_median_pct` | number | the finding |
+| `serif_contract_form` (`card`, `factor`, `both`, `neither`), `serif_size_band` (`1-50`, `51-500`, `501+`), `serif_outbound_fit` (`target`, `not_target`) | enum | the finding and its fit |
 
 ## 6. Registry tables read (read-only, attached as `reg`)
 
 `cms_hospitals`, `ahrq_systems`, `ahrq_hospital_links`, `payers`, `curated_orgs`, `org_domains`, `free_mail_domains`, `disposable_domains`, `meta`. `name_norm` follows `etl/name_norm.py`; `src/resolve/match.ts` implements the same rule, and a test compares the two on every name in the real registry.
+
+## 7. Outbound: the rate file (`src/outbound/`, migration 004)
+
+Input: Serif's public rate search export, `RATES_CSV` (default `data/rates/mrf_rate_search_export.csv`, git-ignored; `npm run rates:fetch` downloads it). Read with an RFC 4180 reader (`src/outbound/csv.ts`). The columns read are listed in `REQUIRED_COLUMNS` (`src/outbound/rateFile.ts`); a file missing one, with a value that is not an amount or a count, or mixing payers, networks, months or codes is refused whole and the tables are left empty. With no file the tables are empty too, and `GET /api/outbound` answers `{loaded: false, reason}`.
+
+Loaded at startup when the file's SHA-256 differs from `rate_file.sha256`, or when `inputs_sha256` (the file, the platform mapping, the registry's meta table and `OUTBOUND_VERSION`) does. Every table below is rebuilt in one transaction. Demo reset (`clearAppData`) does not touch them.
+
+| table or view | one row per | columns |
+|---|---|---|
+| `rate_file` | the loaded file (id 1) | `path`, `sha256`, `inputs_sha256`, `rows`, `payer`, `network`, `network_month` (YYYYMM), `code`, `loaded_at` |
+| `rate_rows` | rate row, in file order (`id`) | `ein`, `entity`, `name_norm` (the router's `nameNorm`), `state` (from the street address, else the NPI region), `city` (the address part before the state), `taxonomy`, `npis` (FilteredNPIListLength), `src_npis` (PayerSourceNPIListLength), `org_npis` (AllPayerIndividualNPIs: the group's size), `rate`, `medicare` (Baseline), `pct_medicare` (RelativeToBaseline as a fraction), `most_npis` (IsMostNpisPerEinCode), `claims_evidence` (IsBillableClaims), `pos` |
+| `v_rate_groups` | group (EIN) | its one rate row, plus `band`: `1-50`, `51-500` or `501+` clinicians by `org_npis` |
+| `v_rate_groups_city_top` | city and state | `top_ein`, `top_rate`, `top_clinicians` (a tie on the rate goes to the larger group), `groups` |
+| `rate_patterns` | pattern (`card`, `factor`) | `value` (the base or the unit), `hits` (distinct rates it explains), `distinct_rates`, `runners_up_json` (the next two, with their hits) |
+| `rate_findings` | group | `ein`, `account_key` (`ein:<EIN>`), `name`, `name_norm`, `city` (title case), `state`, `clinicians`, `band`, `rate`, `medicare`, `pct_medicare` (whole percent), `form` (`card`, `factor`, `both`, `neither`), `card_tier`, `factor_multiple`, `city_top_rate`, `city_top_clinicians`, `city_top_ein`, `band_median_pct`, `fit` (`target`, `not_target`), `fit_reason`, `platform`, `platform_confirmed`, `draft_status` (`ready`, `blocked`, `none`), `draft_reason`, `hook` (`hospital_leverage`, `rate_range`) |
+| `rate_links` | group | `status` (`linked`, `unlinked`), `account_id`, `account_name`, `method` (`company_name`), `score` (the best candidate's, linked or not), `reason` (a tie starts `tie:`), `candidates_json` |
+
+**One rate per group** (`v_rate_groups`, the take-home's rule): the row flagged `IsMostNpisPerEinCode` first, then the largest `PayerSourceNPIListLength`, then the largest `FilteredNPIListLength`, then the higher rate; file order settles rows equal on all four.
+
+**Tolerances** (`src/outbound/patterns.ts`, ported from the take-home's `analysis.py`):
+
+| test | rule |
+|---|---|
+| card tier | `p = round(rate / base x 100)` (half to even, as Python rounds), and `p` is from 50 to 300, and `base x p / 100` rounded to the cent is within $0.011 of the rate |
+| conversion factor | the rate in cents is an exact whole multiple of the unit in cents |
+| base search | every distinct rate from $100 to $200 as the base; best is the most distinct rates on a tier, then the larger base |
+| unit search | every amount from $2.00 to $10.00 by the cent; best is the most distinct rates that are multiples, then the larger unit |
+| a pattern | needs at least 3 distinct rates (`MIN_PATTERN_HITS`); otherwise it is absent and no group is on it |
+| card range in a draft | the lowest and highest card tiers that two or more small groups share, shown in whole dollars rounded outward ($106.10 to $148.54 reads as $106 to $149) |
+
+**API** (read-only). `GET /api/outbound`: `loaded`, `status` (`loaded`, `unchanged`, `missing`, `failed`), `reason`, `file`, `patterns` (each with its search rule), `summary` (per band: groups, median percent of Medicare, card, factor, both, neither, where card and factor count a group on both in both; totals per form; fit and draft counts) and `groups`. `GET /api/outbound/<ein>`: `finding`, `sourceRows` (each rate row, `chosen` marking the one rate), `link`, `draft` (a draft for a target, a labelled preview for any other group: `kind`, `status`, `label`, `reason`, `hook`, `hookNote`, `subject`, `body`, `linkedin`, `inserted` (each `{placeholder, value, field}`), `placeholders` (`{first_name}`)), `draftUnavailable`, `rateLine` and `hubspot` (`{mode: 'dry_run', requests, skipped}`: the company upsert for a target, nothing for any other group). 404 for an unknown EIN, with the reason when no file is loaded.
+

@@ -37,6 +37,8 @@ export default defineConfig({
       HUBSPOT_PRIVATE_APP_TOKEN: '',
       CALENDLY_SIGNING_KEY: 'local-demo-signing-key-not-a-secret', // the cockpit form signs its demo leads with this
       DEMO_ROUTES: '1', // the cockpit form and Replay a day live under /api/demo
+      RATES_CSV: 'test/fixtures/rates-mini.csv', // the synthetic rate file, so the test never depends on the real export being present
+      OUTBOUND_PLATFORMS: 'test/fixtures/outbound-platforms-mini.json',
       APP_DB: join(dataDir, 'app.sqlite'),
       OUT_DIR: join(dataDir, 'out'),
     },

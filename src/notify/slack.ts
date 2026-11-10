@@ -30,6 +30,7 @@ export function buildSlackPayload(i: SlackInput): SlackPayload {
       { type: 'section', fields: [
         f('Person', brief.person),
         f('Organization', brief.org),
+        ...(brief.rates ? [f('Their rates', brief.rates)] : []),
         f('Why now', brief.whyNow + (brief.quote ? `\n> ${brief.quote}` : '')),
         f('Owner and SLA', `${route.owner}\nSLA ${sla}`),
         f('Time to route', `${(i.timeToRouteMs / 1000).toFixed(1)} s`),

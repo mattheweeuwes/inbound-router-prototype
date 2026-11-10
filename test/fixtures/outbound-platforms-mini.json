@@ -1,0 +1,7 @@
+{
+  "_readme": "The test copy of fixtures/outbound-platforms.json, for the invented groups in rates-mini.csv: one confirmed platform entity and one unconfirmed.",
+  "platforms": [
+    { "ein": "900000008", "platform": "Harborlight", "confirmed": true, "how": "by name: HARBORLIGHT TELEPSYCH PLLC, Austin TX" },
+    { "ein": "900000009", "platform": "Harborlight", "confirmed": false, "how": "a separate Tulsa EIN also named HARBORLIGHT; not confirmed" }
+  ]
+}

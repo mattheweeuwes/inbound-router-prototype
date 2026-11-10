@@ -19,6 +19,7 @@ import { crmIdentity, matchMirror } from './mirror';
 import { qualifyForRoute } from './modelPath';
 import { normalizeEvent } from './normalize';
 import { buildSlackPayload, recordSlack } from './notify/slack';
+import { rateFactFor } from './outbound/fact';
 import { inferEmployer, resolve } from './resolve';
 import { registryLookups } from './resolve/domain';
 import { afterHours, decideRoute, type Rep } from './route';
@@ -285,19 +286,22 @@ export interface NotifyInputs extends RouteInputs { routed: Routed }
 
 /**
  * Builds and records the Slack alert. It goes out before the HubSpot write, so Slack never waits on HubSpot: the payload is
- * built from the brief, the score and the route, and nothing in it comes from the CRM stage. Returns the brief for the CRM task.
+ * built from the brief, the score and the route, and nothing in it comes from the CRM stage. Returns the brief for the CRM task,
+ * which carries the same rate line.
  */
 export async function notifyStage(run: Run, i: NotifyInputs): Promise<Brief> {
   const { ctx, id, ev } = run;
   const { route, ttr } = i.routed;
-  const brief = buildBrief(ev, i.n, i.res, i.qual);
+  // the organization's own rate, when the rate file has a group for it: one line of fact, read here and never scored
+  const rateFact = rateFactFor(ctx, i.res, i.n);
+  const brief = buildBrief(ev, i.n, i.res, i.qual, rateFact?.line ?? null);
   await timed(run, 'notify', () => {
     const alert: StoredAlert = { slack: null, suppressed: route.alertSuppressed ?? false };
     if (wantsSlackAlert(route)) {
       alert.slack = buildSlackPayload({ brief, score: i.score, route, timeToRouteMs: ttr, synthetic: ev.synthetic, afterHours: afterHours(ev.receivedAt) });
       recordSlack(ctx, id, alert.slack, nowIso(ctx));
     }
-    ctx.store.leads.markNotified(id, nowIso(ctx), json(alert));
+    ctx.store.leads.markNotified(id, nowIso(ctx), json(alert), rateFact ? json(rateFact) : null);
     announce(run, 'notified');
   });
   run.timings.alerted = ctx.cfg.now() - run.t0; // when the alert was out, which is what the response-time clock measures

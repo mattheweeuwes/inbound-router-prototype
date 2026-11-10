@@ -10,6 +10,7 @@ import evalHandler from './api/eval';
 import inbound from './api/inbound';
 import leads from './api/leads';
 import metrics from './api/metrics';
+import outbound from './api/outbound';
 import quality from './api/quality';
 import stream from './api/stream';
 import { getCtx } from './src/context';
@@ -29,7 +30,7 @@ const TYPES: Record<string, string> = {
 type Handler = (req: Request) => Promise<Response>;
 const routes: [RegExp, Handler][] = [
   [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
-  [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard],
+  [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+)?\/?$/, outbound],
 ];
 
 async function toWebRequest(req: IncomingMessage, port: number): Promise<Request> {
@@ -91,6 +92,7 @@ export function start(port = getCtx().cfg.port) {
     console.log(`inbound router on http://${ctx.cfg.host}:${port}  demo-routes=${ctx.cfg.demoRoutes ? 'on' : 'off'}  registry=${ctx.registry.kind}  llm=${ctx.cfg.llmProvider}  hubspot=${ctx.cfg.hubspotLive ? 'LIVE' : 'dry-run'}`);
     const warning = signedDoorWarning(ctx.cfg);
     if (warning) console.warn(warning);
+    console.log(`outbound: ${ctx.outbound.message} (${ctx.outbound.status}, ${ctx.outbound.ms} ms)`);
     const resumed = resumePending(ctx);
     if (resumed) console.log(`resumed ${resumed} unfinished lead(s)`);
     void warmOllama(ctx).then(ok => console.log(ok ? 'ollama warm' : 'ollama not available (rules only)'));

@@ -467,6 +467,169 @@
       "fieldType": "number",
       "groupName": "inbound_router",
       "description": "Reverse-ETL account-level web intent points."
+    },
+    {
+      "name": "serif_ein",
+      "label": "EIN",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Employer identification number of the group in the rate file."
+    },
+    {
+      "name": "serif_registry_account_key",
+      "label": "Registry account key",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Registry account the rate group links to by name and state, when it does."
+    },
+    {
+      "name": "serif_rate_scope",
+      "label": "Rate scope",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Payer, network, code and month the rate is from."
+    },
+    {
+      "name": "serif_rate",
+      "label": "Negotiated rate",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "The group's one negotiated rate for the code (the row covering the most NPIs)."
+    },
+    {
+      "name": "serif_rate_pct_medicare",
+      "label": "Rate, % of Medicare",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "The rate as a whole percent of the local Medicare rate."
+    },
+    {
+      "name": "serif_contract_form",
+      "label": "Contract form",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Whether the rate is a whole percent of the rate card, a whole-dollar conversion factor, both or neither.",
+      "options": [
+        {
+          "label": "card",
+          "value": "card",
+          "displayOrder": 0
+        },
+        {
+          "label": "factor",
+          "value": "factor",
+          "displayOrder": 1
+        },
+        {
+          "label": "both",
+          "value": "both",
+          "displayOrder": 2
+        },
+        {
+          "label": "neither",
+          "value": "neither",
+          "displayOrder": 3
+        }
+      ]
+    },
+    {
+      "name": "serif_card_tier_pct",
+      "label": "Card tier (%)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "The percent of the rate card base the rate equals."
+    },
+    {
+      "name": "serif_conversion_factor",
+      "label": "Conversion factor ($)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "The whole-dollar factor the rate is a multiple of the unit by."
+    },
+    {
+      "name": "serif_clinicians",
+      "label": "Clinicians",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Individual NPIs linked to the EIN in the network (AllPayerIndividualNPIs)."
+    },
+    {
+      "name": "serif_size_band",
+      "label": "Size band",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Clinicians in the group, banded.",
+      "options": [
+        {
+          "label": "1-50",
+          "value": "1-50",
+          "displayOrder": 0
+        },
+        {
+          "label": "51-500",
+          "value": "51-500",
+          "displayOrder": 1
+        },
+        {
+          "label": "501+",
+          "value": "501+",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "serif_city_top_rate",
+      "label": "Top rate in the city",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "The highest group rate in the same city for the same code."
+    },
+    {
+      "name": "serif_band_median_pct",
+      "label": "Band median, % of Medicare",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Median percent of Medicare across the group's size band."
+    },
+    {
+      "name": "serif_outbound_fit",
+      "label": "Outbound fit",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "Whether the outbound finding is for this group.",
+      "options": [
+        {
+          "label": "target",
+          "value": "target",
+          "displayOrder": 0
+        },
+        {
+          "label": "not_target",
+          "value": "not_target",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "name": "serif_platform",
+      "label": "Platform",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "The behavioral health platform the EIN is mapped to by hand."
     }
   ]
 }

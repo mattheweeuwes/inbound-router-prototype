@@ -57,7 +57,7 @@ export function leadStore(db: Db) {
     qualified: p(`UPDATE leads SET status = 'qualified', updated_at = ?, qualification_json = ?, resolution_json = ?, segment = ? WHERE id = ?`),
     scored: p(`UPDATE leads SET status = 'scored', updated_at = ?, score_json = ?, score = ?, tier = ? WHERE id = ?`),
     routed: p(`UPDATE leads SET status = 'routed', updated_at = ?, route_json = ?, route_action = ?, route_team = ?, owner = ?, sla_due_at = ?, time_to_route_ms = ? WHERE id = ?`),
-    notified: p(`UPDATE leads SET status = 'notified', updated_at = ?, alert_json = ? WHERE id = ?`),
+    notified: p(`UPDATE leads SET status = 'notified', updated_at = ?, alert_json = ?, rate_fact_json = ? WHERE id = ?`),
     synced: p(`UPDATE leads SET status = 'synced', updated_at = ?, crm_json = ? WHERE id = ?`),
     done: p(`UPDATE leads SET status = 'done', updated_at = ?, timings_json = ?, retry_at = NULL WHERE id = ?`),
     retrying: p(`UPDATE leads SET status = 'retrying', updated_at = ?, attempts = ?, retry_at = ? WHERE id = ?`),
@@ -101,7 +101,8 @@ export function leadStore(db: Db) {
     markQualified: (id: string, at: string, qualificationJson: string | null, resolutionJson: string | null, segment: string | null) => { s.qualified.run(at, qualificationJson, resolutionJson, segment, id); },
     markScored: (id: string, at: string, scoreJson: string | null, score: number, tier: string) => { s.scored.run(at, scoreJson, score, tier, id); },
     markRouted: (id: string, at: string, c: RoutedColumns) => { s.routed.run(at, c.route_json, c.route_action, c.route_team, c.owner, c.sla_due_at, c.time_to_route_ms, id); },
-    markNotified: (id: string, at: string, alertJson: string | null) => { s.notified.run(at, alertJson, id); },
+    /** The alert, and the rate line the brief carried (null when the organization has no rate group). */
+    markNotified: (id: string, at: string, alertJson: string | null, rateFactJson: string | null) => { s.notified.run(at, alertJson, rateFactJson, id); },
     markSynced: (id: string, at: string, crmJson: string | null) => { s.synced.run(at, crmJson, id); },
     markDone: (id: string, at: string, timingsJson: string | null) => { s.done.run(at, timingsJson, id); },
     markRetrying: (id: string, at: string, attempts: number, retryAtMs: number) => { s.retrying.run(at, attempts, retryAtMs, id); },

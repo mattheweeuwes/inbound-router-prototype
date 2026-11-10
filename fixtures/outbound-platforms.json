@@ -1,0 +1,8 @@
+{
+  "_readme": "Hand-made mapping of rate-file EINs to the behavioral health platforms the outbound finding is for (DECISIONS #20). The rate file names entities, not their parents, so this is a reading, not data. confirmed is true only when the EIN's own name is the platform's; anything else stays unconfirmed, and its draft is blocked until someone confirms it.",
+  "platforms": [
+    { "ein": "992536327", "platform": "PsychPlus", "confirmed": true, "how": "by name: PSYCHPLUS MEDICAL ASSOCIATES PLLC, Houston TX" },
+    { "ein": "851628740", "platform": "PsychPlus", "confirmed": false, "how": "a separate Oklahoma City EIN also named PSYCHPLUS; not confirmed as the platform's" },
+    { "ein": "462718719", "platform": "Access TeleCare", "confirmed": true, "how": "by name: ACCESS TELECARE PLLC, Dallas TX" }
+  ]
+}

@@ -82,6 +82,36 @@ export function buildCompanyUpsert(res: Resolution, ownerId: string | null = nul
   };
 }
 
+/** What a company upsert carries for an outbound group (src/outbound): the finding about its own rate, keyed on its EIN. */
+export interface OutboundCompanyInput {
+  accountKey: string; ein: string; name: string; city: string; state: string | null; clinicians: number; band: string;
+  rate: number; pctOfMedicare: number; form: string; cardTier: number | null; factorMultiple: number | null; cityTopRate: number;
+  bandMedianPct: number; fit: string; platform: string | null;
+  /** the registry account the group links to by name and state, when it does */
+  registryAccountKey: string | null;
+  /** payer, network, code and month the rate is from, e.g. "UnitedHealthcare Choice Plus 90837 202608" */
+  rateScope: string;
+}
+
+export function outboundCompanyProperties(c: OutboundCompanyInput): Record<string, unknown> {
+  return prune({
+    name: c.name, city: c.city, state: c.state, serif_account_key: c.accountKey, serif_segment: 'provider_group', serif_match_method: 'ein',
+    serif_ein: c.ein, serif_registry_account_key: c.registryAccountKey, serif_rate_scope: c.rateScope, serif_rate: c.rate,
+    serif_rate_pct_medicare: c.pctOfMedicare, serif_contract_form: c.form, serif_card_tier_pct: c.cardTier, serif_conversion_factor: c.factorMultiple,
+    serif_clinicians: c.clinicians, serif_size_band: c.band, serif_city_top_rate: c.cityTopRate, serif_band_median_pct: c.bandMedianPct,
+    serif_outbound_fit: c.fit, serif_platform: c.platform,
+  });
+}
+
+/** The company upsert for an outbound group, on the same unique key as every company the router writes. Dry-run only: nothing sends it. */
+export function buildOutboundCompanyUpsert(c: OutboundCompanyInput): CrmRequest {
+  return {
+    method: 'POST', path: PATHS.companiesUpsert,
+    body: { inputs: [{ id: c.accountKey, idProperty: 'serif_account_key', properties: outboundCompanyProperties(c) }] },
+    note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate. Built for target groups; never enqueued or sent.',
+  };
+}
+
 export function buildAssociation(): CrmRequest {
   return { method: 'PUT', path: PATHS.associateDefault(CONTACT_ID, COMPANY_ID), body: null, note: 'Default (unlabeled) contact to company association. Ids come from the two upsert responses.' };
 }
@@ -307,6 +337,21 @@ export const COMPANY_PROPERTIES: Prop[] = [
   { name: 'serif_account_score', label: 'Account score', type: 'number', fieldType: 'number', description: 'Reverse-ETL account score (max lead score at the account).' },
   { name: 'serif_open_leads', label: 'Leads (30d)', type: 'number', fieldType: 'number', description: 'Reverse-ETL count of leads in the last 30 days.' },
   { name: 'serif_web_intent_points', label: 'Web intent points', type: 'number', fieldType: 'number', description: 'Reverse-ETL account-level web intent points.' },
+  // written by the outbound module for target groups in the rate file (dry-run)
+  text('serif_ein', 'EIN', 'Employer identification number of the group in the rate file.'),
+  text('serif_registry_account_key', 'Registry account key', 'Registry account the rate group links to by name and state, when it does.'),
+  text('serif_rate_scope', 'Rate scope', 'Payer, network, code and month the rate is from.'),
+  { name: 'serif_rate', label: 'Negotiated rate', type: 'number', fieldType: 'number', description: 'The group\'s one negotiated rate for the code (the row covering the most NPIs).' },
+  { name: 'serif_rate_pct_medicare', label: 'Rate, % of Medicare', type: 'number', fieldType: 'number', description: 'The rate as a whole percent of the local Medicare rate.' },
+  enumProp('serif_contract_form', 'Contract form', ['card', 'factor', 'both', 'neither'], 'Whether the rate is a whole percent of the rate card, a whole-dollar conversion factor, both or neither.'),
+  { name: 'serif_card_tier_pct', label: 'Card tier (%)', type: 'number', fieldType: 'number', description: 'The percent of the rate card base the rate equals.' },
+  { name: 'serif_conversion_factor', label: 'Conversion factor ($)', type: 'number', fieldType: 'number', description: 'The whole-dollar factor the rate is a multiple of the unit by.' },
+  { name: 'serif_clinicians', label: 'Clinicians', type: 'number', fieldType: 'number', description: 'Individual NPIs linked to the EIN in the network (AllPayerIndividualNPIs).' },
+  enumProp('serif_size_band', 'Size band', ['1-50', '51-500', '501+'], 'Clinicians in the group, banded.'),
+  { name: 'serif_city_top_rate', label: 'Top rate in the city', type: 'number', fieldType: 'number', description: 'The highest group rate in the same city for the same code.' },
+  { name: 'serif_band_median_pct', label: 'Band median, % of Medicare', type: 'number', fieldType: 'number', description: 'Median percent of Medicare across the group\'s size band.' },
+  enumProp('serif_outbound_fit', 'Outbound fit', ['target', 'not_target'], 'Whether the outbound finding is for this group.'),
+  text('serif_platform', 'Platform', 'The behavioral health platform the EIN is mapped to by hand.'),
 ];
 
 export function propertyDefinitions() {

@@ -1,6 +1,6 @@
 // Identity resolution: IDs, not names. Runs the ordered steps and stops at the first confident answer.
 import type { Ctx } from '../context';
-import type { Confidence, LeadEvent, Normalized, Resolution, ResolveMethod, Segment } from '../schema';
+import type { Candidate, Confidence, LeadEvent, Normalized, Resolution, ResolveMethod, Segment } from '../schema';
 import { domainChain, tldSegment } from './domain';
 import { matchCompany, type MatchResult } from './match';
 import { lookupNppes } from './nppes';
@@ -190,6 +190,33 @@ export async function resolve(ctx: Ctx, ev: LeadEvent, n: Normalized): Promise<R
   r.accountName = company ?? domain;
   r.evidence = [...evidence, { step: 'none', detail: 'no registry, name, site-title or NPPES match' }];
   return r;
+}
+
+/** A registry link made from a name and a state alone, for records that arrive without a domain (the rate file's groups). */
+export interface NameLink {
+  status: 'linked' | 'unlinked';
+  accountId: string | null;
+  accountName: string | null;
+  method: 'company_name';
+  /** the best candidate's score, linked or not; null when nothing scored at all */
+  score: number | null;
+  reason: string;
+  /** what a person would choose from: kept on an unlinked record too */
+  candidates: Candidate[];
+}
+
+/**
+ * Links a name and state to a registry account with the same matcher and thresholds as step 3 above. Only a unique,
+ * strong match links. A tie or a weak match stays unlinked with its candidates and is never guessed, which is the rule
+ * the router follows for a lead (R6). No network lookups.
+ */
+export function resolveByName(ctx: Ctx, name: string, state: string | null): NameLink {
+  const m = matchCompany(ctx.db, name, state);
+  if (m.outcome === 'unique' && m.top) {
+    return { status: 'linked', accountId: m.top.accountId, accountName: m.top.name, method: 'company_name', score: m.top.score, reason: m.reason, candidates: m.candidates };
+  }
+  const reason = m.outcome === 'ambiguous' ? `tie: ${m.reason}` : m.reason;
+  return { status: 'unlinked', accountId: null, accountName: null, method: 'company_name', score: m.top?.score ?? m.candidates[0]?.score ?? null, reason, candidates: m.candidates };
 }
 
 /** Step 7 follow-up: benefits/HR at an unknown corporate domain is probably a self-funded employer. Low confidence, labelled inferred. */

@@ -12,3 +12,5 @@ data/raw/*
 playwright-report/
 test-results/
 __pycache__/
+# Serif's public rate file, fetched by npm run rates:fetch; never committed.
+data/rates/

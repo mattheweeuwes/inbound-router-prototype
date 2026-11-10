@@ -18,6 +18,7 @@ npm run eval:gate      # the same evaluation as a gate: exits 1 if v4 on the sea
 npm run ci             # what CI runs, in order, stopping at the first failure: typecheck, tests, CI replay, rules-only eval gate, browser test
 npm run dev            # http://127.0.0.1:3480 (API under /api, cockpit from public/); sets a local demo signing key and DEMO_ROUTES=1 inline
 npm run reverse-etl    # company batch upsert from the v_account_scores view (dry-run)
+npm run rates:fetch    # download Serif's public rate file to data/rates/ (git-ignored); the outbound module loads it at the next start
 npm run etl            # rebuild data/registry.sqlite (Python 3.9 standard library only)
 npm run gen-fixtures   # regenerate fixtures/submissions.json and gold-labels.json from the table in scripts/gen-fixtures.ts
 ```
@@ -56,7 +57,21 @@ Until `data/registry.sqlite` exists with `meta.status = 'complete'`, the app run
 
 An account already in the CRM that the public registries do not know keeps the CRM record's identity, segment and size.
 
-Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline (`src/pipeline.ts` the queue and runner, `src/stages.ts` the prepare step and one function per ordered stage, `src/decisions.ts` the pure decisions, `src/modelPath.ts` when the model runs, `src/secondOpinion.ts` the model's answer after the alert, `src/limiter.ts` the bound on concurrent work, `src/store/` every statement the pipeline runs, `src/crm/outbox.ts` HubSpot delivery); `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners and CRM mirror; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
+Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as functions); `server.ts` the local server; `src/` the pipeline (`src/pipeline.ts` the queue and runner, `src/stages.ts` the prepare step and one function per ordered stage, `src/decisions.ts` the pure decisions, `src/modelPath.ts` when the model runs, `src/secondOpinion.ts` the model's answer after the alert, `src/limiter.ts` the bound on concurrent work, `src/store/` every statement the pipeline runs, `src/crm/outbox.ts` HubSpot delivery, `src/outbound/` the rate file, its findings and drafts); `sql/` migrations and views; `fixtures/` the 40 synthetic submissions, gold labels, owners, CRM mirror and the outbound platform mapping; `etl/` the registry build; `docs/` decisions and data contract; `out/` generated output.
+
+## Outbound from the rate file
+
+The take-home's outbound analysis (Part 1) runs here as a module (`src/outbound/`, `GET /api/outbound`). At startup it loads Serif's public rate file (`RATES_CSV`, default `data/rates/mrf_rate_search_export.csv`; `npm run rates:fetch` downloads it) when its hash differs from what is loaded, and derives, in one transaction:
+
+- one rate per group (EIN): the row the file flags as covering the most NPIs, then the payer's largest NPI list, then the most psychiatrists, then the higher rate (`sql/models/v_rate_groups.sql`);
+- the two contract forms, found by search rather than hard-coded: a rate card (a whole percent of one base, to the cent) and a conversion factor (a whole-dollar multiple of one unit), with how many distinct rates each explains;
+- one finding per group: its rate, percent of Medicare, form, the top rate in its city and its size band's median;
+- a link to a registry organization by name and state, through the router's own matcher, stored unlinked with its candidates on a tie or a weak match;
+- its fit, from the take-home's judgement: behavioral health platforms are the target, small independent groups and hospital systems are not. Platforms come from a hand-made mapping (`fixtures/outbound-platforms.json`); a draft is ready only when the mapping is confirmed and is blocked otherwise.
+
+On the August 2026 UnitedHealthcare file (205 rows, 127 groups) it reproduces the take-home's numbers: a $141.47 card that 15 of the 89 distinct rates sit on, a $3.47 unit that 16 are multiples of, and the band counts and medians (`test/outbound-parity.test.ts`, which runs when the file is present). Loading it takes about half a second on the real registry, and a restart with the same file about a millisecond.
+
+`GET /api/outbound/<ein>` renders the take-home's email and LinkedIn follow-up for a target, or a labelled preview for any other group. Code inserts every figure and returns each one with the field it came from; `{first_name}` stays open, because the file names organizations, not people. Each EIN gets one of the two hooks the take-home tests against each other. The HubSpot company upsert carrying the finding is built for targets and never sent. When an inbound lead's organization has a rate group, its brief, Slack alert and CRM task carry one line with that group's rate (`leads.rate_fact_json`); scoring and routing do not read it.
 
 ## Real and synthetic
 
@@ -64,8 +79,9 @@ Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as func
 |---|---|
 | Organizations, their domains and counts, except the three CRM accounts: CMS Hospital General Information, AHRQ Compendium of U.S. Health Systems, NPPES NPI-2 lookups, homepage titles | Every person, email address, job title and message. All fixtures carry `"synthetic": true` and the UI badges them. |
 | Resolution, scoring, routing, SLA math, dedupe, idempotency, the HubSpot and Slack request bodies | Reps (`fixtures/owners.json`), HubSpot owner ids, the CRM mirror (`fixtures/crm-mirror.json`) |
-| Calendly signature check, UTM and title normalization | Fake organizations use the reserved `.example` TLD. The three accounts in the CRM mirror are fictional, so no real organization appears as a Serif customer, prospect or partner |
+| Calendly signature check, UTM and title normalization | Fake organizations use the reserved `.example` TLD. The three accounts in the CRM mirror are fictional, so no real organization appears in it as a Serif customer, prospect or partner |
 | The local model call and its latency | Nothing is sent by default: no email code exists, Slack is dry-run, HubSpot is dry-run unless `HUBSPOT_LIVE=1` and a service key are set |
+| The outbound module's groups, their negotiated rates and Medicare baselines: Serif's published rate file, real organizations with public negotiated rates. The card, the factor and every figure in a draft are computed from it | The platform mapping (`fixtures/outbound-platforms.json`) is hand-made, and an unconfirmed entry blocks its draft. There are no contact people, so `{first_name}` stays a placeholder. The test rate file (`test/fixtures/rates-mini.csv`) is invented. Nothing in the outbound module is sent: no email code exists, no sequence is called, and its HubSpot upsert is built, never enqueued |
 
 ## Mapping to the posting
 
@@ -78,18 +94,19 @@ Files: `api/` Web-standard handlers (`Request` to `Response`, deployable as func
 | Custom webhooks and integrations when no-code runs out | `api/inbound.ts` and `src/sources/`, `src/crm/hubspot.ts` |
 | HubSpot | request builders, property definitions in `docs/hubspot-properties.json`, reverse ETL in `scripts/reverse-etl.ts` |
 | Document the decisions | `docs/DECISIONS.md` |
+| Outbound from data: find a segment's story in a rate file and turn it into targeted outreach | `src/outbound/` and `GET /api/outbound`: the take-home's Part 1 as a module, from the public rate file to one finding per group, targeting, drafts with every figure inserted by code, a dry-run company upsert, and the prospect's own rate in the rep brief when they come inbound |
 
 ## Tests and CI
 
 Every push and pull request runs `.github/workflows/ci.yml`, and `npm run ci` runs the same sequence locally. It stops at the first failure.
 
 1. `npm run typecheck`: `tsc --noEmit` over the app, scripts, tests and the browser test.
-2. `npm test`: the unit and pipeline tests (524, about two seconds, no network).
+2. `npm test`: the unit and pipeline tests (565, about three seconds, no network). Two of them, the parity check with the take-home, run only when the real rate file is in `data/rates/`; without it they are skipped.
 3. `npm run replay:ci`: all 40 fixtures through the real inbound handler, rules only, offline, HubSpot dry-run, in its own database and folder (`out/ci/`). It fails the build if the p90 time to route is over `TTR_P90_BUDGET_MS`, set in that script: 150 ms. On Nov 8 the p90 measured 17 ms on this Mac and 35 ms on the GitHub runner, so the budget is about four times the runner's figure: it fails when someone makes the pipeline slow, not when a runner is noisy. With `CI` set, the replay also refuses to start if HubSpot is live.
 4. `npm run eval:gate:rules`: the v4 classifier with no model, scored on the sealed and held-out sets. The rules path is deterministic, so its floors (`RULES_FLOORS` in `scripts/lib/eval-gate.ts`) are the measured results with no slack: any drop is a real change in the rules or the date parser. Its output goes to `eval-rules.*` files, never over the model run's `out/eval.json`.
 5. `npm run test:e2e`: one Playwright test. It starts the server on port 3497 with a throwaway database, opens the cockpit, sends a test lead through the form, opens it in the stream and checks the decision trail: the resolved organization, a routing decision, and a dry-run CRM sync, with no console errors or failed requests.
 
-`APP_DB`, `OUT_DIR` and `OFFLINE=1` (lookups off) exist so these runs can be pointed away from `data/app.sqlite` and `out/`, which hold the demo.
+`APP_DB`, `OUT_DIR` and `OFFLINE=1` (lookups off) exist so these runs can be pointed away from `data/app.sqlite` and `out/`, which hold the demo. `RATES_CSV` and `OUTBOUND_PLATFORMS` point the CI replay, the rules-only gate, the browser test and the test helpers at the invented rate file and its mapping in `test/fixtures/`, so no gate depends on the real file being present.
 
 CI does not gate the model-in-the-loop eval. It needs the local Ollama model, so it runs on this machine with `npm run eval:gate`. The record of its last run (Nov 9, after the classifier changed) is in `docs/eval-record-2026-11-09.md`, with the hashes in `docs/eval-manifest-2026-11-09.json`. The Nov 7 pair is kept beside it as history; it describes the classifier as it stood before the Nov 9 change. CI also never sends anything to HubSpot or Slack, and the workflow uses no secrets.
 
@@ -109,6 +126,7 @@ CI does not gate the model-in-the-loop eval. It needs the local Ollama model, so
 - Resolution depends on the registry. A company that is in none of CMS, AHRQ, the curated list or NPPES, and whose domain is not mapped, ends as `unknown_org` and goes to review (or, with a benefits title, to a low-confidence inferred employer). The AHRQ file is the 2023 compendium; systems that merged since may be named by their old record.
 - Homepage-title and NPPES lookups use the network on first sight of a domain and are cached under `data/cache/`. With the network off they degrade to unresolved and the reason is recorded.
 - HubSpot live mode has run against a developer test portal, not a production one. On Nov 7 it loaded the 40-event day (39 leads). Running the day again counted 126 requests: 101 writes (company and contact upserts and the contact-to-company association) returned 200, and the 25 tasks were already open and were reused, not created. It created no new records. That run confirmed the two endpoint shapes the documentation did not show (see `docs/DATA-CONTRACT.md`). A production portal's existing schema, owners and rate limits are untested.
+- The outbound module's card and factor are inferred from the rates. The take-home also checked that neither is luck by nudging the rates at random and searching again; that check is not ported, so the stored hit counts are what a reader judges by (a pattern needs at least 3). One sentence in the drafts (every large group above 115% of Medicare is a hospital system or academic medical center) is a reading of the names in the August 2026 file, kept as a constant; a different file needs that reading done again. By name and state alone, 12 of the 127 groups link to a registry organization. The rest stay unlinked with their candidates: physician groups and practices the registry does not hold, and hospital-affiliated names that do not reach a unique, strong match (Parkland Health's best candidate scores 0.58, under the router's 0.7 floor), which is the rule the router follows rather than a guess.
 - Round-robin capacity is 6 alerts per rep per rolling 24 hours, a placeholder.
 - Scoring weights are hand-set. Closed-won and closed-lost data would be needed to fit them.
 - In the test suite and CI, the Slack and HubSpot paths run against stubbed network calls; nothing is sent.
