@@ -122,6 +122,80 @@ test('a person confirms a probable link, its system-gap draft is ready and expor
   expect(problems, problems.join('\n')).toEqual([]);
 });
 
+// The one probable link was confirmed by the test above and the server keeps it, so this test starts from a decided link.
+test('a person takes a decision back and the count returns, and a new decision leaves a line with an Undo where the row was', async ({ page }) => {
+  const problems = watch(page);
+  await page.goto('/#outbound');
+  await expect(page.getByText('Live API')).toBeVisible();
+  const work = page.getByRole('group', { name: 'Outbound work' });
+  const waiting = work.locator('.ob-stat', { hasText: 'Links to confirm' }).locator('.ob-stat-value');
+  await expect(waiting).toHaveText('0');
+  const links = page.getByRole('region', { name: /Links to confirm/ });
+  await expect(links.getByText('No probable link is waiting.')).toBeVisible();
+
+  // the earlier decision is in the collapsed Decided list, with who decided it and an Undo
+  await links.getByRole('button', { name: /^Decided \(1\)/ }).click();
+  const decided = links.locator('.ob-decided-row', { hasText: 'PECOS VALE PHYSICIANS PLLC' });
+  await expect(decided).toContainText('Pat Okafor (test)');
+  await decided.getByRole('button', { name: 'Undo' }).click();
+  await expect(waiting).toHaveText('1');
+  const item = links.locator('li.ob-link', { hasText: 'PECOS VALE PHYSICIANS PLLC' });
+  await expect(item).toBeVisible();
+  await expect(item).toContainText('Would put the group in a play');
+  await expect(item).toContainText('Confirming puts it in the System gap play');
+  // the draft left the export with it
+  expect(await (await page.request.get('/api/outbound/export.csv')).text()).not.toContain('900000014');
+
+  // a decision without a name sends the person to the name box, with the message beside the row
+  await item.getByRole('button', { name: 'Confirm' }).click();
+  await expect(item.locator('.ob-link-msg.is-error')).toContainText('Type your name in Deciding as first');
+  await expect(links.getByLabel('Deciding as')).toBeFocused();
+  await links.getByLabel('Deciding as').fill('Sam Reviewer (test)');
+
+  // confirming leaves the page where it was: the row becomes one line with an Undo
+  await links.scrollIntoViewIfNeeded();
+  const y = await page.evaluate(() => window.scrollY);
+  await item.getByRole('button', { name: 'Confirm' }).click();
+  const line = links.locator('li.ob-link-done');
+  await expect(line).toContainText('Confirmed for PECOS VALE PHYSICIANS PLLC.');
+  await expect(waiting).toHaveText('0');
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - y)).toBeLessThan(40);
+
+  // and Undo takes it back: the row returns and the count with it
+  await line.getByRole('button', { name: 'Undo' }).click();
+  await expect(waiting).toHaveText('1');
+  await expect(links.locator('li.ob-link', { hasText: 'PECOS VALE PHYSICIANS PLLC' })).toBeVisible();
+  await expect(links.locator('li.ob-link-done')).toHaveCount(0);
+  expect(problems, problems.join('\n')).toEqual([]);
+});
+
+test('the groups filter by status, the view is a link, and a link opens it', async ({ page }) => {
+  const problems = watch(page);
+  await page.goto('/#outbound');
+  await expect(page.getByText('Live API')).toBeVisible();
+  const status = page.getByRole('group', { name: 'Filter by status' });
+  // each status chip has its count, taken over the groups the other chips leave
+  for (const name of ['Ready', 'Blocked', 'Suppressed', 'Link to confirm', 'Not a target']) await expect(status.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+  const table = page.getByRole('table').filter({ hasText: 'Contract form' });
+  await status.getByRole('button', { name: /^Link to confirm/ }).click();
+  // a link to confirm is in no play, so the play chip widens to All rather than showing an empty table
+  await expect(page.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(table.locator('tbody tr').first()).toContainText('PECOS VALE PHYSICIANS PLLC');
+  await expect(page).toHaveURL(/#outbound\?status=link$/);
+  await table.getByRole('button', { name: 'PECOS VALE PHYSICIANS PLLC' }).click();
+  await expect(page).toHaveURL(/ein=900000014/);
+
+  // the link opens the same view in a new page
+  const link = page.url();
+  const other = await page.context().newPage();
+  await other.goto(link);
+  await expect(other.getByRole('complementary', { name: 'Group detail' })).toContainText('PECOS VALE PHYSICIANS PLLC');
+  await expect(other.getByRole('group', { name: 'Filter by status' }).getByRole('button', { name: /^Link to confirm/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(other.getByRole('table').filter({ hasText: 'Contract form' }).locator('tbody tr')).toHaveCount(1);
+  expect(problems, problems.join('\n')).toEqual([]);
+});
+
 test('at 390 px the Outbound tab, its work tiles and the links panel fit with no sideways scroll', async ({ page }) => {
   const problems = watch(page);
   await page.setViewportSize({ width: 390, height: 844 });

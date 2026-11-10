@@ -1,74 +1,22 @@
 /* Inbound Router cockpit. Vanilla JS, no build step.
  * Live mode: talks to the API on the same origin and follows /api/stream.
  * Sample mode: if the API is not reachable, reads public/mock/*.json and keeps checking for the API.
- * The Overview tab renders GET /api/dashboard and refreshes from /api/stream, throttled. */
-'use strict';
+ * The Overview tab renders GET /api/dashboard and refreshes from /api/stream, throttled.
+ * The address (location.hash) names the tab and what is open or filtered in it: address-model.js. */
+import { lab, teamName } from './labels.js';
+import { buildAddress, parseAddress, sameAddress } from './address-model.js';
+import { TZ, fullTime, shortParts, timeTag, utcExact } from './time.js';
+import { TEAM_SHORT, actionPill, esc, fmtMs, tierBadge } from './ui.js';
+import { mountStream } from './stream.js';
+import { indexHTML, wireIndex } from './section-index.js';
+import { copyAddress } from './copy-link.js';
 
-// ─── labels ──────────────────────────────────────────────────────────────────
-const L = {
-  source: {
-    calendly_demo: 'Demo request', guide_download: 'Guide download', signal_ask_waitlist: 'Signal Ask waitlist',
-    sample_signup: 'Try Signal', marketplace: 'Marketplace', api_key: 'API key', event_scan: 'Event scan', web_intent: 'Web intent',
-  },
-  segment: {
-    health_system: 'Health system', standalone_hospital: 'Hospital', provider_group: 'Provider group', payer: 'Payer',
-    benefits_consultant_broker: 'Benefits consultant / broker', tpa: 'TPA', employer_self_funded: 'Self-funded employer',
-    innovator_navigation: 'Navigation', innovator_api_data: 'Data / API', life_sciences: 'Life sciences', pe_investor: 'PE / investor',
-    consulting_advisory: 'Advisory', government: 'Public employer', academic: 'Academic', media: 'Media', competitor: 'Competitor',
-    non_us: 'Outside the US', unknown_org: 'Unknown org',
-  },
-  action: {
-    rep_alert: 'Rep alert', owner_task: 'Owner task', team_queue: 'Team queue', nurture: 'Nurture', review: 'Needs a person',
-    careers: 'Careers reply', press: 'Press', competitor_flag: 'Competitor flag', drop: 'Dropped', account_signal: 'Account signal',
-    attach_to_existing: 'Attached to first lead', replay: 'Replay ignored',
-  },
-  team: {
-    HSP: 'Health Systems & Providers', BW: 'Benefits & Workforce', PLS: 'Payers, Life Sciences & Advisory', API: 'Data & API Partnerships',
-    Review: 'Review', Nurture: 'Nurture',
-  },
-  useCase: {
-    contract_negotiation: 'Contract negotiation', rate_benchmarking_market: 'Market rate benchmarking', payer_competitive_intel: 'Payer competitive intel',
-    network_design_benefits: 'Network design (benefits)', navigation_find_care: 'Navigation / find care', data_platform_api: 'Data platform / API',
-    life_sciences_access: 'Life sciences access', investment_diligence: 'Investment diligence', research_media: 'Research / media',
-    job_seeker: 'Job seeker', vendor_pitch: 'Vendor pitch', other: 'Other',
-  },
-  urgency: { now: 'Now', this_quarter: 'This quarter', exploring: 'Exploring', unknown: 'Unknown' },
-  role: { decision_maker: 'Decision maker', influencer: 'Influencer', user: 'User', unknown: 'Unknown' },
-  disq: { none: 'None', job_seeker: 'Job seeker', vendor_pitch: 'Vendor pitch', student: 'Student', media: 'Media', spam: 'Spam', competitor: 'Competitor' },
-  method: {
-    curated_domain: 'Curated domain list', org_domain: 'Verified org domain', company_name: 'Company-name match',
-    site_title: 'Homepage-title match', nppes: 'NPPES organization NPI', tld_heuristic: 'Domain type', tld: 'Domain type (TLD)', inferred: 'Inferred employer', crm: 'CRM account', person: 'Chosen by a person', none: 'Not matched',
-  },
-  fn: {
-    managed_care_contracting: 'Managed care / contracting', network_strategy: 'Network strategy', benefits: 'Benefits',
-    revenue_cycle_finance: 'Finance / revenue cycle', strategy_bd: 'Strategy / BD', analytics_data: 'Analytics / data',
-    product_engineering: 'Product / engineering', executive: 'Executive', clinical: 'Clinical', marketing_sales: 'Marketing / sales',
-    research_academic: 'Research / academic', media: 'Media', hr_recruiting: 'HR / recruiting', other: 'Other',
-  },
-  seniority: { c_level: 'C-level', vp: 'VP', director: 'Director', manager: 'Manager', individual: 'Individual contributor', student: 'Student', unknown: 'Unknown' },
-  channel: {
-    paid_social: 'Paid social', paid_search: 'Paid search', organic_search: 'Organic search', organic_social: 'Organic social', email: 'Email',
-    referral: 'Referral', partner_marketplace: 'Partner marketplace', event: 'Event', product: 'Product', direct: 'Direct', unknown: 'Unknown',
-  },
-  flag: {
-    free_mail: 'free-mail', duplicate: 'repeat', review: 'review', competitor: 'competitor', after_hours: 'after hours',
-    existing_account: 'owned account', idempotent_replay: 'replay', in_digest: 'in a list digest',
-  },
-};
-const lab = (map, v, fallback) => (v == null || v === '' ? (fallback ?? '—') : (L[map][v] ?? String(v).replace(/_/g, ' ')));
-
-const FILTERS = {
-  all: () => true,
-  alert: (l) => ['rep_alert', 'owner_task'].includes(l.routeAction),
-  queue: (l) => l.routeAction === 'team_queue',
-  nurture: (l) => l.routeAction === 'nurture',
-  review: (l) => l.routeAction === 'review',
-  other: (l) => !['rep_alert', 'owner_task', 'team_queue', 'nurture', 'review'].includes(l.routeAction),
-};
 const STAGE_ORDER = ['received', 'normalized', 'resolved', 'qualified', 'scored', 'routed', 'notified', 'synced', 'done'];
 const TERMINAL = new Set(['done', 'failed', 'duplicate']);
 
 // ─── state ───────────────────────────────────────────────────────────────────
+let stream = null; // the Lead stream's list (stream.js), mounted in wire()
+const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
 const state = {
   mode: null, // 'live' | 'sample'
   leads: [],
@@ -82,9 +30,8 @@ const state = {
   quality: null,
   selectedId: null,
   details: new Map(),
-  filter: 'all',
-  search: '',
   tab: 'overview',
+  addressLead: null, // the lead the address names, once a person has chosen one (the first lead is shown without being in the address)
   follow: false,
   sse: null,
   pollTimer: null,
@@ -94,37 +41,14 @@ const state = {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-function esc(v) {
-  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-const TZ = 'America/New_York';
-function fmtShort(iso) {
-  if (!iso) return { day: '', time: '—' };
-  const d = new Date(iso);
-  return {
-    day: d.toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' }),
-    time: d.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }),
-  };
-}
-function fmtFull(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }) + ' ET';
-}
-function fmtMs(ms) {
-  if (ms == null || Number.isNaN(Number(ms))) return '—';
-  const n = Number(ms);
-  if (n < 0.5) return '<1 ms';
-  if (n < 1000) return `${Math.round(n)} ms`;
-  return `${(n / 1000).toFixed(n < 10000 ? 1 : 0)} s`;
-}
+const fmtShort = shortParts;
+const fmtFull = fullTime;
 function dueText(dueIso, fromIso) {
   const a = fmtShort(dueIso);
   const b = fmtShort(fromIso);
   return a.day && a.day !== b.day ? `${a.day.split(',')[0]} ${a.time}` : a.time;
 }
 const pct = (x) => (x == null ? '—' : `${Math.round(Number(x) * 100)}%`);
-const teamName = (t) => (t ? (L.team[t] ?? t) : '');
 function fetchWithTimeout(url, opts = {}, ms = 6000) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
@@ -155,12 +79,6 @@ function mrkdwn(t) {
   s = s.replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/`([^`\n]+)`/g, '<code>$1</code>');
   return s.replace(/\n(?!<blockquote>)/g, '<br>').replace(/<\/blockquote><br>/g, '</blockquote>');
 }
-const tierBadge = (t, cls = 'tier') => {
-  const v = t == null ? null : String(t);
-  return `<span class="${cls} tier-${v ?? 'none'}">${esc(v ?? '·')}</span>`;
-};
-const actionPill = (a) => (a ? `<span class="pill act-${esc(a)}">${esc(lab('action', a))}</span>` : '<span class="pill act-nurture">Processing…</span>');
-
 // ─── data layer ──────────────────────────────────────────────────────────────
 async function probeLive() {
   try {
@@ -196,6 +114,13 @@ async function getJSON(path) {
   if (!r.ok) throw new Error(`sample ${file} missing`);
   return r.json();
 }
+async function deleteJSON(path) {
+  const r = await fetchWithTimeout(`/api${path}`, { method: 'DELETE' }, 15000);
+  let data = null;
+  try { data = await r.json(); } catch { /* empty body */ }
+  if (!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+  return data;
+}
 async function postJSON(path, body) {
   const r = await fetchWithTimeout(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
   let data = null;
@@ -217,7 +142,7 @@ function setMode(mode) {
 // ─── loading ─────────────────────────────────────────────────────────────────
 async function loadList() {
   try {
-    const data = await getJSON('/leads?limit=200');
+    const data = await getJSON('/leads?limit=1000');
     const leads = Array.isArray(data.leads) ? data.leads : [];
     leads.sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
     const firstLoad = state.known.size === 0;
@@ -228,9 +153,12 @@ async function loadList() {
       }
     }
     state.leads = leads;
+    drawList();
+    // the first lead in the list opens by itself on a wide screen, so the trail is never an empty pane; on a phone it would cover the list
     if (state.follow && leads.length && leads[0].id !== state.selectedId) select(leads[0].id, { keepFollow: true });
-    if (!state.selectedId && leads.length) select(leads[0].id);
-    renderList();
+    if (!state.selectedId && leads.length && !isNarrow()) select(stream.firstLeadId() ?? leads[0].id, { how: 'auto' });
+    if (state.addressLead) stream.openListOf(state.addressLead);
+    if (state.revealLead && leads.some((l) => l.id === state.revealLead)) { stream.reveal(state.revealLead); state.revealLead = null; }
     renderReviewTabCount();
   } catch (e) {
     $('#leadList').innerHTML = `<div class="none" style="padding:16px">Couldn't load leads: ${esc(e.message)}</div>`;
@@ -276,77 +204,33 @@ async function loadDetail(id, quiet = false) {
   }
 }
 
-function select(id, { keepFollow = false } = {}) {
+/**
+ * Opens a lead's trail. `how` says who asked: a click or a typed address is something to remember in the address (a click adds a
+ * history entry, so Back returns to the lead before); arrow keys and the first-lead default do not.
+ */
+function select(id, { keepFollow = false, how = 'auto' } = {}) {
   if (!keepFollow) state.follow = false;
   state.selectedId = id;
-  for (const row of $$('.row')) {
-    const on = row.dataset.id === id;
-    row.classList.toggle('is-selected', on);
-    row.setAttribute('aria-selected', on ? 'true' : 'false');
-  }
+  stream.markSelected(id);
   loadDetail(id);
+  if (how === 'click' || how === 'key') {
+    state.addressLead = id;
+    syncAddress({ push: how === 'click' });
+  }
+  if (isNarrow() && how !== 'auto') $('#detail').classList.add('is-open');
 }
 
 // the open review items: the tab's own count once it has read them, else the dashboard's, which counts the same rows
+/** Draws the lead list from what is loaded. */
+function drawList() {
+  stream.setLeads(state.leads, state.fresh);
+  state.fresh = new Set();
+}
 function renderReviewTabCount() {
   const n = state.reviewOpen ?? (state.dash ? state.dash.review.length : state.leads.filter((l) => l.routeAction === 'review').length);
   const el = $('#reviewCount');
   el.textContent = String(n);
   el.dataset.zero = n === 0 ? 'true' : 'false';
-}
-
-// ─── list ────────────────────────────────────────────────────────────────────
-function visibleLeads() {
-  const q = state.search.trim().toLowerCase();
-  return state.leads.filter(FILTERS[state.filter]).filter((l) => {
-    if (!q) return true;
-    const hay = [
-      l.person?.name, l.person?.title, l.person?.email, l.org?.name, lab('source', l.source), lab('segment', l.org?.segment, ''),
-      l.owner, teamName(l.routeTeam), lab('action', l.routeAction, ''), l.tier && `tier ${l.tier}`,
-    ].filter(Boolean).join(' ').toLowerCase();
-    return hay.includes(q);
-  });
-}
-const SRC_SHORT = {
-  calendly_demo: 'Demo request', guide_download: 'Guide', signal_ask_waitlist: 'Signal Ask', sample_signup: 'Try Signal',
-  marketplace: 'Marketplace', api_key: 'API key', event_scan: 'Event scan', web_intent: 'Web intent',
-};
-const TEAM_SHORT = { HSP: 'Health systems', BW: 'Benefits', PLS: 'Payers & LS', API: 'Data & API', Review: 'RevOps', Nurture: 'Marketing' };
-function rowHTML(l) {
-  const t = fmtShort(l.receivedAt);
-  const isSignal = !l.person;
-  const name = isSignal ? 'Account signal' : (l.person.name || l.person.email || 'Unknown');
-  const title = isSignal ? 'Website visits, no person' : (l.person.title || '');
-  const conf = l.org?.confidence || (l.org?.accountId ? 'high' : 'low');
-  const orgName = l.org?.name || 'Not matched';
-  const seg = l.org?.segment ? lab('segment', l.org.segment) : '';
-  const day = t.day ? t.day.split(',')[0] : '';
-  const isQueue = l.owner && / queue$/i.test(l.owner);
-  const owner = isQueue ? `${TEAM_SHORT[l.routeTeam] || teamName(l.routeTeam)} queue` : (l.owner || TEAM_SHORT[l.routeTeam] || teamName(l.routeTeam) || '');
-  const teamLbl = l.routeTeam ? (TEAM_SHORT[l.routeTeam] || teamName(l.routeTeam)) : '';
-  const team = !isQueue && l.owner && teamLbl && !String(l.owner).includes(teamLbl) ? teamLbl : '';
-  const sel = l.id === state.selectedId;
-  return `<div class="row${sel ? ' is-selected' : ''}${state.fresh.has(l.id) ? ' is-new' : ''}" role="option" aria-selected="${sel}" data-id="${esc(l.id)}" tabindex="-1">
-    <div class="cell-time">${esc(day)} ${esc(t.time)}<br><span class="src">${esc(SRC_SHORT[l.source] || lab('source', l.source))}</span></div>
-    <div class="who">
-      <div class="who-line">${tierBadge(l.tier)}<span class="who-name">${esc(name)}</span></div>
-      <div class="who-title">${esc(title)}</div>
-    </div>
-    <div class="org">
-      <div class="org-name"><span class="cdot conf-${esc(conf)}"></span>${esc(orgName)}</div>
-      <div class="org-sub">${esc(seg)}${(l.flags || []).includes('free_mail') ? ' · free-mail' : ''}</div>
-    </div>
-    <div class="route-cell">${actionPill(l.routeAction)}<span class="route-owner">${esc(owner)}${team ? ` · ${esc(team)}` : ''}</span></div>
-    <div class="num speed">${esc(fmtMs(l.timeToRouteMs))}</div>
-  </div>`;
-}
-function renderList() {
-  const list = $('#leadList');
-  const rows = visibleLeads();
-  const top = list.scrollTop;
-  list.innerHTML = rows.length ? rows.map(rowHTML).join('') : '<div class="none" style="padding:16px 14px">No leads match.</div>';
-  list.scrollTop = top;
-  state.fresh.clear();
 }
 
 // ─── detail ──────────────────────────────────────────────────────────────────
@@ -384,6 +268,11 @@ function renderDetail(d) {
     : `${actionPill(d.routeAction)}`;
 
   let html = `<div class="d-head">
+    <div class="d-tools">
+      <button type="button" class="btn btn-secondary btn-sm d-back" data-close-detail>Back to the list</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-copy-lead="${esc(d.id)}">Copy link</button>
+      <span class="copy-msg" role="status" aria-live="polite"></span>
+    </div>
     <div class="d-top">
       <div class="d-tier tier ${tierCls}">${esc(d.tier ?? sc.tier ?? '·')}</div>
       <div class="d-title">
@@ -396,7 +285,7 @@ function renderDetail(d) {
       </div>
     </div>
     <div class="d-verdict">${routeMain}${r.reason ? `<div class="d-verdict-reason">${esc(r.reason)}</div>` : ''}
-      <div class="d-verdict-reason" style="color:var(--muted)">Routed in ${esc(fmtMs(d.timeToRouteMs ?? t.total))} from the webhook${d.receivedAt ? ` · received ${esc(fmtFull(d.receivedAt))}` : ''}</div>
+      <div class="d-verdict-reason" style="color:var(--muted)">Routed in ${esc(fmtMs(d.timeToRouteMs ?? t.total))} from the webhook${d.receivedAt ? ` · received ${timeTag(d.receivedAt, 'full')}` : ''}</div>
     </div>
   </div><div class="trail">`;
 
@@ -412,10 +301,10 @@ function renderDetail(d) {
   html += stage(stageState(d, 'received', true), 'Received', `${lab('source', d.source)} webhook`, null,
     kv([
       ['Door', esc(lab('source', d.source))],
-      ['Received', esc(fmtFull(d.receivedAt))],
+      ['Received', timeTag(d.receivedAt, 'full')],
       ['Contact key', dd.contactKey ? `<span class="idkey">${esc(dd.contactKey)}</span>` : notRecorded],
       t.queued != null ? ['Queue wait', esc(fmtMs(t.queued))] : null,
-      dd.duplicateOf ? ['Repeat of', `<a class="jump" data-id="${esc(dd.duplicateOf)}" href="#">earlier lead</a> (${esc(dd.priorTouches ?? 1)} prior touch${dd.priorTouches === 1 ? '' : 'es'})`] : null,
+      dd.duplicateOf ? ['Repeat of', `<a class="jump" href="${leadHref(dd.duplicateOf)}">earlier lead</a> (${esc(dd.priorTouches ?? 1)} prior touch${dd.priorTouches === 1 ? '' : 'es'})`] : null,
     ]) + rawBlock);
 
   // 2 normalized
@@ -530,7 +419,7 @@ function renderDetail(d) {
         ['Action', esc(lab('action', r.action))],
         ['Owner', esc(r.owner || '—')],
         ['Team', esc(teamName(r.team) || '—')],
-        r.slaMinutes != null ? ['SLA', `${esc(r.slaMinutes)} min${r.slaDueAt ? `, due ${esc(fmtFull(r.slaDueAt))}` : ''}`] : null,
+        r.slaMinutes != null ? ['SLA', `${esc(r.slaMinutes)} min${r.slaDueAt ? `, due ${timeTag(r.slaDueAt, 'full')}` : ''}`] : null,
         r.reason ? ['Why', esc(r.reason)] : null,
       ]));
   } else {
@@ -542,7 +431,7 @@ function renderDetail(d) {
   if (al) {
     const dg = al.digest;
     const alertLine = al.slack ? 'Slack message built' : dg ? `Folded into the ${dg.list} digest for ${dg.channel}` : 'No alert for this outcome';
-    const digestBody = dg ? `<div class="meta-line">This row came in on the uploaded list ${esc(dg.list)}. Its route, SLA and CRM task are its own; its alert is one line in the list's digest to ${esc(dg.channel)} instead of a message of its own. ${dg.at ? `The digest went out ${esc(fmtFull(dg.at))}.` : 'The digest goes out when the list has settled.'}</div>` : '';
+    const digestBody = dg ? `<div class="meta-line">This row came in on the uploaded list ${esc(dg.list)}. Its route, SLA and CRM task are its own; its alert is one line in the list's digest to ${esc(dg.channel)} instead of a message of its own. ${dg.at ? `The digest went out ${timeTag(dg.at, 'full')}.` : 'The digest goes out when the list has settled.'}</div>` : '';
     html += stage(stageState(d, 'notified', true), 'Alert', alertLine, t.notify, al.slack ? renderSlack(al.slack) : digestBody);
   } else {
     html += stage(stageState(d, 'notified', false), 'Alert', '', t.notify, null);
@@ -566,8 +455,8 @@ function renderDetail(d) {
   if (a && ((a.otherLeads || []).length || (a.signals || []).length || a.owner)) {
     html += `<div class="acct"><h4>Same account: ${esc(a.name || a.id)}</h4><ul>
       ${a.owner ? `<li>Owner in the CRM: <b>${esc(a.owner)}</b></li>` : ''}
-      ${(a.otherLeads || []).map((o) => `<li><a class="jump" data-id="${esc(o.id)}" href="#">${esc(o.name || 'Lead')}</a>, ${esc(o.title || '')} · ${esc(lab('source', o.source))} · ${esc(fmtShort(o.receivedAt).day)} ${esc(fmtShort(o.receivedAt).time)}</li>`).join('')}
-      ${(a.signals || []).map((s) => `<li>Signal: ${esc(s.type === 'web_intent' ? 'web visits' : s.type)} · ${esc(s.detail)} · ${esc(fmtShort(s.at).day)}</li>`).join('')}
+      ${(a.otherLeads || []).map((o) => `<li><a class="jump" href="${leadHref(o.id)}">${esc(o.name || 'Lead')}</a>, ${esc(o.title || '')} · ${esc(lab('source', o.source))} · ${timeTag(o.receivedAt, 'short')}</li>`).join('')}
+      ${(a.signals || []).map((s) => `<li>Signal: ${esc(s.type === 'web_intent' ? 'web visits' : s.type)} · ${esc(s.detail)} · ${timeTag(s.at, 'short')}</li>`).join('')}
     </ul></div>`;
   }
   pane.innerHTML = html;
@@ -582,7 +471,7 @@ function decisionStage(dec, now) {
   const what = DECISION_TEXT[dec.kind] || dec.kind;
   return stage('done', 'Decided by a person', `${what} · ${dec.by}`, null, kv([
     ['Decision', esc(what) + (dec.account ? `: ${esc(dec.account.name)} <span class="idkey">${esc(dec.account.key)}</span>` : '') + (dec.reason ? ` (${esc(dec.reason)})` : '')],
-    ['Who', `${esc(dec.by)}, ${esc(fmtFull(dec.at))}`],
+    ['Who', `${esc(dec.by)}, ${timeTag(dec.at, 'full')}`],
     dec.note ? ['Note', esc(dec.note)] : null,
     ['Before', esc(routeWords(dec.before))],
     ['Now', esc(dec.rerun ? routeWords(now) : `${routeWords(now)} (not run again)`)],
@@ -593,7 +482,7 @@ function rateFactStage(f) {
   const how = f.matchedBy === 'registry_link' ? 'linked to the account this lead resolved to' : 'same name and state as the lead\u2019s organization';
   return stage('done', 'Their rates', 'from the rate file, added to the brief, the alert and the task', null,
     `<div class="quote"><span class="quote-lbl">${esc(f.name)}</span>${esc(f.line)}</div>` +
-    kv([['Matched', `${esc(how)}${f.groups > 1 ? ` (${esc(f.groups)} groups matched)` : ''}`], ['Group', `<a class="jump-outbound" data-ein="${esc(f.ein)}" href="#">Open in Outbound</a> <span class="idkey">EIN ${esc(f.ein)}</span>`]]));
+    kv([['Matched', `${esc(how)}${f.groups > 1 ? ` (${esc(f.groups)} groups matched)` : ''}`], ['Group', `<a class="jump-outbound" href="${buildAddress('outbound', { ein: f.ein })}">Open in Outbound</a> <span class="idkey">EIN ${esc(f.ein)}</span>`]]));
 }
 
 function renderSlack(slack) {
@@ -616,20 +505,6 @@ function renderSlack(slack) {
       ${header ? `<div class="chat-h">${esc(header)}</div>` : ''}
       ${fields ? `<div class="chat-fields">${fields}</div>` : ''}${secs}${ctx ? `<div class="chat-ctx">${ctx}</div>` : ''}
     </div></div>`;
-}
-
-// ─── review tab ──────────────────────────────────────────────────────────────
-// Needs a person is its own module (review.js), loaded and mounted the first time the tab opens.
-let reviewTab = null;
-function review() {
-  reviewTab ??= import('./review.js')
-    .then((m) => m.mountReview($('#reviewBody'), {
-      getJSON, postJSON, fmtTime: fmtFull,
-      onCount: (n) => { state.reviewOpen = n; renderReviewTabCount(); },
-      openLead: (id) => { state.follow = false; showTab('stream'); select(id); },
-    }))
-    .catch((e) => { $('#reviewBody').innerHTML = `<div class="card ob-empty"><h3>Needs a person is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
-  return reviewTab;
 }
 
 // ─── eval tab ────────────────────────────────────────────────────────────────
@@ -815,10 +690,12 @@ const SICON = {
 };
 const sicon = (s) => `<span class="sicon ${esc(s)}" role="img" aria-label="${esc(statusWord[s] || s)}">${SICON[s] || SICON.idle}</span>`;
 
+const INDEXED_CARDS = new Set(['lists', 'referrals']);
 /** A chart card: title, optional legend, a Table button that swaps the chart for the same numbers as a table. */
 function vcard({ id, title, sub = '', legend = '', body, table = '', foot = '', span = 'span-6' }) {
   const tv = !!(table && state.tableView[id]);
-  return `<article class="card vcard ${span}" data-card="${esc(id)}" aria-labelledby="h-${esc(id)}">
+  // the cards the Overview's index jumps to carry an index id
+  return `<article class="card vcard ${span}" data-card="${esc(id)}"${INDEXED_CARDS.has(id) ? ` data-index-id="${esc(id)}"` : ''} aria-labelledby="h-${esc(id)}">
     <div class="card-head"><h3 id="h-${esc(id)}">${esc(title)}</h3>${sub ? `<span class="sub">${sub}</span>` : ''}
       <div class="card-tools">${legend && !tv ? legend : ''}${table ? `<button class="tbl-toggle" type="button" data-card="${esc(id)}" aria-pressed="${tv}" >Table</button>` : ''}</div>
     </div>
@@ -1022,7 +899,7 @@ function ovLists(d) {
   const actions = (a) => Object.entries(a).sort((x, y) => y[1] - x[1]).map(([k, n]) => `${lab('action', k)} ${nf(n)}`).join(' · ');
   const rows = lists.map((l) => [l.name, l.rows, tiers(l.byTier), actions(l.byAction), l.repeatsAttached, l.unknownOrgs, l.digests, l.firstAccepted ? fmtFull(l.firstAccepted) : '—', l.lastAccepted ? fmtFull(l.lastAccepted) : '—']);
   const body = `<ul class="fq" aria-label="Uploaded lists">${lists.map((l) => `<li>
-      <div class="who"><span class="who-line"><b>${esc(l.name)}</b></span><span class="d">${nf(l.rows)} rows · ${esc(tiers(l.byTier))}</span><span class="d">${esc(actions(l.byAction))}</span></div>
+      <div class="who"><span class="who-line"><a class="jump" href="${buildAddress('stream', { list: l.name })}" title="Open this list's rows in the Lead stream"><b>${esc(l.name)}</b></a></span><span class="d">${nf(l.rows)} rows · ${esc(tiers(l.byTier))}</span><span class="d">${esc(actions(l.byAction))}</span></div>
       <div class="act"><span class="wait">${nf(l.digests)} digest${l.digests === 1 ? '' : 's'}${l.waitingForDigest ? ` · ${nf(l.waitingForDigest)} waiting` : ''}</span><span class="wait">${nf(l.repeatsAttached)} repeat${l.repeatsAttached === 1 ? '' : 's'} · ${nf(l.unknownOrgs)} unknown</span></div>
     </li>`).join('')}</ul>`;
   const table = dtable(['List', 'Rows', 'By tier', 'By action', 'Repeats attached', 'Unknown organizations', 'Digests', 'First accepted', 'Last accepted'], rows, 9);
@@ -1038,12 +915,12 @@ function ovReferrals(d) {
   const pct = (v) => (v == null ? '—' : `${v}%`);
   const kind = (x) => (x.customer ? '<span class="badge ok">customer</span>' : x.key ? '<span class="badge">not a customer</span>' : '<span class="badge warn">not identified</span>');
   const compare = `<ul class="fq" aria-label="Named referrals beside everyone else">
-      <li><div class="who"><span class="who-line"><b>Named a referrer</b></span><span class="d">${nf(r.named)} lead${r.named === 1 ? '' : 's'} · ${esc(tiers(r.tiers.referred))}</span></div><div class="act"><span class="wait">${pct(r.salesReady.referred)} sales-ready</span></div></li>
+      <li><div class="who"><span class="who-line"><a class="jump" href="${buildAddress('stream', { referral: true })}" title="Open the referred leads in the Lead stream"><b>Named a referrer</b></a></span><span class="d">${nf(r.named)} lead${r.named === 1 ? '' : 's'} · ${esc(tiers(r.tiers.referred))}</span></div><div class="act"><span class="wait">${pct(r.salesReady.referred)} sales-ready</span></div></li>
       <li><div class="who"><span class="who-line"><b>Everyone else</b></span><span class="d">${nf(r.people - r.named)} lead${r.people - r.named === 1 ? '' : 's'} · ${esc(tiers(r.tiers.others))}</span></div><div class="act"><span class="wait">${pct(r.salesReady.others)} sales-ready</span></div></li>
     </ul>`;
   const ranked = r.referrers.length
     ? `<div class="eyebrow ref-h">Referrers, by leads sent</div><ul class="fq" aria-label="Referrers by leads sent">${r.referrers.slice(0, 5).map((x) => `<li>
-        <div class="who"><span class="who-line"><b>${esc(x.name)}</b> ${kind(x)}</span><span class="d">${x.owner ? `owner ${esc(x.owner)}` : 'no owner'}</span></div>
+        <div class="who"><span class="who-line"><a class="jump" href="${buildAddress('stream', { referrer: x.name })}" title="Open this referrer's leads in the Lead stream"><b>${esc(x.name)}</b></a> ${kind(x)}</span><span class="d">${x.owner ? `owner ${esc(x.owner)}` : 'no owner'}</span></div>
         <div class="act"><span class="wait">${nf(x.leads)} lead${x.leads === 1 ? '' : 's'} · ${nf(x.salesReady)} sales-ready</span></div></li>`).join('')}</ul>`
     : '<div class="none">Nobody has named a referrer yet.</div>';
   const table = dtable(['Referrer', 'Customer', 'Owner', 'Leads', 'Sales-ready'], r.referrers.map((x) => [x.name, x.customer ? 'yes' : x.key ? 'no' : 'not identified', x.owner || '—', x.leads, x.salesReady]), 3);
@@ -1220,8 +1097,8 @@ function feedItem(a, isNew) {
     default: title = `Routed to ${a.owner || a.team || 'a queue'}`; detail = who; dot = 'routed';
   }
   return `<li class="${isNew ? 'is-new' : ''}${a.kind === 'crm' ? ' quiet' : ''}"><span class="fdot ${esc(dot)}" aria-hidden="true"></span>
-    <div class="ft"><a class="jump" href="#" data-id="${esc(a.leadId)}"><b>${esc(title)}</b></a><span class="d">${esc(detail)}</span></div>
-    <span class="when" title="${esc(fmtFull(a.at))}">${esc(ago(a.at))}</span></li>`;
+    <div class="ft"><a class="jump" href="${leadHref(a.leadId)}"><b>${esc(title)}</b></a><span class="d">${esc(detail)}</span></div>
+    <span class="when" title="${esc(`${fmtFull(a.at)} · ${utcExact(a.at)}`)}">${esc(ago(a.at))}</span></li>`;
 }
 function ovActivity(d) {
   const keyOf = (a) => `${a.leadId}|${a.kind}|${a.at}`;
@@ -1237,12 +1114,12 @@ function ovFollowUp(d, span = 'span-5') {
   for (const x of r) if (x.list) byList.set(x.list, [...(byList.get(x.list) || []), x]);
   const listLines = [...byList.entries()].map(([name, rows]) => `<li>
       <div class="who"><span class="who-line"><b>${esc(name)}</b></span><span class="d">${nf(rows.length)} row${rows.length === 1 ? '' : 's'} from this uploaded list</span></div>
-      <div class="act"><button class="btn btn-sm fq-open" type="button" data-id="${esc(rows[0].leadId)}" aria-label="Open the ${esc(name)} rows in Needs a person">Open</button></div>
+      <div class="act"><a class="btn btn-sm fq-open" href="${buildAddress('review', { lead: rows[0].leadId })}" aria-label="Open the ${esc(name)} rows in Needs a person">Open</a></div>
     </li>`).join('');
   const body = r.length ? `<ul class="fq" aria-label="Leads waiting for a person">${listLines}${r.filter((x) => !x.list).map((x) => `<li>
       <div class="who"><span class="who-line">${tierBadge(x.tier)}<b>${esc(x.name || 'Unknown')}</b></span><span class="d">${esc([x.title, x.company ? `said "${x.company}"` : null].filter(Boolean).join(' · '))}</span>
         <span class="why">${SICON.warn.replace('<svg', '<svg width="12" height="12"')}${esc(OV_REASON[x.reason] || x.reason)}</span></div>
-      <div class="act"><span class="wait" title="Queued ${esc(fmtFull(x.createdAt))}">${esc(dur(x.createdAt ? Date.now() - Date.parse(x.createdAt) : x.waitMs))}</span><button class="btn btn-sm fq-open" type="button" data-id="${esc(x.leadId)}" aria-label="Open ${esc(x.name || 'this lead')} in Needs a person">Open</button></div>
+      <div class="act"><span class="wait" title="Queued ${esc(`${fmtFull(x.createdAt)} · ${utcExact(x.createdAt)}`)}">${esc(dur(x.createdAt ? Date.now() - Date.parse(x.createdAt) : x.waitMs))}</span><a class="btn btn-sm fq-open" href="${buildAddress('review', { lead: x.leadId })}" aria-label="Open ${esc(x.name || 'this lead')} in Needs a person">Open</a></div>
     </li>`).join('')}</ul>` : '<div class="none">Nothing is waiting for a person.</div>';
   return vcard({ id: 'followup', title: 'Needs a person', sub: r.length ? `${nf(r.length)} waiting` : '', body, span });
 }
@@ -1250,25 +1127,36 @@ function ovClocks(d, span = 'span-5') {
   const now = Date.now();
   const o = d.sla.open || [];
   const body = o.length ? `<ul class="fq" aria-label="SLA due times still ahead">${o.map((x) => { const f = fmtShort(x.dueAt); return `<li>
-      <div class="who"><span class="who-line">${tierBadge(x.tier)}<a class="jump" href="#" data-id="${esc(x.leadId)}"><b>${esc(x.name || 'Unknown')}</b></a></span><span class="d">${esc([x.org, x.owner].filter(Boolean).join(' · '))}</span></div>
-      <div class="act"><span class="due" title="${esc(fmtFull(x.dueAt))}">${esc(f.day.split(',')[0])} ${esc(f.time)}</span><span class="wait">${Date.parse(x.dueAt) > now ? `in ${esc(dur(Date.parse(x.dueAt) - now))}` : 'passed'}</span></div>
+      <div class="who"><span class="who-line">${tierBadge(x.tier)}<a class="jump" href="${leadHref(x.leadId)}"><b>${esc(x.name || 'Unknown')}</b></a></span><span class="d">${esc([x.org, x.owner].filter(Boolean).join(' · '))}</span></div>
+      <div class="act"><span class="due" title="${esc(`${fmtFull(x.dueAt)} · ${utcExact(x.dueAt)}`)}">${esc(f.day.split(',')[0])} ${esc(f.time)}</span><span class="wait">${Date.parse(x.dueAt) > now ? `in ${esc(dur(Date.parse(x.dueAt) - now))}` : 'passed'}</span></div>
     </li>`; }).join('')}</ul>` : '<div class="none">No SLA due times ahead of now.</div>';
   return vcard({ id: 'clocks', title: 'SLA clocks running', sub: d.sla.openCount ? `${nf(d.sla.openCount)} open` : '', body, span });
 }
 
+/** The sticky index of the Overview: its four groups, and the two cards people look for first, each with a count. */
+function overviewIndex(d) {
+  return indexHTML([
+    { id: 'pipeline', label: 'Pipeline', count: d.kpis.leadsIn.value },
+    { id: 'lists', label: 'Uploaded lists', count: (d.lists || []).length },
+    { id: 'referrals', label: 'Named referrals', count: d.referrals ? d.referrals.named : 0 },
+    { id: 'speed', label: 'Speed to lead', count: d.speed?.timeToAlert?.n ?? 0 },
+    { id: 'data', label: 'HubSpot and data quality', count: d.hubspot ? d.hubspot.failed : 0 },
+    { id: 'live', label: 'Live', count: (d.activity || []).length },
+  ], 'Sections of the Overview');
+}
 function renderOverview() {
   const box = $('#overview');
   const d = state.dash;
   if (!box || !d) return;
-  const section = (title, inner) => `<section class="sec"><div class="sec-head"><h2>${esc(title)}</h2></div><div class="grid">${inner}</div></section>`;
-  let html = ovHeader(d) + `<section class="band" aria-label="Status">${ovWindow(d)}${ovPath(d)}</section>` + ovKpis(d);
+  const section = (id, title, inner) => `<section class="sec" data-index-id="${id}"><div class="sec-head"><h2>${esc(title)}</h2></div><div class="grid">${inner}</div></section>`;
+  let html = ovHeader(d) + `<section class="band" aria-label="Status">${ovWindow(d)}${ovPath(d)}</section>` + ovKpis(d) + (d.empty ? '' : overviewIndex(d));
   if (d.empty) {
     html += `<div class="card empty-card"><h3>No leads yet</h3></div>`;
   } else {
-    html += section('Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d) + ovLists(d) + ovReferrals(d));
-    html += section('Speed to lead', ovSpeed(d) + ovSpeedBy(d) + ovReps(d));
-    html += section('HubSpot and data quality', `<div class="span-5 colstack">${ovSync(d, '')}${ovLifecycle(d, '')}</div>` + ovProps(d) + ovMatching(d) + ovHygiene(d));
-    html += section('Live', ovActivity(d) + `<div class="span-5 colstack">${ovFollowUp(d, '')}${ovClocks(d, '')}</div>`);
+    html += section('pipeline', 'Pipeline', ovDoors(d) + ovFunnel(d) + ovMarkets(d) + ovNotForSales(d) + ovLists(d) + ovReferrals(d));
+    html += section('speed', 'Speed to lead', ovSpeed(d) + ovSpeedBy(d) + ovReps(d));
+    html += section('data', 'HubSpot and data quality', `<div class="span-5 colstack">${ovSync(d, '')}${ovLifecycle(d, '')}</div>` + ovProps(d) + ovMatching(d) + ovHygiene(d));
+    html += section('live', 'Live', ovActivity(d) + `<div class="span-5 colstack">${ovFollowUp(d, '')}${ovClocks(d, '')}</div>`);
   }
   const y = window.scrollY;
   const feedTop = box.querySelector('.feed')?.scrollTop ?? 0;
@@ -1382,7 +1270,7 @@ async function onReplay() {
     state.details.clear();
     state.selectedId = null;
     state.follow = true;
-    renderList();
+    drawList();
     $('#detail').innerHTML = '<div class="empty"><div class="empty-title">Replaying the day</div></div>';
     state.seenFeed.clear();
     await postJSON('/demo/replay', { paceMs: 2000 });
@@ -1399,12 +1287,12 @@ async function simulateReplay() {
   state.leads = [];
   state.known = new Set(['__sim__']);
   state.follow = true;
-  renderList();
+  drawList();
   for (const l of all) {
     await new Promise((r) => setTimeout(r, 500));
     state.leads = [l, ...state.leads];
     state.fresh.add(l.id);
-    renderList();
+    drawList();
     select(l.id, { keepFollow: true });
   }
   state.follow = false;
@@ -1453,9 +1341,12 @@ async function onSubmit(ev) {
     msg.textContent = 'Accepted. Watch it route.';
     state.follow = false;
     closeDrawer();
-    showTab('stream');
+    goTab('stream');
     if (res && res.leadId) {
       state.selectedId = res.leadId;
+      state.addressLead = res.leadId;
+      syncAddress({ push: false });
+      stream.markSelected(res.leadId);
       loadDetail(res.leadId, false);
       refreshList();
     }
@@ -1465,101 +1356,126 @@ async function onSubmit(ev) {
   }
 }
 
-// tabs
-// The Outbound tab is its own module (outbound.js), loaded and mounted the first time the tab opens.
-let outboundTab = null;
-function outbound() {
-  outboundTab ??= import('./outbound.js')
-    .then((m) => m.mountOutbound($('#outboundBody'), { getJSON, postJSON, jsonHTML }))
-    .catch((e) => { $('#outboundBody').innerHTML = `<div class="card ob-empty"><h3>Outbound is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
-  return outboundTab;
+// ─── tabs and the address ───────────────────────────────────────────────────────
+// Four tabs are their own modules, loaded and mounted the first time the tab opens. Each hands back show() for when the tab opens,
+// applyAddress(params) to take the view an address names, and address() to give its view back as parameters.
+const leadHref = (id) => buildAddress('stream', { lead: id });
+const TAB_MODULES = {
+  review: {
+    file: './review.js', body: '#reviewBody', name: 'Needs a person',
+    mount: (m, el, host) => m.mountReview(el, { ...host, fmtTime: fmtFull, onCount: (n) => { state.reviewOpen = n; renderReviewTabCount(); }, openLead: (id) => navigate(leadHref(id)) }),
+  },
+  outbound: { file: './outbound.js', body: '#outboundBody', name: 'Outbound', mount: (m, el, host) => m.mountOutbound(el, host) },
+  'feature-pipeline': { file: './feature-pipeline.js', body: '#featurePipelineBody', name: 'Feature to pipeline', mount: (m, el, host) => m.mountFeaturePipeline(el, host) },
+  today: { file: './today.js', body: '#todayBody', name: 'Today', mount: (m, el, host) => m.mountToday(el, host) },
+};
+const tabLoads = {};
+const mounted = {};
+/** What a tab module is given: the API, JSON highlighting, and a way to say its view changed so the address follows. */
+const hostFor = (tab) => ({ getJSON, postJSON, deleteJSON, jsonHTML, syncAddress: (opts) => { if (state.tab === tab) syncAddress(opts); } });
+function tabModule(tab) {
+  const def = TAB_MODULES[tab];
+  tabLoads[tab] ??= import(def.file)
+    .then((m) => def.mount(m, $(def.body), hostFor(tab)))
+    .then((api) => { mounted[tab] = api; return api; })
+    .catch((e) => { $(def.body).innerHTML = `<div class="card ob-empty"><h3>${esc(def.name)} is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
+  return tabLoads[tab];
 }
-// The Feature to pipeline tab is its own module (feature-pipeline.js), loaded and mounted the first time the tab opens.
-let featurePipelineTab = null;
-function featurePipeline() {
-  featurePipelineTab ??= import('./feature-pipeline.js')
-    .then((m) => m.mountFeaturePipeline($('#featurePipelineBody'), { getJSON, jsonHTML }))
-    .catch((e) => { $('#featurePipelineBody').innerHTML = `<div class="card ob-empty"><h3>Feature to pipeline is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
-  return featurePipelineTab;
+
+/** The parameters a tab writes into the address. The Lead stream adds the open lead to its view. */
+function paramsFor(tab) {
+  if (tab === 'stream') return { ...(state.addressLead ? { lead: state.addressLead } : {}), ...stream.address() };
+  return mounted[tab]?.address?.() ?? {};
 }
-// The Today tab is its own module (today.js), loaded and mounted the first time the tab opens.
-let todayTab = null;
-function today() {
-  todayTab ??= import('./today.js')
-    .then((m) => m.mountToday($('#todayBody'), { getJSON, go: goTo }))
-    .catch((e) => { $('#todayBody').innerHTML = `<div class="card ob-empty"><h3>Today is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
-  return todayTab;
+let appliedHash = '';
+/** Writes the address for the tab that is open. A change of what is open adds a history entry; a change of filter or sort replaces it. */
+function syncAddress({ push = false } = {}) {
+  const hash = buildAddress(state.tab, paramsFor(state.tab));
+  if (sameAddress(hash, location.hash)) return;
+  appliedHash = hash;
+  history[push ? 'pushState' : 'replaceState'](null, '', hash);
 }
-/** Opens a review item's card in Needs a person, with its list's group open, and flashes it. */
-function openReviewCard(id) {
-  showTab('review', { then: (r) => r.focusItem(id) });
+/** Goes to an address: writes it as a new history entry and shows what it names. */
+function navigate(hash) {
+  appliedHash = hash;
+  history[sameAddress(hash, location.hash) ? 'replaceState' : 'pushState'](null, '', hash);
+  applyAddress(hash);
 }
-/** Opens what a Today row points at, in the tab that holds its detail. */
-function goTo(t) {
-  if (t.tab === 'review') { if (t.leadId) openReviewCard(t.leadId); else showTab('review'); return; }
-  if (t.tab === 'stream' && t.leadId) { state.follow = false; showTab('stream'); select(t.leadId); return; }
-  showTab(t.tab);
-  if (t.tab === 'outbound' && t.ein) outbound().then((o) => o.open(t.ein)).catch(() => {});
-  if (t.tab === 'feature-pipeline' && t.feature) featurePipeline().then((f) => f.select(t.feature)).catch(() => {});
+/** Shows the tab and the view an address names. */
+function applyAddress(hash = location.hash) {
+  const { tab, params } = parseAddress(hash);
+  appliedHash = hash;
+  showTab(tab, { then: (m) => m?.applyAddress?.(params) });
+  if (tab === 'stream') applyStreamAddress(params);
 }
-function showTab(tab, { then } = {}) {
-  const changed = state.tab !== tab;
+function applyStreamAddress(params) {
+  stream.applyParams(params);
+  state.addressLead = params.lead || null;
+  if (params.lead) {
+    state.follow = false;
+    state.revealLead = params.lead;
+    stream.openListOf(params.lead);
+    select(params.lead, { how: 'address' });
+    stream.reveal(params.lead);
+  } else if (isNarrow()) {
+    $('#detail').classList.remove('is-open');
+  }
+}
+/** A tab was clicked: show it as it was left, and add it to the history. */
+function goTab(tab) {
+  showTab(tab);
+  syncAddress({ push: true });
+}
+window.addEventListener('hashchange', () => { if (!sameAddress(location.hash, appliedHash)) applyAddress(); });
+window.addEventListener('popstate', () => { if (!sameAddress(location.hash, appliedHash)) applyAddress(); });
+
+/** Marks a tab as the open one, without loading anything. */
+function paintTab(tab) {
   state.tab = tab;
   document.body.classList.toggle('is-fixed', tab === 'stream');
-  if (changed) window.scrollTo(0, 0);
   for (const b of $$('.tab')) {
     const on = b.dataset.tab === tab;
     b.classList.toggle('is-active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   }
   for (const v of $$('.view')) v.classList.toggle('is-active', v.id === `view-${tab}`);
+}
+function showTab(tab, { then } = {}) {
+  const changed = state.tab !== tab;
+  paintTab(tab);
+  if (changed) window.scrollTo(0, 0);
   if (tab === 'overview' && state.dash) renderOverview();
-  if (tab === 'review') review().then((r) => r.show().then(() => then?.(r))).catch(() => {});
   if (tab === 'evals') loadEval();
   if (tab === 'quality') loadQuality();
-  if (tab === 'today') today().then((t) => t.show()).catch(() => {});
-  if (tab === 'outbound') outbound().then((t) => t.show()).catch(() => {});
-  if (tab === 'feature-pipeline') featurePipeline().then((t) => t.show()).catch(() => {});
+  if (TAB_MODULES[tab]) tabModule(tab).then((m) => m.show().then(() => then?.(m))).catch(() => {});
+  else then?.(null);
 }
 
 // ─── wiring ──────────────────────────────────────────────────────────────────
 function wire() {
-  $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  $('#filterChips').addEventListener('click', (e) => {
-    const b = e.target.closest('.chip');
-    if (!b) return;
-    state.filter = b.dataset.filter;
-    $$('.chip', $('#filterChips')).forEach((c) => c.classList.toggle('is-on', c === b));
-    renderList();
+  wireIndex($('#overview'));
+  $$('.tab').forEach((b) => b.addEventListener('click', () => goTab(b.dataset.tab)));
+  stream = mountStream(
+    { chips: $('#filterChips'), bar: $('#filterBar'), count: $('#listCount'), head: $('#listHead'), list: $('#leadList'), search: $('#search'), pane: $('.pane-list') },
+    { onPick: (id, how) => select(id, { how }), onChange: () => syncAddress({ push: false }), selectedId: () => state.selectedId },
+  );
+  $('#detail').addEventListener('click', (e) => {
+    const copy = e.target.closest('[data-copy-lead]');
+    if (copy) { copyAddress(leadHref(copy.dataset.copyLead), copy); return; }
+    if (e.target.closest('[data-close-detail]')) {
+      $('#detail').classList.remove('is-open');
+      state.addressLead = null;
+      syncAddress({ push: false });
+    }
   });
-  $('#search').addEventListener('input', debounce((e) => { state.search = e.target.value; renderList(); }, 120));
-  $('#leadList').addEventListener('click', (e) => {
-    const row = e.target.closest('.row');
-    if (row) { select(row.dataset.id); row.focus({ preventScroll: true }); }
-  });
-  $('#leadList').addEventListener('keydown', (e) => {
-    if (!['ArrowDown', 'ArrowUp', 'j', 'k'].includes(e.key)) return;
-    e.preventDefault();
-    const rows = $$('.row', $('#leadList'));
-    if (!rows.length) return;
-    const i = rows.findIndex((r) => r.dataset.id === state.selectedId);
-    const next = e.key === 'ArrowDown' || e.key === 'j' ? Math.min(rows.length - 1, i + 1) : Math.max(0, i - 1);
-    select(rows[next].dataset.id);
-    rows[next].scrollIntoView({ block: 'nearest' });
-  });
+  // every in-page link that names a view is an address: follow it without leaving the page, unless the person means a new tab
   document.addEventListener('click', (e) => {
-    const j = e.target.closest('.jump');
-    if (j) {
-      e.preventDefault();
-      showTab('stream');
-      select(j.dataset.id);
-    }
-    const g = e.target.closest('.jump-outbound');
-    if (g) {
-      e.preventDefault();
-      showTab('outbound');
-      outbound().then((t) => t.open(g.dataset.ein)).catch(() => {});
-    }
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const href = a.getAttribute('href');
+    if (href === '#') { e.preventDefault(); return; }
+    e.preventDefault();
+    navigate(href);
   });
   $('#replayBtn').addEventListener('click', onReplay);
   $('#submitBtn').addEventListener('click', openDrawer);
@@ -1574,9 +1490,7 @@ function wire() {
   $('#leadForm').addEventListener('submit', onSubmit);
   $('#overview').addEventListener('click', (e) => {
     const t = e.target.closest('.tbl-toggle');
-    if (t) { state.tableView[t.dataset.card] = !state.tableView[t.dataset.card]; renderOverview(); return; }
-    const o = e.target.closest('.fq-open');
-    if (o) openReviewCard(o.dataset.id);
+    if (t) { state.tableView[t.dataset.card] = !state.tableView[t.dataset.card]; renderOverview(); }
   });
 }
 
@@ -1590,9 +1504,11 @@ function trackTopbar() {
 async function boot() {
   wire();
   trackTopbar();
-  showTab('overview');
+  paintTab(parseAddress(location.hash).tab);
   const live = await probeLive();
   setMode(live ? 'live' : 'sample');
+  // the tabs read the API, so the address is applied once the mode is known
+  applyAddress();
   // How it works is its own module (how.js): the click-to-explain panel, and the registry counts once the mode is known
   import('./how.js').then((m) => m.mountHow($('#view-how'), { getJSON })).catch(() => {});
   await Promise.all([loadList(), loadDashboard(), loadEval()]);

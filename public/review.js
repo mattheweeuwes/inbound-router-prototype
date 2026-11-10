@@ -41,7 +41,8 @@ export function mountReview(el, h) {
   S.by = readDecider();
   root.addEventListener('click', onClick);
   root.addEventListener('input', onInput);
-  return { show, focusItem, count: () => openLeft() };
+  // the tab has no view of its own to put in the address; an address that names a lead brings that item forward
+  return { show, focusItem, count: () => openLeft(), address: () => ({}), applyAddress };
 }
 
 /** The tab was opened: read again, because items arrive and leave while it is closed. */
@@ -63,6 +64,11 @@ async function show() {
 
 const openLeft = () => (S.view ? S.view.open.filter((i) => !S.done.has(i.leadId)).length : 0);
 const demoOn = () => !!S.view?.demoActions;
+
+/** An address named a lead: bring its item forward once the items are drawn. */
+function applyAddress(/** @type {Record<string, string>} */ params) {
+  if (params.lead) focusItem(params.lead);
+}
 
 /** Brings one item into view, with its list's group open, and flashes it (from Today or the Overview). */
 function focusItem(/** @type {string} */ id) {

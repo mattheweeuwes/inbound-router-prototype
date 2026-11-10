@@ -3,19 +3,28 @@
 // GET /api/outbound/<ein>: one group's source rows, link review, draft or preview and dry-run HubSpot body.
 // GET /api/outbound/export.csv: one row per ready draft. GET /api/outbound/export: the counts beside it.
 // POST /api/outbound/<ein>/link: a person's link decision, served only with DEMO_ROUTES=1 (sign-in is not built).
+// DELETE /api/outbound/<ein>/link: takes that decision back (the cockpit's Undo), served on the same terms.
 // Nothing here sends anything.
 import { getCtx, type Ctx } from '../src/context';
 import { exportCounts, exportRows, toCsv } from '../src/outbound/export';
-import { parseLinkDecision, recordLinkDecision } from '../src/outbound/linkDecision';
+import { clearLinkDecision, parseLinkDecision, recordLinkDecision } from '../src/outbound/linkDecision';
 import { outboundDetail, outboundNotLoaded, outboundSummary } from '../src/outbound/view';
 import { jsonResponse, methodNotAllowed, notFound } from './_util';
 
 const csvResponse = (text: string) =>
   new Response(text, { status: 200, headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="outbound-ready-drafts.csv"', 'cache-control': 'no-store' } });
 
+function clearDecision(ctx: Ctx, ein: string): Response {
+  const r = clearLinkDecision(ctx, ein);
+  if (!r.ok) return jsonResponse(r.status, { error: outboundNotLoaded(ctx) ?? r.error });
+  const detail = outboundDetail(ctx, ein);
+  return jsonResponse(200, { cleared: true, linkReview: detail?.linkReview ?? null, work: detail?.work ?? null });
+}
+
 async function linkDecision(req: Request, ctx: Ctx, ein: string): Promise<Response> {
   if (!ctx.cfg.demoRoutes) return notFound('the demo actions are off, so link decisions are not taken: set DEMO_ROUTES=1 to turn them on (npm run dev does). Sign-in is not built.');
-  if (req.method !== 'POST') return methodNotAllowed('POST');
+  if (req.method === 'DELETE') return clearDecision(ctx, ein);
+  if (req.method !== 'POST') return methodNotAllowed('POST, DELETE');
   const parsed = parseLinkDecision(await req.json().catch(() => null));
   if (typeof parsed === 'string') return jsonResponse(422, { error: parsed });
   const r = recordLinkDecision(ctx, ein, parsed);

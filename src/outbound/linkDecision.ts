@@ -1,7 +1,8 @@
 // POST /api/outbound/<ein>/link: a person confirms which registry organization a rate group belongs to, or rejects the
 // candidate. Sign-in is not built, so the request names who decided and the route is served only with the demo actions
 // on (DEMO_ROUTES=1), as the cockpit's other write routes are. A confirmation must name an account from the group's own
-// candidates: a person chooses among what the matcher found, never types a key in.
+// candidates: a person chooses among what the matcher found, never types a key in. DELETE on the same path takes a decision
+// back (an undo): the group returns to what the loader found, and nothing else changes.
 import type { Ctx } from '../context';
 import { groupState } from './groupState';
 import { decidable, type LinkDecision } from './linkReview';
@@ -55,4 +56,13 @@ export function recordLinkDecision(ctx: Ctx, ein: string, req: LinkDecisionReque
   }
   ctx.store.outbound.saveDecision(decision);
   return { ok: true, decision };
+}
+
+export type ClearDecisionResult = { ok: true } | { ok: false; status: 404; error: string };
+
+/** Takes back the decision recorded for one EIN. A group with none says so rather than pretending it did something. */
+export function clearLinkDecision(ctx: Ctx, ein: string): ClearDecisionResult {
+  if (!ctx.store.outbound.file() || !ctx.store.outbound.group(ein)) return { ok: false, status: 404, error: `no rate group with EIN ${ein}` };
+  if (!ctx.store.outbound.clearDecision(ein)) return { ok: false, status: 404, error: `EIN ${ein} has no recorded decision to clear` };
+  return { ok: true };
 }

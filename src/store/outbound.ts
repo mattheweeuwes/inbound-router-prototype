@@ -106,6 +106,7 @@ export function outboundStore(db: Db) {
     saveDecision: p(`INSERT INTO rate_link_decisions (ein, decision, account_id, account_name, decided_by, note, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(ein) DO UPDATE SET decision = excluded.decision, account_id = excluded.account_id, account_name = excluded.account_name,
         decided_by = excluded.decided_by, note = excluded.note, decided_at = excluded.decided_at`),
+    clearDecision: p(`DELETE FROM rate_link_decisions WHERE ein = ?`),
     // the newest person lead at an account since a time (web intent has no person, so it is not a conversation)
     recentLead: p(`SELECT l.id, l.owner, l.route_team, e.received_at, NULLIF(TRIM(COALESCE(l.first_name, '') || ' ' || COALESCE(l.last_name, '')), '') AS name
       FROM leads l JOIN lead_events e ON e.id = l.id
@@ -164,6 +165,8 @@ export function outboundStore(db: Db) {
     decisions: (): Map<string, LinkDecision> => new Map(allRows<DecisionRow>(s.decisions).map(r => [r.ein, toDecision(r)])),
     decision: (ein: string): LinkDecision | null => { const r = getRow<DecisionRow>(s.decision, ein); return r ? toDecision(r) : null; },
     saveDecision: (d: LinkDecision) => { s.saveDecision.run(d.ein, d.decision, d.accountId, d.accountName, d.decidedBy, d.note, d.decidedAt); },
+    /** Removes a person's decision on one EIN, so the group goes back to what the loader found. True when there was one to remove. */
+    clearDecision: (ein: string): boolean => Number(s.clearDecision.run(ein).changes) > 0,
     /** The newest person lead at an account received at or after `since`, or null. */
     recentLead: (accountId: string, since: string): RecentLead | null => {
       const r = getRow<RecentLeadRow>(s.recentLead, accountId, since);

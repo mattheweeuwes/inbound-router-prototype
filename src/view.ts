@@ -1,12 +1,13 @@
 // API read models: LeadSummary and LeadDetail.
 import type { Ctx } from './context';
+import { SALES_ROUTES } from './dashboard';
 import { parse } from './db';
 import { adapt } from './sources';
 import { matchMirror } from './mirror';
 import { afterHours } from './route';
 import type { DealSignals } from './enterprise';
 import type { RateFact } from './outbound/fact';
-import type { StoredReferral } from './referral';
+import type { ReferralKind, StoredReferral } from './referral';
 import type { StoredReviewDecision } from './review/decision';
 import type { Qualification, Resolution, Route, Source } from './schema';
 import type { StoredSecondOpinion } from './secondOpinion';
@@ -21,6 +22,16 @@ export interface LeadSummary {
   useCase: string | null; urgency: string | null; timeToRouteMs: number | null; flags: string[];
   /** the uploaded list it came in on (decision 24), or null */
   list: string | null;
+  /** the account is enterprise (decision 25), with the fact line behind it ("145 hospitals in 20 states") */
+  enterprise: boolean;
+  enterpriseFact: string | null;
+  /** a named referral (decision 26): its kind and who was named, the account's name when it resolved to one; null when nobody was named */
+  referral: { kind: ReferralKind; referrer: string } | null;
+  /** the rule that routed it (R1, R10, ...), and the first deal-size cue in its message, quoted */
+  rule: string | null;
+  dealCue: string | null;
+  /** milliseconds from the 202 to the lead's own alert on a sales route; null when it has none (a list row is alerted by its digest) */
+  timeToAlertMs: number | null;
 }
 
 /** A leads row joined with its event, as SELECT below returns it. */
@@ -62,6 +73,11 @@ export function toSummary(r: LeadViewRow): LeadSummary {
   if (r.digest_team) flags.push('in_digest');
   if (r.enterprise) flags.push('enterprise');
   if (r.referral_kind) flags.push('referral');
+  const deal = parse<DealSignals>(r.deal_json);
+  const referral = parse<StoredReferral>(r.referral_json);
+  // the dashboard's time to alert: a sales route whose own alert went out. A list row's alert is its digest, which waits by design.
+  const alert = parse<{ slack?: unknown; suppressed?: boolean; digest?: unknown }>(r.alert_json);
+  const alerted = SALES_ROUTES.has(r.route_action ?? '') && !!alert?.slack && !alert.suppressed && !alert.digest ? parse<Record<string, number>>(r.timings_json)?.alerted : undefined;
   return {
     id: r.id, receivedAt: r.received_at, source: r.source, synthetic: !!r.synthetic, status: r.status,
     person: r.source === 'web_intent' ? null : { name: name || email || 'Unknown', title: title ?? null, email: email ?? null },
@@ -69,6 +85,10 @@ export function toSummary(r: LeadViewRow): LeadSummary {
     tier: r.tier, score: r.score, routeAction: r.route_action, routeTeam: r.route_team, owner: r.owner,
     useCase: qual?.final?.useCase ?? null, urgency: qual?.final?.urgency ?? null, timeToRouteMs: r.time_to_route_ms, flags,
     list: r.list_name ?? null,
+    enterprise: !!r.enterprise, enterpriseFact: deal?.enterprise.fact ?? null,
+    referral: referral ? { kind: referral.kind, referrer: referral.account?.name ?? referral.referrer } : null,
+    rule: route?.rule ?? null, dealCue: deal?.cues[0]?.phrase ?? null,
+    timeToAlertMs: typeof alerted === 'number' ? alerted : null,
   };
 }
 

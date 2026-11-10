@@ -13,5 +13,5 @@
     "types": ["node"],
     "noUncheckedIndexedAccess": false
   },
-  "include": ["api", "src", "scripts", "test", "e2e", "server.ts", "playwright.config.ts", "public/outbound.js", "public/outbound-model.js", "public/feature-pipeline.js", "public/feature-pipeline-model.js", "public/today.js", "public/today-model.js", "public/review.js", "public/review-model.js", "public/decider.js", "public/how.js", "public/how-model.js"]
+  "include": ["api", "src", "scripts", "test", "e2e", "server.ts", "playwright.config.ts", "public/outbound.js", "public/outbound-model.js", "public/feature-pipeline.js", "public/feature-pipeline-model.js", "public/today.js", "public/today-model.js", "public/review.js", "public/review-model.js", "public/decider.js", "public/how.js", "public/how-model.js", "public/labels.js", "public/time.js", "public/ui.js", "public/focus.js", "public/address-model.js", "public/section-index.js", "public/stream.js", "public/stream-model.js"]
 }

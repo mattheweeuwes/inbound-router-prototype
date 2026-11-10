@@ -225,7 +225,7 @@ export const TOPO = {
     title: 'One finding per EIN', files: 'src/outbound/findings.ts · linkReview.ts · src/resolve/index.ts (resolveByName)',
     sum: 'For each group: its rate, where that sits against Medicare, which contract form it fits, how it compares with the top rate in its city and the median of its size band.',
     facts: [['Key', 'ein:<EIN>, the file\'s own id for the contracting entity, never its name.'], ['Link', 'Matched to a registry organization by name and state through the router\'s own matcher. Only a unique, strong match links.']],
-    sections: [{ h: 'Link review', items: ['A near miss is probable: the best candidate in the group\'s state, when its distinctive name is in the group\'s name or it scores 0.5 or more.', 'A probable link names no organization until a person confirms it in the Outbound tab. Decisions are kept by EIN across reloads.'] }],
+    sections: [{ h: 'Link review', items: ['A near miss is probable: the best candidate in the group\'s state, when its distinctive name is in the group\'s name or it scores 0.5 or more.', 'A probable link names no organization until a person confirms it in the Outbound tab. Decisions are kept by EIN across reloads, and a person can take one back (Undo), which returns the group to what the loader found.'] }],
     prod: 'Match groups to the CRM\'s own company records before the registry.',
     tests: [['test/outbound-plays.test.ts', 'confirming the probable link puts the group in the system-gap play, with a ready draft, a HubSpot body and an export row'], ['test/outbound-plays.test.ts', 'survives a reload of the rate file, which rebuilds every derived table']],
   },

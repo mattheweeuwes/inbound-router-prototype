@@ -85,6 +85,6 @@ After the changes I repeated the first run's steps over HTTP against a running s
 - Referral capture is phrase-based: "Jane at Emory said we should call you" is missed. Interest cues are the same, and the aliases are mine to tune.
 - Usage and deals are invented, on twelve fictional accounts, and the attribution is influence, not cause: most win-rate comparisons rest on fewer than five closed deals on a side.
 - Twenty-eight probable links between rate groups and registry organizations need a person, and some candidates are wrong, so nothing is linked until someone confirms it.
-- A person's decision, on a review item or a link, records the name they typed: sign-in is not built. A review decision cannot be undone in the product; a second one is refused.
+- A person's decision, on a review item or a link, records the name they typed: sign-in is not built. A link decision can be taken back (Undo); a review decision cannot be undone in the product, and a second one is refused.
 - The scenario runs on a fixed clock, so its own timings read zero; the timed numbers are from the load record, which used the local model on one Mac. Health's queue-wait and time-to-alert figures in the brief cover every lead, not the window.
 - Nothing here is sent. HubSpot is dry-run and Slack is a recorder, so what the reps and customer success would do with it is not tested.

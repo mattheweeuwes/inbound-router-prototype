@@ -51,17 +51,19 @@ test('Today is the second tab, shows the brief and the accounts, and each row op
   expect(flags.indexOf(false) === -1 || flags.lastIndexOf(true) < flags.indexOf(false), 'enterprise accounts come before every other').toBe(true);
 
   // an enterprise row opens the lead in the Lead stream
-  await enterprise.getByRole('button', { name: 'Open in Lead stream' }).first().click();
+  await enterprise.getByRole('link', { name: 'Open in Lead stream' }).first().click();
   await expect(page.getByRole('tab', { name: 'Lead stream' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#detail')).toContainText('CommonSpirit Health');
 
   // a feature-interest row opens the feature, with who asked for it
   await tabs.nth(1).click();
   const interest = page.locator('section[data-section="interest"]');
-  await interest.locator('.td-item').filter({ hasText: 'Network benchmarking' }).getByRole('button', { name: 'Open in Feature to pipeline' }).click();
+  await interest.locator('.td-item').filter({ hasText: 'Network benchmarking' }).getByRole('link', { name: 'Open in Feature to pipeline' }).click();
   await expect(page.getByRole('tab', { name: 'Feature to pipeline' })).toHaveAttribute('aria-selected', 'true');
   const asked = page.getByRole('region', { name: 'Who asked for Network benchmarking' });
   await expect(asked).toContainText('CommonSpirit Health');
+  // the quote opens on the row, under the account
+  await asked.getByRole('button', { name: /CommonSpirit Health/ }).first().click();
   await expect(asked.locator('.fp-quote').first()).toContainText('Network Benchmarking ahead of our UnitedHealthcare renewal');
 
   expect(problems, problems.join('\n')).toEqual([]);

@@ -2,19 +2,27 @@
 // finding, what is ready by play, the links waiting for a person, a chart of every group's rate against its size, a
 // filterable table) and GET /api/outbound/<ein> (one group's facts, source rows, play, registry link, who already has it,
 // the drafted email and LinkedIn line with every inserted figure marked, and the dry-run HubSpot request).
-// It sends nothing. Its one write is a person's link decision (POST /api/outbound/<ein>/link), which the server takes only
-// with the demo actions on. The logic with no DOM in it is in outbound-model.js.
+// It sends nothing. Its writes are a person's link decision (POST /api/outbound/<ein>/link) and taking one back (DELETE on the same
+// path), which the server takes only with the demo actions on. The groups table comes first, then the links to confirm, then the
+// chart. The logic with no DOM in it is in outbound-model.js.
 import {
-  FILTERS, FILTER_KEYS, PLAY_WORDS, SORTS, chartGeometry, fileTitle, filterGroups, formCounts, formLabel, headline, linksToConfirm, sortGroups,
-  statesOf, statusLabel, workCounts,
+  FILTERS, FILTER_KEYS, LINK_VALUE_WORDS, PLAY_WORDS, SORTS, STATUS_CHIPS, chartGeometry, chipCounts, confirmWords, fileTitle, filterGroups, formCounts,
+  formLabel, fromParams, headline, linkValue, linksToConfirm, panelRows, pickStatus, sortGroups, statesOf, statusLabel, toParams, workCounts,
 } from './outbound-model.js';
+import { copyAddress } from './copy-link.js';
 import { readDecider, saveDecider } from './decider.js';
+import { timeTag } from './time.js';
 
 /**
- * What app.js hands over: its API reader (live API or sample files), its API writer and its JSON highlighter.
- * @typedef {{ getJSON: (path: string) => Promise<any>, postJSON: (path: string, body: unknown) => Promise<any>, jsonHTML: (v: unknown) => string }} Host
+ * What app.js hands over: its API reader (live API or sample files), its API writers, its JSON highlighter, and a way to say the view
+ * changed so the address follows.
+ * @typedef {{
+ *   getJSON: (path: string) => Promise<any>, postJSON: (path: string, body: unknown) => Promise<any>, deleteJSON: (path: string) => Promise<any>,
+ *   jsonHTML: (v: unknown) => string, syncAddress: (opts?: { push?: boolean }) => void,
+ * }} Host
  * @typedef {import('./outbound-model.js').Group} Group
  * @typedef {import('./outbound-model.js').Loaded} Loaded
+ * @typedef {import('./outbound-model.js').Want} Want
  * @typedef {import('./outbound-model.js').NotLoaded} NotLoaded
  * @typedef {{ text: string, placeholder?: string, open?: boolean }} Part
  */
@@ -46,39 +54,45 @@ const STATUS_BADGE = { ready: 'ok', blocked: 'warn', link_to_confirm: 'warn', su
 // ─── state ───────────────────────────────────────────────────────────────────
 
 /**
+ * One decision made in this visit, kept where its row was so the panel does not shift.
+ * @typedef {{ ein: string, index: number, decision: 'confirm' | 'reject', name: string, candidate: string | null }} Line
  * @typedef {{
  *   status: 'idle' | 'loading' | 'ready' | 'error',
  *   error: string,
  *   data: Loaded | NotLoaded | null,
- *   filter: import('./outbound-model.js').FilterKey,
- *   state: string,
- *   query: string,
+ *   want: Want,
  *   sort: { key: string, dir: 'asc' | 'desc' },
  *   selected: string | null,
+ *   addressEin: string | null,
  *   sheetOpen: boolean,
  *   details: Map<string, any>,
  *   detailError: string,
  *   by: string,
  *   linkMsg: { ein: string, text: string, error: boolean } | null,
  *   deciding: string | null,
+ *   lines: Line[],
+ *   linksAll: boolean,
+ *   decidedOpen: boolean,
  * }} State
  */
 /** @type {State} */
 const S = {
-  status: 'idle', error: '', data: null, filter: 'in_play', state: '', query: '', sort: { key: 'clinicians', dir: 'desc' },
-  selected: null, sheetOpen: false, details: new Map(), detailError: '', by: readDecider(), linkMsg: null, deciding: null,
+  status: 'idle', error: '', data: null, want: { filter: 'in_play', status: '', state: '', query: '' }, sort: { key: 'clinicians', dir: 'desc' },
+  selected: null, addressEin: null, sheetOpen: false, details: new Map(), detailError: '', by: readDecider(), linkMsg: null, deciding: null,
+  lines: [], linksAll: false, decidedOpen: false,
 };
 
 /** @type {Host} */
 let host;
 let chartWidth = 0;
-/** The read in flight, so a second caller (a jump from a lead) waits for it instead of finding no data. */
+/** The read in flight, so a second caller (an address that names a group) waits for it instead of finding no data. */
 let reading = Promise.resolve();
 
 // ─── the page ────────────────────────────────────────────────────────────────
 
 /**
- * Builds the tab inside `root` once. Returns what app.js needs: show() when the tab opens, open(ein) to jump to a group.
+ * Builds the tab inside `root` once. Returns what app.js needs: show() when the tab opens, applyAddress(params) for a view an address
+ * names, and address() for the view's parameters.
  * @param {HTMLElement} root
  * @param {Host} h
  */
@@ -86,12 +100,12 @@ export function mountOutbound(root, h) {
   host = h;
   root.innerHTML = `
     <div id="obTop"></div>
-    <div id="obLinks"></div>
-    <div id="obChart"></div>
     <div class="ob-split" id="obSplit">
       <section class="card ob-list" id="obList" aria-labelledby="obListTitle"></section>
       <aside class="card ob-detail" id="obDetail" aria-label="Group detail"></aside>
-    </div>`;
+    </div>
+    <div id="obLinks"></div>
+    <div id="obChart"></div>`;
   root.addEventListener('click', onClick);
   root.addEventListener('input', onInput);
   root.addEventListener('change', onInput);
@@ -99,7 +113,7 @@ export function mountOutbound(root, h) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.sheetOpen && root.offsetParent) closeSheet(); });
   const chart = byId('obChart');
   new ResizeObserver(() => { if (Math.abs(chart.clientWidth - chartWidth) > 8 && S.status === 'ready') renderChart(); }).observe(chart);
-  return { show, open };
+  return { show, applyAddress, address };
 }
 
 /** The tab was opened: read the API the first time, draw from what is already read after that. */
@@ -110,15 +124,32 @@ async function show() {
   await reading;
 }
 
-/** Opens one group by EIN, widening the filter if the table is hiding it. */
-async function open(/** @type {string} */ ein) {
+/** The view as address parameters: the open group, the status, the play, the state, the search and the sort. */
+function address() {
+  return { ein: S.addressEin ?? '', ...toParams(S.want, S.sort) };
+}
+
+/** An address named a view: take its filters and sort, and open the group it names, once the API has been read. */
+async function applyAddress(/** @type {Record<string, string>} */ params) {
   await show();
+  const view = fromParams(params);
+  S.want = view.want;
+  S.sort = view.sort;
   const d = S.data;
   if (!d || !d.loaded) return;
-  if (!filterGroups(d.groups, S).some((g) => g.ein === ein)) { S.filter = 'all'; S.state = ''; S.query = ''; }
-  select(ein, { sheet: true });
+  S.addressEin = params.ein || null;
+  if (params.ein) {
+    // a group the filters hide is shown anyway: the address asked for it
+    if (!filterGroups(d.groups, S.want).some((g) => g.ein === params.ein)) S.want = { filter: 'all', status: '', state: '', query: '' };
+    select(params.ein, { sheet: true });
+  }
+  if (!params.ein && !isNarrow()) {
+    // no group named: the detail shows the first group the table now holds, not one the filters have hidden
+    const rows = sortGroups(filterGroups(d.groups, S.want), S.sort);
+    if (rows.length && !rows.some((g) => g.ein === S.selected)) select(rows[0].ein);
+  }
   renderList();
-  byId('obList').querySelector(`[data-ein="${CSS.escape(ein)}"]`)?.scrollIntoView({ block: 'nearest' });
+  if (params.ein) byId('obList').querySelector(`[data-ein="${CSS.escape(params.ein)}"]`)?.scrollIntoView({ block: 'nearest' });
 }
 
 async function load() {
@@ -134,7 +165,7 @@ async function load() {
   renderAll();
   const d = S.data;
   if (S.status === 'ready' && d && d.loaded && !S.selected && !isNarrow()) {
-    const first = sortGroups(filterGroups(d.groups, S), S.sort)[0];
+    const first = sortGroups(filterGroups(d.groups, S.want), S.sort)[0];
     if (first) { select(first.ein); renderList(); }
   }
 }
@@ -202,65 +233,133 @@ function topHTML(/** @type {Loaded} */ d) {
 /** The work row: drafts ready by play, groups someone already has, links waiting for a person, and the export. */
 function workHTML(/** @type {Loaded} */ d) {
   const w = workCounts(d);
-  const tile = (/** @type {string} */ label, /** @type {number} */ value, /** @type {string} */ sub) =>
-    `<div class="card ob-stat ob-work-tile"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${nf(value)}</div><div class="ob-stat-sub">${esc(sub)}</div></div>`;
+  const tile = (/** @type {string} */ label, /** @type {number} */ value, /** @type {string} */ sub, /** @type {string} */ extra = '') =>
+    `<div class="card ob-stat ob-work-tile"><div class="ob-stat-label">${esc(label)}</div><div class="ob-stat-value">${nf(value)}</div><div class="ob-stat-sub">${esc(sub)}</div>${extra}</div>`;
   return `<div class="ob-stats ob-work" role="group" aria-label="Outbound work">
       ${tile('Drafts ready: Platform', w.ready.platform, 'behavioral health platforms, confirmed')}
       ${tile('Drafts ready: System gap', w.ready.system_gap, 'health systems paid under their city’s top rate')}
       ${tile('Suppressed', w.suppressed, 'a customer, an owner or an inbound lead has it')}
-      ${tile('Links to confirm', w.linksWaiting, 'probable registry links waiting for a person')}
+      ${tile('Links to confirm', w.linksWaiting, 'probable registry links waiting for a person', w.linksWaiting ? '<button type="button" class="btn-link ob-jump" data-jump-links>Go to them</button>' : '')}
     </div>
     <p class="ob-export"><a class="ob-export-link" href="${esc(d.actions.export)}" download>Export the ${nf(w.ready.total)} ready drafts (CSV)</a> <span class="muted">One row per draft, with {first_name} left open. Nothing is sent.</span></p>`;
 }
 
 // ─── links to confirm ────────────────────────────────────────────────────────
 
-/** The panel of probable links: each with its candidate, score and state, and buttons that record a person's decision. */
+/** The panel of probable links: the most useful one first, each with its candidate and what confirming would do, and buttons that record a person's decision. */
 function renderLinks() {
   const d = S.data;
   const box = byId('obLinks');
   if (!d || !d.loaded) return;
-  const rows = linksToConfirm(d.groups);
+  const probable = linksToConfirm(d.groups);
+  const rows = panelRows(probable, S.lines, S.linksAll);
   const off = d.actions.linkDecisions ? '' : '<p class="ob-links-off"><b>Demo actions are off on this server,</b> so a decision cannot be recorded here. Start it with <code>npm run dev</code> (it sets <code>DEMO_ROUTES=1</code>).</p>';
-  const msg = (/** @type {string} */ ein) => (S.linkMsg && S.linkMsg.ein === ein ? `<p class="ob-link-msg${S.linkMsg.error ? ' is-error' : ''}" role="status">${esc(S.linkMsg.text)}</p>` : '');
-  const items = rows.map((g) => {
-    const c = /** @type {import('./outbound-model.js').Candidate} */ (g.link.probable);
-    const busy = S.deciding === g.ein ? ' disabled' : '';
-    return `<li class="ob-link" data-ein="${esc(g.ein)}">
+  const items = rows.map((r) => (r.kind === 'link' ? linkItem(r.group) : lineItem(r.line))).join('');
+  const showAll = probable.length > 1
+    ? `<button type="button" class="btn-link ob-links-all" data-links-all data-fk="links-all" aria-expanded="${S.linksAll}">${S.linksAll ? 'Show only the first' : `Show all ${nf(probable.length)}`}</button>`
+    : '';
+  box.innerHTML = `<section class="card ob-links" id="obLinksCard" aria-labelledby="obLinksTitle">
+    <div class="ob-links-head">
+      <h3 id="obLinksTitle">Links to confirm <span class="chip-n">${nf(probable.length)}</span></h3>
+      <label class="ob-field ob-by">Deciding as<input data-ctl="by" data-fk="by" type="text" value="${esc(S.by)}" placeholder="Your name" autocomplete="name"></label>
+    </div>
+    <p class="ob-links-note">A group is linked to a registry organization only on a unique, strong name match. These are the near misses: the best candidate in the group's state, the ones that would put a group in a play first. Until a person confirms one, no draft and no record names the organization. Sign-in is not built, so the name you type is stored as who decided.</p>
+    ${off}
+    ${items ? `<ul class="ob-link-list">${items}</ul>` : '<p class="none ob-none">No probable link is waiting.</p>'}
+    ${showAll}
+    ${decidedHTML(d)}
+  </section>`;
+}
+
+/** One link waiting: the group, its candidate, why it is probable, what confirming does, and the two buttons. */
+function linkItem(/** @type {Group} */ g) {
+  const c = /** @type {import('./outbound-model.js').Candidate} */ (g.link.probable);
+  const busy = S.deciding === g.ein ? ' disabled' : '';
+  const value = linkValue(g);
+  const msg = S.linkMsg && S.linkMsg.ein === g.ein ? `<p class="ob-link-msg${S.linkMsg.error ? ' is-error' : ''}" role="status">${esc(S.linkMsg.text)}</p>` : '';
+  return `<li class="ob-link" data-ein="${esc(g.ein)}">
       <div class="ob-link-group"><button type="button" class="ob-open" data-open="${esc(g.ein)}">${esc(g.name)}</button><span class="ob-city">${esc(place(g))} · ${nf(g.clinicians)} clinicians</span></div>
-      <div class="ob-link-cand"><span class="ob-link-arrow" aria-hidden="true">→</span> <b>${esc(c.name)}</b> <span class="muted">${esc(c.state ?? '—')} · score ${c.score.toFixed(2)}</span><span class="ob-city">${esc(g.link.why)}${g.link.ifConfirmed ? `. Confirming puts it in the ${esc(PLAY_WORDS[g.link.ifConfirmed])} play.` : '.'}</span></div>
+      <div class="ob-link-cand"><span class="ob-link-arrow" aria-hidden="true">→</span> <b>${esc(c.name)}</b> <span class="muted">${esc(c.state ?? '—')} · score ${c.score.toFixed(2)}</span>
+        <span class="ob-city">${esc(g.link.why)}.</span>
+        <span class="ob-link-tag is-v${value}">${esc(LINK_VALUE_WORDS[value])}</span> <span class="ob-city">${esc(confirmWords(g))}.</span></div>
       <div class="ob-link-acts">
         <button type="button" class="btn btn-sm" data-link-act="confirm" data-ein="${esc(g.ein)}" data-account="${esc(c.accountId)}"${busy}>Confirm</button>
         <button type="button" class="btn btn-secondary btn-sm" data-link-act="reject" data-ein="${esc(g.ein)}"${busy}>Reject</button>
       </div>
-      ${msg(g.ein)}
+      ${msg}
     </li>`;
-  }).join('');
-  box.innerHTML = `<section class="card ob-links" aria-labelledby="obLinksTitle">
-    <div class="ob-links-head">
-      <h3 id="obLinksTitle">Links to confirm <span class="chip-n">${nf(rows.length)}</span></h3>
-      <label class="ob-field ob-by">Deciding as<input data-ctl="by" data-fk="by" type="text" value="${esc(S.by)}" placeholder="Your name" autocomplete="name"></label>
-    </div>
-    <p class="ob-links-note">A group is linked to a registry organization only on a unique, strong name match. These are the near misses: the best candidate in the group's state. Until a person confirms one, no draft and no record names the organization. Sign-in is not built, so the name you type is stored as who decided.</p>
-    ${off}
-    ${rows.length ? `<ul class="ob-link-list">${items}</ul>` : '<p class="none ob-none">No probable link is waiting.</p>'}
-    ${S.linkMsg && !rows.some((g) => g.ein === S.linkMsg?.ein) ? msg(S.linkMsg.ein) : ''}
-  </section>`;
 }
 
-/** Records a decision through the API, then reads the groups again so every count, status and draft follows it. */
+/** A decision made in this visit: one line where the row was, with what happened and an Undo. */
+function lineItem(/** @type {Line} */ l) {
+  const what = l.decision === 'confirm' ? `Confirmed for ${l.name}.${l.candidate ? ` Linked to ${l.candidate}.` : ''}` : `Rejected for ${l.name}.${l.candidate ? ` Not part of ${l.candidate}.` : ''}`;
+  const busy = S.deciding === l.ein ? ' disabled' : '';
+  const err = S.linkMsg && S.linkMsg.ein === l.ein && S.linkMsg.error ? ` <span class="is-error">${esc(S.linkMsg.text)}</span>` : '';
+  return `<li class="ob-link ob-link-done" data-ein="${esc(l.ein)}">
+      <p class="ob-link-msg" role="status">${esc(what)}${err}</p>
+      <div class="ob-link-acts"><button type="button" class="btn btn-secondary btn-sm" data-undo="${esc(l.ein)}" data-fk="undo-${esc(l.ein)}"${busy}>Undo</button></div>
+    </li>`;
+}
+
+/** Earlier decisions, collapsed: each with who decided and when, and an Undo that takes it back. */
+function decidedHTML(/** @type {Loaded} */ d) {
+  const here = new Set(S.lines.map((l) => l.ein));
+  const decided = d.groups.filter((g) => g.link.decision && !here.has(g.ein))
+    .sort((a, b) => String(b.link.decision?.decidedAt).localeCompare(String(a.link.decision?.decidedAt)) || a.ein.localeCompare(b.ein));
+  if (!decided.length) return '';
+  const rows = decided.map((g) => {
+    const x = /** @type {import('./outbound-model.js').Decision} */ (g.link.decision);
+    const verb = x.decision === 'confirmed' ? `Confirmed${x.accountName ? `: ${x.accountName}` : ''}` : `Rejected${x.accountName ? `: ${x.accountName}` : ''}`;
+    return `<li class="ob-decided-row" data-ein="${esc(g.ein)}">
+      <div class="ob-decided-what"><button type="button" class="ob-open" data-open="${esc(g.ein)}">${esc(g.name)}</button><span class="ob-city">${esc(verb)} · ${esc(x.decidedBy)} · ${timeTag(x.decidedAt)}</span></div>
+      <button type="button" class="btn btn-secondary btn-sm" data-undo="${esc(g.ein)}" data-fk="undo-${esc(g.ein)}"${S.deciding === g.ein ? ' disabled' : ''}>Undo</button>
+    </li>`;
+  }).join('');
+  return `<div class="ob-decided">
+      <button type="button" class="btn-link ob-decided-toggle" data-decided-toggle data-fk="decided-toggle" aria-expanded="${S.decidedOpen}">Decided (${nf(decided.length)})</button>
+      ${S.decidedOpen ? `<ul class="ob-decided-list">${rows}</ul>` : ''}
+    </div>`;
+}
+
+/** Runs a redraw without letting the page move: the scroll position is put back after it. */
+function keepScroll(/** @type {() => void} */ redraw) {
+  const y = window.scrollY;
+  redraw();
+  window.scrollTo(0, y);
+}
+
+/** Puts the cursor in the Deciding as box, which a decision needs, and brings it into view if it is off screen. */
+function askForName() {
+  const field = byId('obLinks').querySelector('[data-ctl="by"]');
+  if (!(field instanceof HTMLInputElement)) return;
+  field.focus();
+  field.scrollIntoView({ block: 'nearest' });
+}
+
+/** Where a group's row sits in the panel as drawn now, so its decision can take its place. */
+function panelIndex(/** @type {string} */ ein) {
+  const d = S.data;
+  if (!d || !d.loaded) return 0;
+  const rows = panelRows(linksToConfirm(d.groups), S.lines, S.linksAll);
+  return Math.max(0, rows.findIndex((r) => r.kind === 'link' && r.group.ein === ein));
+}
+
+/** Records a decision through the API, then reads the groups again so every count, status and draft follow it. The row becomes a line with an Undo. */
 async function decide(/** @type {string} */ ein, /** @type {'confirm' | 'reject'} */ decision, /** @type {string | undefined} */ accountKey) {
-  const name = S.data && S.data.loaded ? S.data.groups.find((g) => g.ein === ein)?.name ?? ein : ein;
+  const group = S.data && S.data.loaded ? S.data.groups.find((g) => g.ein === ein) : undefined;
   if (!S.by.trim()) {
     S.linkMsg = { ein, text: 'Type your name in Deciding as first: it is stored as who decided.', error: true };
-    renderLinks();
+    keepScroll(renderLinks);
+    askForName();
     return;
   }
+  const index = panelIndex(ein);
   S.deciding = ein;
-  renderLinks();
+  S.linkMsg = null;
+  keepScroll(renderLinks);
   try {
     await host.postJSON(`/outbound/${encodeURIComponent(ein)}/link`, { decision, by: S.by.trim(), ...(accountKey ? { accountKey } : {}) });
-    S.linkMsg = { ein, text: `${decision === 'confirm' ? 'Confirmed' : 'Rejected'} for ${name}.`, error: false };
+    S.lines = [...S.lines.filter((l) => l.ein !== ein), { ein, index, decision, name: group?.name ?? ein, candidate: group?.link.probable?.name ?? null }];
     S.details.delete(ein);
     S.data = await host.getJSON('/outbound');
   } catch (e) {
@@ -268,7 +367,24 @@ async function decide(/** @type {string} */ ein, /** @type {'confirm' | 'reject'
     S.linkMsg = { ein, error: true, text: /demo actions are off/.test(text) ? `Not recorded: the server has demo actions off. ${text}` : `Not recorded: ${text}` };
   }
   S.deciding = null;
-  renderAll();
+  keepScroll(renderAll);
+}
+
+/** Takes a decision back through the API: the group returns to what the loader found, and its row returns to the panel. */
+async function undo(/** @type {string} */ ein) {
+  S.deciding = ein;
+  S.linkMsg = null;
+  keepScroll(renderLinks);
+  try {
+    await host.deleteJSON(`/outbound/${encodeURIComponent(ein)}/link`);
+    S.lines = S.lines.filter((l) => l.ein !== ein);
+    S.details.delete(ein);
+    S.data = await host.getJSON('/outbound');
+  } catch (e) {
+    S.linkMsg = { ein, error: true, text: `Not undone: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  S.deciding = null;
+  keepScroll(renderAll);
 }
 
 // ─── the chart ───────────────────────────────────────────────────────────────
@@ -369,11 +485,12 @@ function selectedSummary(/** @type {Group | null} */ g) {
 function renderList() {
   const d = S.data;
   if (!d || !d.loaded) return;
-  const rows = sortGroups(filterGroups(d.groups, S), S.sort);
+  const rows = sortGroups(filterGroups(d.groups, S.want), S.sort);
   const states = statesOf(d.groups);
-  const counts = Object.fromEntries(FILTER_KEYS.map((k) => [k, d.groups.filter(FILTERS[k].keeps).length]));
-  const chips = FILTER_KEYS.map((k) => `<button type="button" class="chip${S.filter === k ? ' is-on' : ''}" data-filter="${k}" aria-pressed="${S.filter === k}">${esc(FILTERS[k].label)} <span class="chip-n">${counts[k]}</span></button>`).join('');
-  const stateOpts = [`<option value="">All states</option>`, ...states.map(([s, n]) => `<option value="${esc(s)}"${S.state === s ? ' selected' : ''}>${esc(s)} (${n})</option>`)].join('');
+  const counts = chipCounts(d.groups, S.want);
+  const chips = FILTER_KEYS.map((k) => `<button type="button" class="chip${S.want.filter === k ? ' is-on' : ''}" data-filter="${k}" data-fk="filter-${k}" aria-pressed="${S.want.filter === k}">${esc(FILTERS[k].label)} <span class="chip-n">${counts.filter[k]}</span></button>`).join('');
+  const statusChips = STATUS_CHIPS.map((c) => `<button type="button" class="chip${S.want.status === c.key ? ' is-on' : ''}" data-status="${c.key}" data-fk="status-${c.key}" aria-pressed="${S.want.status === c.key}">${esc(c.label)} <span class="chip-n">${counts.status[c.key]}</span></button>`).join('');
+  const stateOpts = [`<option value="">All states</option>`, ...states.map(([s, n]) => `<option value="${esc(s)}"${S.want.state === s ? ' selected' : ''}>${esc(s)} (${n})</option>`)].join('');
   const sortOpts = Object.entries(SORTS).map(([k, c]) => `<option value="${k}"${S.sort.key === k ? ' selected' : ''}>${esc(c.label)}</option>`).join('');
   const head = Object.entries(SORTS).map(([k, c]) => {
     const on = S.sort.key === k;
@@ -381,18 +498,20 @@ function renderList() {
     return `<th class="ob-c-${k}${c.numeric ? ' num' : ''}" aria-sort="${aria}"><button type="button" class="ob-sort${on ? ' is-on' : ''}" data-sort="${k}" data-fk="sort-${k}">${esc(c.label)}<span class="ob-arrow" aria-hidden="true">${on ? (S.sort.dir === 'asc' ? '↑' : '↓') : ''}</span></button></th>`;
   }).join('');
   const body = rows.map((g) => rowHTML(g)).join('');
+  const narrowed = [FILTERS[S.want.filter].label, STATUS_CHIPS.find((c) => c.key === S.want.status)?.label, S.want.state, S.want.query.trim() && `“${S.want.query.trim()}”`].filter(Boolean);
   byId('obList').innerHTML = `
     <div class="ob-tools">
       <h3 id="obListTitle">Groups</h3>
       <div class="chips" role="group" aria-label="Filter groups">${chips}</div>
+      <div class="chips ob-status-chips" role="group" aria-label="Filter by status">${statusChips}</div>
       <div class="ob-fields">
         <label class="ob-field">State<select data-ctl="state" data-fk="state">${stateOpts}</select></label>
         <label class="ob-field ob-field-sort">Sort by<select data-ctl="sort" data-fk="sort-select">${sortOpts}</select></label>
-        <label class="ob-field ob-field-search">Search<input data-ctl="query" data-fk="query" type="search" value="${esc(S.query)}" placeholder="Name, city or EIN"></label>
+        <label class="ob-field ob-field-search">Search<input data-ctl="query" data-fk="query" type="search" value="${esc(S.want.query)}" placeholder="Name, city or EIN"></label>
       </div>
     </div>
     <div class="ob-count" aria-live="polite">${nf(rows.length)} of ${nf(d.groups.length)} groups</div>
-    ${rows.length ? `<table class="ob-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<div class="none ob-none">No group matches. <button type="button" class="btn-link" data-act="reset">Show all groups</button></div>`}`;
+    ${rows.length ? `<table class="ob-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<div class="none ob-none"><b>No group matches.</b> Narrowed by ${narrowed.map((w) => `<b>${esc(w)}</b>`).join(', ')}. <button type="button" class="btn-link" data-act="reset" data-fk="reset">Clear filters</button></div>`}`;
 }
 
 function rowHTML(/** @type {Group} */ g) {
@@ -473,6 +592,9 @@ function detailHTML(/** @type {any} */ p, /** @type {Loaded} */ d) {
         <div class="ob-d-name">${esc(g.name)}</div>
         <button type="button" class="btn btn-secondary btn-sm ob-close" data-act="close">Close</button>
       </div>
+      <div class="ob-d-tools">
+        <button type="button" class="btn btn-secondary btn-sm" data-copy-group="${esc(g.ein)}">Copy link</button><span class="copy-msg" role="status" aria-live="polite"></span>
+      </div>
       <div class="ob-d-sub">${esc(place(g))} · <span class="idkey">EIN ${esc(g.ein)}</span> <span class="idkey">${esc(g.accountKey)}</span></div>
       <div class="ob-d-badges">${fitBadge}${draft ? draftBadge(draft) : ''}</div>
     </header>
@@ -537,7 +659,7 @@ function identitySection(/** @type {any} */ p) {
   const l = p.link;
   const r = p.linkReview;
   if (!l || !r) return section('Registry', '<p>No link was stored for this group.</p>');
-  const decided = r.decision ? ` ${esc(sentenceCase(r.decision.decision))} by ${esc(r.decision.decidedBy)} on ${esc(String(r.decision.decidedAt).slice(0, 10))}${r.decision.note ? ` (“${esc(r.decision.note)}”)` : ''}.` : '';
+  const decided = r.decision ? ` ${esc(sentenceCase(r.decision.decision))} by ${esc(r.decision.decidedBy)} on ${timeTag(r.decision.decidedAt)}${r.decision.note ? ` (“${esc(r.decision.note)}”)` : ''}.` : '';
   let head;
   if (r.status === 'exact') head = `<p><span class="badge ok">Exact</span> Linked to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>, matched on company name (score ${Number(l.score).toFixed(2)}; ${esc(l.reason)}). A lead from that organization gets this group’s rate line in its brief.</p>`;
   else if (r.status === 'confirmed') head = `<p><span class="badge ok">Confirmed</span> Belongs to <b>${esc(r.accountName)}</b> <span class="idkey">${esc(r.accountId)}</span>.${decided} A lead from that organization gets this group’s rate line in its brief.</p>`;
@@ -613,8 +735,15 @@ function keepFocus(/** @type {() => void} */ redraw) {
   redraw();
   if (!key || S.sheetOpen) return;
   const again = /** @type {HTMLElement | null} */ (byId('obList').querySelector(`[data-fk="${CSS.escape(key)}"]`));
-  again?.focus();
+  again?.focus({ preventScroll: true });
   if (again instanceof HTMLInputElement && caret != null) again.setSelectionRange(caret, caret);
+}
+
+/** The table's view changed: draw it, keep focus, and let the address follow. */
+function changed(/** @type {() => void} */ apply) {
+  apply();
+  keepFocus(renderList);
+  host.syncAddress({ push: false });
 }
 
 function onClick(/** @type {Event} */ e) {
@@ -622,14 +751,18 @@ function onClick(/** @type {Event} */ e) {
   const sort = t.closest('[data-sort]');
   if (sort instanceof HTMLElement) {
     const key = sort.dataset.sort ?? 'name';
-    S.sort = S.sort.key === key ? { key, dir: S.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: SORTS[key].first };
-    keepFocus(renderList);
+    changed(() => { S.sort = S.sort.key === key ? { key, dir: S.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: SORTS[key].first }; });
     return;
   }
   const chip = t.closest('[data-filter]');
   if (chip instanceof HTMLElement) {
-    S.filter = /** @type {import('./outbound-model.js').FilterKey} */ (chip.dataset.filter);
-    renderList();
+    changed(() => { S.want = { ...S.want, filter: /** @type {import('./outbound-model.js').FilterKey} */ (chip.dataset.filter) }; });
+    return;
+  }
+  const status = t.closest('[data-status]');
+  if (status instanceof HTMLElement && S.data && S.data.loaded) {
+    const groups = S.data.groups;
+    changed(() => { S.want = pickStatus(S.want, /** @type {import('./outbound-model.js').Status} */ (status.dataset.status), groups); });
     return;
   }
   const act = t.closest('[data-link-act]');
@@ -637,12 +770,23 @@ function onClick(/** @type {Event} */ e) {
     void decide(act.dataset.ein, act.dataset.linkAct === 'confirm' ? 'confirm' : 'reject', act.dataset.account);
     return;
   }
-  if (t.closest('[data-act="reset"]')) { S.filter = 'all'; S.state = ''; S.query = ''; renderList(); return; }
+  const undoBtn = t.closest('[data-undo]');
+  if (undoBtn instanceof HTMLElement && undoBtn.dataset.undo) { void undo(undoBtn.dataset.undo); return; }
+  if (t.closest('[data-links-all]')) { S.linksAll = !S.linksAll; keepScroll(() => keepFocus(renderLinks)); return; }
+  if (t.closest('[data-decided-toggle]')) { S.decidedOpen = !S.decidedOpen; keepScroll(() => keepFocus(renderLinks)); return; }
+  if (t.closest('[data-jump-links]')) { byId('obLinks').scrollIntoView({ block: 'start' }); return; }
+  const copy = t.closest('[data-copy-group]');
+  if (copy instanceof HTMLElement && copy.dataset.copyGroup) { void copyAddress(`#outbound?ein=${encodeURIComponent(copy.dataset.copyGroup)}`, copy); return; }
+  if (t.closest('[data-act="reset"]')) { changed(() => { S.want = { filter: 'all', status: '', state: '', query: '' }; }); return; }
   if (t.closest('[data-act="close"]')) { closeSheet(); return; }
   const opener = t.closest('[data-open], tr[data-ein], .pt[data-ein]');
   if (opener instanceof Element) {
     const ein = opener.getAttribute('data-open') ?? opener.getAttribute('data-ein');
-    if (ein) { keepFocus(() => { select(ein, { sheet: true }); renderList(); }); }
+    if (ein) {
+      S.addressEin = ein;
+      keepFocus(() => { select(ein, { sheet: true }); renderList(); });
+      host.syncAddress({ push: true });
+    }
   }
 }
 
@@ -653,10 +797,11 @@ function onInput(/** @type {Event} */ e) {
   if (!ctl) return;
   // the name is shared with Needs a person and remembered in this browser (decider.js)
   if (ctl === 'by') { S.by = t.value; saveDecider(t.value); return; }
-  if (ctl === 'state') S.state = t.value;
-  else if (ctl === 'query') S.query = t.value;
-  else if (ctl === 'sort') S.sort = { key: t.value, dir: SORTS[t.value].first };
-  keepFocus(renderList);
+  changed(() => {
+    if (ctl === 'state') S.want = { ...S.want, state: t.value };
+    else if (ctl === 'query') S.want = { ...S.want, query: t.value };
+    else if (ctl === 'sort') S.sort = { key: t.value, dir: SORTS[t.value].first };
+  });
 }
 
 /** Up and Down move between the group buttons in the table, so the list can be read by keyboard alone. */

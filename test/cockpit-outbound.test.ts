@@ -4,8 +4,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import handler from '../api/outbound';
+import { buildAddress, parseAddress } from '../public/address-model.js';
 import {
-  bandWords, chartGeometry, filterGroups, formCounts, formLabel, headline, linksToConfirm, median, sortGroups, statesOf, statusLabel, workCounts,
+  bandWords, chartGeometry, chipCounts, confirmWords, filterGroups, formCounts, formLabel, fromParams, headline, linkValue, linksToConfirm, median, panelRows,
+  pickStatus, sortGroups, statesOf, statusLabel, statusOfWord, toParams, wordOfStatus, workCounts,
   type Group, type Loaded,
 } from '../public/outbound-model.js';
 import { outboundDetail } from '../src/outbound/view';
@@ -124,5 +126,103 @@ describe('cockpit outbound: the headline and the chart', () => {
     const labelled = chartGeometry(d.groups, d.patterns.card, d.summary.bands, { width: 900, height: 420 }).tierLines.filter(t => t.labelled);
     assert.ok(labelled.length > 0);
     for (let i = 1; i < labelled.length; i++) assert.ok(labelled[i].y - labelled[i - 1].y >= 12);
+  });
+});
+
+/** A probable link on a group, with just what the panel's order reads. */
+const probable = (g: Group, over: { ein: string; clinicians: number; ifConfirmed: Group['link']['ifConfirmed']; basis: 'name' | 'score' }): Group => ({
+  ...g, ein: over.ein, clinicians: over.clinicians, link: { ...g.link, status: 'probable', basis: over.basis, ifConfirmed: over.ifConfirmed, probable: g.link.probable ?? { accountId: 'a', name: 'A', kind: 'k', state: 'TX', score: 0.5 } },
+});
+
+describe('cockpit outbound: links to confirm', () => {
+  it('orders by what confirming would do: a group into a play, then a name contained in the group\'s, then a score alone; the largest group first within each', async () => {
+    const d = await load();
+    const base = linksToConfirm(d.groups)[0];
+    const inPlaySmall = probable(base, { ein: '1', clinicians: 60, ifConfirmed: 'system_gap', basis: 'score' });
+    const inPlayBig = probable(base, { ein: '2', clinicians: 900, ifConfirmed: 'system_gap', basis: 'score' });
+    const nameBig = probable(base, { ein: '3', clinicians: 5000, ifConfirmed: null, basis: 'name' });
+    const nameSmall = probable(base, { ein: '4', clinicians: 40, ifConfirmed: null, basis: 'name' });
+    const scoreBig = probable(base, { ein: '5', clinicians: 9000, ifConfirmed: null, basis: 'score' });
+    const rows = linksToConfirm([scoreBig, nameSmall, inPlaySmall, nameBig, inPlayBig]);
+    assert.deepEqual(rows.map(g => g.ein), ['2', '1', '3', '4', '5']);
+    assert.deepEqual(rows.map(linkValue), [0, 0, 1, 1, 2]);
+  });
+  it('says what confirming does: it puts the group in a play, or only links it', async () => {
+    const d = await load();
+    const base = linksToConfirm(d.groups)[0];
+    assert.equal(confirmWords(base), 'Confirming puts it in the System gap play');
+    assert.equal(confirmWords({ ...base, link: { ...base.link, ifConfirmed: null } }), 'Confirming links it to the organization; it stays in no play');
+  });
+  it('the API says whether a probable link is probable by name or by score alone', async () => {
+    const d = await load();
+    const pecos = d.groups.find(g => g.ein === '900000014')!;
+    assert.ok(pecos.link.basis === 'name' || pecos.link.basis === 'score');
+    assert.equal(d.groups.filter(g => g.link.status !== 'probable').every(g => g.link.basis === null), true);
+  });
+  it('shows the first link by default and all of them on request, and keeps a decision where its row was', async () => {
+    const d = await load();
+    const base = linksToConfirm(d.groups)[0];
+    const links = ['a', 'b', 'c', 'd'].map(ein => probable(base, { ein, clinicians: 10, ifConfirmed: null, basis: 'score' }));
+    const names = (rows: Array<{ kind: 'link'; group: Group } | { kind: 'line'; line: { ein: string; index: number } }>) => rows.map(r => (r.kind === 'link' ? r.group.ein : `line:${r.line.ein}`));
+    assert.deepEqual(names(panelRows(links, [], false)), ['a']);
+    assert.deepEqual(names(panelRows(links, [], true)), ['a', 'b', 'c', 'd']);
+    // "b" was the second row when it was decided; it has left the waiting links, and its line takes its place
+    const line = { ein: 'b0', index: 1, decision: 'confirm' as const, name: 'B', candidate: null };
+    assert.deepEqual(names(panelRows([links[0], links[2], links[3]], [line], true)), ['a', 'line:b0', 'c', 'd']);
+    // decided first with only the first shown: the line stands where the row was, and the next link shows beneath it
+    const first = { ein: 'a0', index: 0, decision: 'reject' as const, name: 'A', candidate: 'X' };
+    assert.deepEqual(names(panelRows([links[1], links[2]], [first], false)), ['line:a0', 'b']);
+    // two decisions keep their own places, whatever order they were made in
+    const second = { ein: 'c0', index: 2, decision: 'confirm' as const, name: 'C', candidate: null };
+    assert.deepEqual(names(panelRows([links[0], links[3]], [second, line], true)), ['a', 'line:b0', 'line:c0', 'd']);
+    assert.deepEqual(names(panelRows([], [], false)), []);
+  });
+});
+
+describe('cockpit outbound: status chips and the address', () => {
+  const want = { filter: 'in_play', status: '', state: '', query: '' } as const;
+  it('every status has its chip, its count, and its word in the address', async () => {
+    const d = await load();
+    const c = chipCounts(d.groups, want);
+    // with In a play chosen: the ready and blocked platform and system-gap groups, and the suppressed group in a play
+    assert.deepEqual(c.status, { ready: 2, blocked: 1, suppressed: 0, link_to_confirm: 0, not_target: 0 });
+    const all = chipCounts(d.groups, { ...want, filter: 'all' });
+    assert.equal(all.status.link_to_confirm, 1);
+    assert.equal(all.status.suppressed, 1);
+    assert.equal(Object.values(all.status).reduce((a, b) => a + b, 0), d.groups.length, 'every group has exactly one status');
+    assert.deepEqual(['ready', 'blocked', 'suppressed', 'link', 'not_target'].map(w => statusOfWord(w)), ['ready', 'blocked', 'suppressed', 'link_to_confirm', 'not_target']);
+    assert.equal(statusOfWord('bogus'), '');
+    assert.equal(wordOfStatus('link_to_confirm'), 'link');
+  });
+  it('a status chip combines with the play chips, the state and the search', async () => {
+    const d = await load();
+    assert.deepEqual(filterGroups(d.groups, { ...want, filter: 'all', status: 'link_to_confirm' }).map(g => g.ein), ['900000014']);
+    assert.deepEqual(filterGroups(d.groups, { ...want, filter: 'platform', status: 'ready' }).map(g => g.ein), ['900000008']);
+    assert.deepEqual(filterGroups(d.groups, { ...want, filter: 'platform', status: 'ready', state: 'OK' }), []);
+    assert.deepEqual(filterGroups(d.groups, { ...want, filter: 'all', status: 'suppressed', query: 'tallowmere' }).map(g => g.ein), ['900000015']);
+    for (const [status, n] of Object.entries(chipCounts(d.groups, { ...want, filter: 'all' }).status)) {
+      assert.equal(filterGroups(d.groups, { ...want, filter: 'all', status: status as never }).length, n, status);
+    }
+  });
+  it('picking a status that sits outside the chosen play widens the play to All, and picking it again turns it off', async () => {
+    const d = await load();
+    const linked = pickStatus(want, 'link_to_confirm', d.groups);
+    assert.deepEqual([linked.status, linked.filter], ['link_to_confirm', 'all']);
+    const ready = pickStatus(want, 'ready', d.groups);
+    assert.deepEqual([ready.status, ready.filter], ['ready', 'in_play']);
+    assert.deepEqual(pickStatus(linked, 'link_to_confirm', d.groups), { ...linked, status: '' });
+  });
+  it('writes the view to the address without its defaults, and reads it back', () => {
+    const sort = { key: 'clinicians', dir: 'desc' } as const;
+    assert.equal(buildAddress('outbound', toParams(want, sort)), '#outbound');
+    // with a status the play defaults to All, so #outbound?status=link shows the links
+    assert.equal(buildAddress('outbound', { ein: '900000014', ...toParams({ ...want, filter: 'all', status: 'link_to_confirm' }, sort) }), '#outbound?ein=900000014&status=link');
+    assert.equal(buildAddress('outbound', toParams({ ...want, status: 'ready' }, sort)), '#outbound?status=ready&play=in_play');
+    const view = { want: { filter: 'platform', status: 'blocked', state: 'TX', query: 'harbor' }, sort: { key: 'rate', dir: 'asc' } } as const;
+    const hash = buildAddress('outbound', toParams(view.want, view.sort));
+    assert.equal(hash, '#outbound?status=blocked&play=platform&state=TX&q=harbor&sort=rate&dir=asc');
+    assert.deepEqual(fromParams(parseAddress(hash).params), view);
+    assert.deepEqual(fromParams(parseAddress('#outbound?status=link').params).want, { filter: 'all', status: 'link_to_confirm', state: '', query: '' });
+    assert.deepEqual(fromParams(parseAddress('#outbound?play=bogus&sort=nope&dir=sideways&status=zzz').params), { want, sort });
   });
 });

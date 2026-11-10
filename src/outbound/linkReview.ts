@@ -42,6 +42,8 @@ export interface LinkReview {
   probable: Candidate | null;
   /** why the status is what it is, in a few words */
   why: string;
+  /** for a probable link, what made it probable: the candidate's distinctive name is in the group's name, or only its score; else null */
+  basis: 'name' | 'score' | null;
   decision: LinkDecision | null;
   candidates: Candidate[];
 }
@@ -74,16 +76,16 @@ export function nameContained(registryName: string, groupName: string): boolean 
  * The candidate to ask a person about, or null: the best candidate in the group's state, when its distinctive name is
  * contained in the group's name or it scores PROBABLE_MIN_SCORE or more. A candidate in another state is never probable.
  */
-export function probableCandidate(groupName: string, state: string | null, candidates: Candidate[]): { candidate: Candidate; why: string } | null {
+export function probableCandidate(groupName: string, state: string | null, candidates: Candidate[]): { candidate: Candidate; why: string; basis: 'name' | 'score' } | null {
   if (!state) return null;
   const best = [...candidates].sort((a, b) => b.score - a.score).find(c => c.state === state);
   if (!best) return null;
-  if (nameContained(best.name, groupName)) return { candidate: best, why: `"${best.name}" is contained in the group's name` };
-  if (best.score >= PROBABLE_MIN_SCORE) return { candidate: best, why: `best candidate in ${state}, score ${best.score.toFixed(2)}` };
+  if (nameContained(best.name, groupName)) return { candidate: best, why: `"${best.name}" is contained in the group's name`, basis: 'name' };
+  if (best.score >= PROBABLE_MIN_SCORE) return { candidate: best, why: `best candidate in ${state}, score ${best.score.toFixed(2)}`, basis: 'score' };
   return null;
 }
 
-const none = (link: NameLink | null) => ({ accountId: null, accountName: null, candidates: link?.candidates ?? [] });
+const none = (link: NameLink | null) => ({ accountId: null, accountName: null, basis: null, candidates: link?.candidates ?? [] });
 
 /**
  * The review status of one group. The loader's exact link stands (a decision cannot be recorded on it); otherwise a stored
@@ -91,7 +93,7 @@ const none = (link: NameLink | null) => ({ accountId: null, accountName: null, c
  */
 export function linkReviewOf(group: { name: string; state: string | null }, link: NameLink | null, decision: LinkDecision | null): LinkReview {
   if (link?.status === 'linked') {
-    return { status: 'exact', accountId: link.accountId, accountName: link.accountName, probable: null, why: `matched by name and state (${link.reason})`, decision: null, candidates: link.candidates };
+    return { status: 'exact', accountId: link.accountId, accountName: link.accountName, probable: null, why: `matched by name and state (${link.reason})`, basis: null, decision: null, candidates: link.candidates };
   }
   if (decision?.decision === 'confirmed') {
     return { ...none(link), status: 'confirmed', accountId: decision.accountId, accountName: decision.accountName, probable: null, why: `confirmed by ${decision.decidedBy}`, decision };
@@ -101,7 +103,7 @@ export function linkReviewOf(group: { name: string; state: string | null }, link
     const shown = decision.accountId ? (link?.candidates ?? []).find(c => c.accountId === decision.accountId) ?? null : null;
     return { ...none(link), status: 'rejected', probable: shown, why: `rejected by ${decision.decidedBy}`, decision };
   }
-  if (found) return { ...none(link), status: 'probable', probable: found.candidate, why: found.why, decision: null };
+  if (found) return { ...none(link), status: 'probable', probable: found.candidate, why: found.why, basis: found.basis, decision: null };
   return { ...none(link), status: 'unlinked', probable: null, why: link ? link.reason : 'no link was stored', decision: null };
 }
 

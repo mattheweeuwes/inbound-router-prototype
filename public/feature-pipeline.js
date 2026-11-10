@@ -3,13 +3,18 @@
 // The numbers are influence, not proof of cause, and the page says so before it shows a single one. The wording and geometry with
 // no DOM in them are in feature-pipeline-model.js.
 import {
-  OUTCOME_WORDS, adoptionWords, askedHow, barSegments, cueSummary, day, evidenceWords, headline, interestWords, launchWords, leadTimeWords, money, moneyShort,
-  priceRange, provenanceBadges, rateWords, sampleNote,
+  ASKED_SORTS, CUE_OPTIONS, FEATURE_SORTS, OUTCOME_WORDS, adoptionWords, askedCountLine, askedCounts, askedHow, barSegments, cueSummary, day, defaultView, evidenceWords,
+  filterAsked, fromParams, headline, interestWords, launchWords, leadTimeWords, money, moneyShort, priceRange, provenanceBadges, rateWords, sampleNote, sortAsked,
+  sortFeatures, toParams,
 } from './feature-pipeline-model.js';
+import { buildAddress } from './address-model.js';
+import { keepFocus } from './focus.js';
+import { timeTag } from './time.js';
 
 /**
- * What app.js hands over: its API reader (live API or sample files) and its JSON highlighter.
- * @typedef {{ getJSON: (path: string) => Promise<any>, jsonHTML: (v: unknown) => string }} Host
+ * What app.js hands over: its API reader (live API or sample files), its JSON highlighter, and a way to say the view changed so the
+ * address follows.
+ * @typedef {{ getJSON: (path: string) => Promise<any>, jsonHTML: (v: unknown) => string, syncAddress: (opts?: { push?: boolean }) => void }} Host
  * @typedef {import('./feature-pipeline-model.js').Loaded} Loaded
  * @typedef {import('./feature-pipeline-model.js').NotLoaded} NotLoaded
  * @typedef {import('./feature-pipeline-model.js').Feature} Feature
@@ -20,8 +25,14 @@ import {
 const esc = (/** @type {unknown} */ v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[/** @type {string} */ (c)] ?? c));
 const nf = (/** @type {number} */ n) => n.toLocaleString('en-US');
 
-/** @type {{ status: 'idle' | 'loading' | 'ready' | 'error', error: string, data: Loaded | NotLoaded | null, selected: string | null }} */
-const S = { status: 'idle', error: '', data: null, selected: null };
+/**
+ * @typedef {{
+ *   status: 'idle' | 'loading' | 'ready' | 'error', error: string, data: Loaded | NotLoaded | null, view: View, openQuotes: Set<string>,
+ * }} State
+ * @typedef {import('./feature-pipeline-model.js').View} View
+ */
+/** @type {State} */
+const S = { status: 'idle', error: '', data: null, view: defaultView(), openQuotes: new Set() };
 
 /** @type {Host} */
 let host;
@@ -35,24 +46,23 @@ function byId(id) {
 }
 
 /**
- * Builds the tab inside `root` once. Returns what app.js needs: show() when the tab opens.
+ * Builds the tab inside `root` once. Returns what app.js needs: show() when the tab opens, applyAddress(params) for a view an address
+ * names, and address() for the view's parameters.
  * @param {HTMLElement} root
  * @param {Host} h
  */
 export function mountFeaturePipeline(root, h) {
   host = h;
   root.innerHTML = '<div id="fpBody"></div>';
-  root.addEventListener('click', (e) => {
-    const t = e.target instanceof Element ? e.target.closest('[data-feature]') : null;
-    if (t instanceof HTMLElement && t.dataset.feature) { S.selected = t.dataset.feature; render(); }
-  });
-  return { show, select };
+  root.addEventListener('click', onClick);
+  root.addEventListener('change', onChange);
+  return { show, applyAddress, address: () => toParams(S.view) };
 }
 
-/** Another tab (Today) points at a feature: select it, once the API has been read, and draw. */
-async function select(/** @type {string} */ feature) {
+/** An address named a view: take it, once the API has been read, and draw. */
+async function applyAddress(/** @type {Record<string, string>} */ params) {
   await show();
-  S.selected = feature;
+  S.view = fromParams(params);
   render();
 }
 
@@ -69,13 +79,18 @@ async function load() {
   try {
     S.data = await host.getJSON('/attribution');
     S.status = 'ready';
-    const d = S.data;
-    if (d && d.loaded && !S.selected) S.selected = d.features[0]?.feature ?? null;
   } catch (e) {
     S.status = 'error';
     S.error = e instanceof Error ? e.message : String(e);
   }
   render();
+}
+
+/** The feature the page is about: the one the address or a click chose, else the first. */
+function selectedKey() {
+  const d = S.data;
+  if (!d || !d.loaded) return null;
+  return d.features.some((f) => f.feature === S.view.feature) ? S.view.feature : d.features[0]?.feature ?? null;
 }
 
 const notice = (/** @type {string} */ title, /** @type {string} */ text) => `<div class="card ob-empty"><h3>${esc(title)}</h3><p>${esc(text)}</p></div>`;
@@ -86,10 +101,62 @@ const failureText = (/** @type {string} */ msg) => (/^no sample for/.test(msg) ?
 function render() {
   const body = byId('fpBody');
   const d = S.data;
-  if (S.status === 'error') body.innerHTML = notice('Feature to pipeline is not available', failureText(S.error));
-  else if (S.status !== 'ready') body.innerHTML = notice('Loading', 'Reading the usage and deals…');
-  else if (d === null || !d.loaded) body.innerHTML = notice('No usage data is loaded', d?.reason || 'The usage fixtures were not found.');
-  else body.innerHTML = pageHTML(d);
+  const y = window.scrollY;
+  keepFocus(body, () => {
+    if (S.status === 'error') body.innerHTML = notice('Feature to pipeline is not available', failureText(S.error));
+    else if (S.status !== 'ready') body.innerHTML = notice('Loading', 'Reading the usage and deals…');
+    else if (d === null || !d.loaded) body.innerHTML = notice('No usage data is loaded', d?.reason || 'The usage fixtures were not found.');
+    else body.innerHTML = pageHTML(d);
+  });
+  window.scrollTo(0, y);
+}
+
+/** Runs a change of the view: draw it, and let the address follow (a pick of a feature adds a history entry, a filter or sort replaces it). */
+function changed(/** @type {() => void} */ apply, push = false) {
+  apply();
+  render();
+  host.syncAddress({ push });
+}
+
+function onClick(/** @type {Event} */ e) {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!t) return;
+  const feature = t.closest('[data-feature]');
+  if (feature instanceof HTMLElement && feature.dataset.feature) { const key = feature.dataset.feature; changed(() => { S.view = { ...S.view, feature: key }; }, true); return; }
+  const fsort = t.closest('[data-fsort]');
+  if (fsort instanceof HTMLElement && fsort.dataset.fsort) {
+    const key = fsort.dataset.fsort;
+    const cur = S.view.features;
+    changed(() => { S.view = { ...S.view, features: cur.key === key ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: FEATURE_SORTS[key].first } }; });
+    return;
+  }
+  const asort = t.closest('[data-asort]');
+  if (asort instanceof HTMLElement && asort.dataset.asort) {
+    const key = asort.dataset.asort;
+    const cur = S.view.askedSort;
+    changed(() => { S.view = { ...S.view, askedSort: cur.key === key ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: ASKED_SORTS[key].first } }; });
+    return;
+  }
+  const flag = t.closest('[data-afilter]');
+  if (flag instanceof HTMLElement) {
+    const key = /** @type {'customers' | 'ready'} */ (flag.dataset.afilter);
+    changed(() => { S.view = { ...S.view, asked: { ...S.view.asked, [key]: !S.view.asked[key] } }; });
+    return;
+  }
+  if (t.closest('[data-aclear]')) { changed(() => { S.view = { ...S.view, asked: { customers: false, ready: false, cue: '' } }; }); return; }
+  const q = t.closest('[data-qtoggle]');
+  if (q instanceof HTMLElement && q.dataset.qtoggle) {
+    const id = q.dataset.qtoggle;
+    if (S.openQuotes.has(id)) S.openQuotes.delete(id); else S.openQuotes.add(id);
+    render();
+  }
+}
+
+function onChange(/** @type {Event} */ e) {
+  const t = e.target;
+  if (!(t instanceof HTMLSelectElement) || t.dataset.acue === undefined) return;
+  const cue = /** @type {'' | import('./feature-pipeline-model.js').Cue} */ (t.value);
+  changed(() => { S.view = { ...S.view, asked: { ...S.view.asked, cue } }; });
 }
 
 // ─── the page ────────────────────────────────────────────────────────────────
@@ -138,7 +205,7 @@ function chartHTML(/** @type {Loaded} */ d) {
     const segs = barSegments(f, max);
     const label = `${f.label}: ${nf(f.opportunities.count)} deals, ${money(f.opportunities.amount)}. ${segs.map((s) => `${OUTCOME_WORDS[s.key]} ${nf(s.count)}, ${money(s.amount)}`).join('; ')}.`;
     const bars = segs.map((s) => `<span class="fp-seg is-${s.key}" style="width:${s.pct.toFixed(2)}%"></span>`).join('');
-    return `<li class="fp-bar-row${f.feature === S.selected ? ' is-selected' : ''}">
+    return `<li class="fp-bar-row${f.feature === selectedKey() ? ' is-selected' : ''}">
       <div class="fp-bar-name"><button type="button" class="ob-open" data-feature="${esc(f.feature)}">${esc(f.label)}</button><span class="fp-bar-sub">${nf(f.opportunities.count)} ${f.opportunities.count === 1 ? 'deal' : 'deals'}</span></div>
       <div class="fp-bar-track" role="img" aria-label="${esc(label)}">${bars}</div>
       <div class="fp-bar-val">${esc(money(f.opportunities.amount))}</div>
@@ -155,15 +222,17 @@ function chartHTML(/** @type {Loaded} */ d) {
 // ─── the table ───────────────────────────────────────────────────────────────
 
 function tableHTML(/** @type {Loaded} */ d) {
-  const rows = d.features.map((f) => rowHTML(f)).join('');
+  const sort = S.view.features;
+  const rows = sortFeatures(d.features, sort).map((f) => rowHTML(f)).join('');
+  const head = Object.entries(FEATURE_SORTS).map(([key, c]) => {
+    const on = sort.key === key;
+    const first = key === 'feature';
+    return `<th class="${first ? '' : 'num'}" aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="ob-sort${on ? ' is-on' : ''}" data-fsort="${key}" data-fk="fsort-${key}">${esc(c.label)}<span class="ob-arrow" aria-hidden="true">${on ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</span></button></th>`;
+  }).join('');
   return `<section class="card fp-list" aria-labelledby="fpTableTitle">
     <div class="card-head fp-table-head"><h3 id="fpTableTitle">Features</h3><span class="sub">counts first: a rate over a few closed deals is not a result</span></div>
     <table class="fp-table">
-      <thead><tr>
-        <th>Feature</th><th class="num">Accounts using</th><th class="num">Deals around it</th><th class="num">Closed won</th>
-        <th class="num">Win rate with use</th><th class="num">Win rate without</th><th class="num">Median days, first use to deal</th><th class="num">Adoption since launch</th>
-        <th class="num">Interest from inbound</th>
-      </tr></thead>
+      <thead><tr>${head}</tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </section>`;
@@ -175,7 +244,7 @@ function rowHTML(/** @type {Feature} */ f) {
   const lead = leadTimeWords(f);
   const ad = adoptionWords(f);
   const ask = interestWords(f);
-  const on = f.feature === S.selected;
+  const on = f.feature === selectedKey();
   const cell = (/** @type {string} */ big, /** @type {string} */ small) => `<span class="fp-big">${esc(big)}</span><span class="fp-small">${esc(small)}</span>`;
   const note = sampleNote(f, /** @type {Loaded} */ (S.data).model.smallSample);
   return `<tr class="fp-row${on ? ' is-selected' : ''}"${on ? ' aria-current="true"' : ''}>
@@ -195,7 +264,7 @@ function rowHTML(/** @type {Feature} */ f) {
 // ─── the deals behind the selected feature ───────────────────────────────────
 
 function dealsHTML(/** @type {Loaded} */ d) {
-  const f = d.features.find((x) => x.feature === S.selected);
+  const f = d.features.find((x) => x.feature === selectedKey());
   if (!f) return '';
   const note = sampleNote(f, d.model.smallSample);
   const rows = f.deals.map((x) => `<tr>
@@ -218,7 +287,7 @@ function dealsHTML(/** @type {Loaded} */ d) {
 // ─── who asked for the selected feature ──────────────────────────────────────
 
 function askedHTML(/** @type {Loaded} */ d) {
-  const f = d.features.find((x) => x.feature === S.selected);
+  const f = d.features.find((x) => x.feature === selectedKey());
   if (!f) return '';
   const i = f.interest;
   const how = cueSummary(f);
@@ -228,24 +297,55 @@ function askedHTML(/** @type {Loaded} */ d) {
     : 'Nobody in the lead stream has asked for this feature.';
   const since = i.sinceLaunch === null ? '' : ` ${nf(i.sinceLaunch)} came in after the launch.`;
   return `<section class="card fp-asked" aria-labelledby="fpAskedTitle" aria-live="polite">
-    <div class="card-head"><h3 id="fpAskedTitle">Who asked for ${esc(f.label)}</h3><span class="sub">for customer success, newest first; nothing is sent</span></div>
+    <div class="card-head"><h3 id="fpAskedTitle">Who asked for ${esc(f.label)}</h3><span class="sub">for customer success; nothing is sent</span></div>
     <p class="fp-asked-sum">${esc(head + since)}</p>
-    ${f.asked.map((a) => askedItemHTML(a)).join('')}
+    ${f.asked.length ? askedTable(f.asked) : ''}
   </section>`;
 }
 
-function askedItemHTML(/** @type {Asked} */ a) {
-  const who = a.person ? `${esc(a.person.name)}${a.person.title ? `, ${esc(a.person.title)}` : ''}` : 'Account-level web visits, no person';
-  return `<article class="fp-asked-item">
-    <div class="fp-signal-head">
-      <h4>${esc(a.accountName ?? 'Organization not identified')}</h4>
-      <span class="badge${a.customer ? ' fp-cust' : ''}">${a.customer ? 'customer' : 'not a customer'}</span>
-      <span class="fp-signal-meta">${a.owner ? `owner ${esc(a.owner)}` : 'no owner'} · ${esc(day(a.at))}</span>
+/** The asked list as a table a person can narrow and order: customers only, sales-ready only, one cue; by when or by account. */
+function askedTable(/** @type {Asked[]} */ asked) {
+  const v = S.view;
+  const counts = askedCounts(asked, v.asked);
+  const rows = sortAsked(filterAsked(asked, v.asked), v.askedSort);
+  const toggle = (/** @type {string} */ key, /** @type {string} */ label, /** @type {boolean} */ on, /** @type {number} */ n) =>
+    `<button type="button" class="chip${on ? ' is-on' : ''}" data-afilter="${key}" data-fk="afilter-${key}" aria-pressed="${on}">${esc(label)} <span class="chip-n">${n}</span></button>`;
+  const cueOpts = [`<option value="">All cues</option>`, ...CUE_OPTIONS.map((c) => `<option value="${c.key}"${v.asked.cue === c.key ? ' selected' : ''}>${esc(c.label)} (${counts.cue[c.key]})</option>`)].join('');
+  const sortHead = (/** @type {string} */ key, /** @type {string} */ label) => {
+    const on = v.askedSort.key === key;
+    return `<th aria-sort="${on ? (v.askedSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="ob-sort${on ? ' is-on' : ''}" data-asort="${key}" data-fk="asort-${key}">${esc(label)}<span class="ob-arrow" aria-hidden="true">${on ? (v.askedSort.dir === 'asc' ? '↑' : '↓') : ''}</span></button></th>`;
+  };
+  const filtered = v.asked.customers || v.asked.ready || v.asked.cue !== '';
+  const body = rows.map((a) => askedRow(a)).join('');
+  return `<div class="fp-tools">
+      ${toggle('customers', 'Customers only', v.asked.customers, counts.customers)}${toggle('ready', 'Sales-ready only', v.asked.ready, counts.ready)}
+      <label class="ob-field fp-cue">Cue<select data-acue data-fk="acue">${cueOpts}</select></label>
+      ${filtered ? '<button type="button" class="btn-link" data-aclear data-fk="aclear">Clear filters</button>' : ''}
+      <span class="fp-count" role="status">${esc(askedCountLine(rows.length, asked.length))}</span>
     </div>
-    <p>${who}</p>
-    <p class="fp-signal-facts">${esc(askedHow(a))}</p>
-    ${a.quote ? `<blockquote class="fp-quote">${esc(a.quote)}</blockquote>` : ''}
-  </article>`;
+    ${rows.length
+      ? `<table class="fp-table fp-asked-table"><thead><tr>${sortHead('account', 'Account')}<th>Customer</th><th>Owner</th><th>Person</th><th>Cue</th>${sortHead('when', 'When')}<th><span class="sr-only">Open</span></th></tr></thead><tbody>${body}</tbody></table>`
+      : `<p class="fp-none" role="status"><b>Nobody matches.</b> <button type="button" class="btn-link" data-aclear data-fk="aclear-empty">Clear filters</button></p>`}`;
+}
+
+/** One person: the account (which opens the quote under it), whether it is a customer, the owner, the person, the cue, when, and a link to the lead. */
+function askedRow(/** @type {Asked} */ a) {
+  const open = S.openQuotes.has(a.leadId);
+  const who = a.person ? `${esc(a.person.name)}${a.person.title ? `<span class="ob-city">${esc(a.person.title)}</span>` : ''}` : '<span class="muted">Account-level web visits, no person</span>';
+  const cue = CUE_OPTIONS.find((c) => c.key === a.cue)?.label ?? a.cue;
+  const main = `<tr class="fp-arow${open ? ' is-open' : ''}">
+      <td class="fp-c-name" data-label="Account"><button type="button" class="fp-qtoggle" data-qtoggle="${esc(a.leadId)}" data-fk="q-${esc(a.leadId)}" aria-expanded="${open}" title="${open ? 'Hide' : 'Show'} what they said"><span class="g-chev" aria-hidden="true">${open ? '▾' : '▸'}</span>${esc(a.accountName ?? 'Organization not identified')}</button></td>
+      <td data-label="Customer"><span class="badge${a.customer ? ' fp-cust' : ''}">${a.customer ? 'customer' : 'not a customer'}</span></td>
+      <td data-label="Owner">${a.owner ? esc(a.owner) : '<span class="muted">no owner</span>'}</td>
+      <td data-label="Person">${who}</td>
+      <td data-label="Cue">${esc(cue)}</td>
+      <td data-label="When">${timeTag(a.at)}</td>
+      <td data-label=""><a class="td-open" href="${esc(buildAddress('stream', { lead: a.leadId }))}">Open lead</a></td>
+    </tr>`;
+  const quote = open
+    ? `<tr class="fp-quote-row"><td colspan="7"><p class="fp-signal-facts">${esc(askedHow(a))}</p>${a.quote ? `<blockquote class="fp-quote">${esc(a.quote)}</blockquote>` : '<p class="fp-signal-facts">No message: they showed interest without writing one.</p>'}</td></tr>`
+    : '';
+  return main + quote;
 }
 
 // ─── expansion signals ───────────────────────────────────────────────────────

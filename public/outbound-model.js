@@ -1,6 +1,8 @@
 // The Outbound tab's logic with no DOM in it: which groups a filter keeps, how they sort, where each one sits on the chart and
 // what the headline says. outbound.js draws it. Kept apart so test/cockpit-outbound.test.ts can run it in Node.
-// Every figure comes from GET /api/outbound; nothing here rounds a number up or invents one.
+// Every figure comes from GET /api/outbound; nothing here rounds a number up or invents one. The view (play, status, state, search, sort)
+// is written to and read from the address here too, so a filtered table is a link.
+import { oneOf } from './address-model.js';
 
 /**
  * @typedef {'card' | 'factor' | 'both' | 'neither'} Form
@@ -9,8 +11,8 @@
  * @typedef {{ accountId: string, name: string, kind: string, state: string | null, score: number }} Candidate
  * @typedef {{ decision: 'confirmed' | 'rejected', accountId: string | null, accountName: string | null, decidedBy: string, note: string | null, decidedAt: string }} Decision
  * @typedef {{
- *   status: 'exact' | 'probable' | 'unlinked' | 'confirmed' | 'rejected', why: string, accountKey: string | null, accountName: string | null,
- *   probable: Candidate | null, decision: Decision | null, ifConfirmed: Play | null,
+ *   status: 'exact' | 'probable' | 'unlinked' | 'confirmed' | 'rejected', why: string, basis: 'name' | 'score' | null,
+ *   accountKey: string | null, accountName: string | null, probable: Candidate | null, decision: Decision | null, ifConfirmed: Play | null,
  * }} Link
  * @typedef {{ by: 'crm' | 'claim' | 'inbound', owner: string, detail: string, accountKey: string, leadId: string | null }} Holder
  * @typedef {{
@@ -108,22 +110,106 @@ export function workCounts(d) {
 }
 
 /**
- * The probable links a person should look at, largest group first: the rows of the Links to confirm panel.
+ * What confirming a probable link would do, which is how the panel orders them: 0 puts the group in a play, 1 links an organization
+ * whose name is in the group's name, 2 is a score and nothing more.
+ * @param {Group} g
+ */
+export function linkValue(g) {
+  if (g.link.ifConfirmed) return 0;
+  return g.link.basis === 'name' ? 1 : 2;
+}
+
+/** What each value of linkValue says, for the tag on a row. */
+export const LINK_VALUE_WORDS = ['Would put the group in a play', 'Its name is in the group’s name', 'Score only'];
+
+/**
+ * The probable links a person should look at, most useful first: those that would put the group in a play, then those where the
+ * organization's name is contained in the group's name, then the ones that rest on a score alone. Within each, the largest group.
  * @param {Group[]} groups
  */
 export function linksToConfirm(groups) {
-  return groups.filter((g) => g.link.status === 'probable' && g.link.probable).sort((a, b) => b.clinicians - a.clinicians || a.ein.localeCompare(b.ein));
+  return groups.filter((g) => g.link.status === 'probable' && g.link.probable)
+    .sort((a, b) => linkValue(a) - linkValue(b) || b.clinicians - a.clinicians || a.ein.localeCompare(b.ein));
+}
+
+/** What confirming this link does, in a sentence. */
+export function confirmWords(/** @type {Group} */ g) {
+  return g.link.ifConfirmed ? `Confirming puts it in the ${PLAY_WORDS[g.link.ifConfirmed]} play` : 'Confirming links it to the organization; it stays in no play';
 }
 
 /**
- * The groups a filter, a state and a search keep.
- * @param {Group[]} groups
- * @param {{ filter: FilterKey, state: string, query: string }} want
+ * The panel's rows. Only the first link shows until the person opens the rest; a decision made here stays in the place its row was, as
+ * a one-line notice, so nothing below it moves. `lines` carry the index the row had when it was decided.
+ * @template {{ index: number }} L
+ * @param {Group[]} probable the links still waiting, in order
+ * @param {L[]} lines the decisions made in this visit
+ * @param {boolean} all whether the person asked for every link
+ * @returns {Array<{ kind: 'link', group: Group } | { kind: 'line', line: L }>}
  */
-export function filterGroups(groups, { filter, state, query }) {
+export function panelRows(probable, lines, all) {
+  const shown = all ? probable : probable.slice(0, 1);
+  /** @type {Array<{ kind: 'link', group: Group } | { kind: 'line', line: L }>} */
+  const out = shown.map((group) => ({ kind: 'link', group }));
+  for (const line of [...lines].sort((a, b) => a.index - b.index)) out.splice(Math.min(line.index, out.length), 0, { kind: 'line', line });
+  return out;
+}
+
+/**
+ * What the table is narrowed by: a play or form chip, a status chip (empty for none), a state and a search.
+ * @typedef {{ filter: FilterKey, state: string, query: string, status?: Status | '' }} Want
+ */
+
+/**
+ * The groups a filter, a status, a state and a search keep.
+ * @param {Group[]} groups
+ * @param {Want} want
+ */
+export function filterGroups(groups, { filter, state, query, status = '' }) {
   const q = query.trim().toLowerCase();
   const keeps = FILTERS[filter].keeps;
-  return groups.filter((g) => keeps(g) && (!state || g.state === state) && (!q || `${g.name} ${g.city} ${g.platform ?? ''} ${g.ein}`.toLowerCase().includes(q)));
+  return groups.filter((g) => keeps(g) && (!status || g.status === status) && (!state || g.state === state) && (!q || `${g.name} ${g.city} ${g.platform ?? ''} ${g.ein}`.toLowerCase().includes(q)));
+}
+
+/** The status chips, in the order a team works them, with the word each uses in the address ("link" for a link to confirm). */
+export const STATUS_CHIPS = /** @type {const} */ ([
+  { key: 'ready', label: 'Ready', word: 'ready' },
+  { key: 'blocked', label: 'Blocked', word: 'blocked' },
+  { key: 'suppressed', label: 'Suppressed', word: 'suppressed' },
+  { key: 'link_to_confirm', label: 'Link to confirm', word: 'link' },
+  { key: 'not_target', label: 'Not a target', word: 'not_target' },
+]);
+
+/** The status an address word names, or '' for none. */
+export const statusOfWord = (/** @type {string | undefined} */ word) => STATUS_CHIPS.find((c) => c.word === word)?.key ?? '';
+
+/** The address word for a status ('' for none). */
+export const wordOfStatus = (/** @type {Status | ''} */ status) => STATUS_CHIPS.find((c) => c.key === status)?.word ?? '';
+
+/**
+ * The count beside every chip for the current result: how many groups each would leave with the other chips, the state and the search
+ * as they are.
+ * @param {Group[]} groups
+ * @param {Want} want
+ */
+export function chipCounts(groups, want) {
+  const filter = /** @type {Record<FilterKey, number>} */ (Object.fromEntries(FILTER_KEYS.map((k) => [k, filterGroups(groups, { ...want, filter: k }).length])));
+  const status = /** @type {Record<Status, number>} */ (Object.fromEntries(STATUS_CHIPS.map((c) => [c.key, filterGroups(groups, { ...want, status: c.key }).length])));
+  return { filter, status };
+}
+
+/**
+ * The want after a status chip is clicked: the chip turns on, or off when it was on. A status can sit outside the chosen play (a link
+ * to confirm is in no play yet), so a pick that would leave the table empty widens the play chip to All instead.
+ * @param {Want} want
+ * @param {Status} status
+ * @param {Group[]} groups
+ * @returns {Want}
+ */
+export function pickStatus(want, status, groups) {
+  if (want.status === status) return { ...want, status: '' };
+  const next = { ...want, status };
+  if (!filterGroups(groups, next).length && filterGroups(groups, { ...next, filter: 'all' }).length) return { ...next, filter: 'all' };
+  return next;
 }
 
 /**
@@ -246,4 +332,40 @@ export function chartGeometry(groups, card, bands, { width, height }) {
 
   const points = groups.map((g) => ({ ein: g.ein, x: x(g.clinicians), y: y(g.rate), form: g.form, target: g.play !== null }));
   return { width, height, plot, xTicks, yTicks, dividers, bandCaptions, tierLines, medicare: { value: medicare, y: y(medicare) }, points, x, y };
+}
+
+// ─── the address ─────────────────────────────────────────────────────────────
+
+/**
+ * The table's view as address parameters, leaving out what is the default. With a status chosen the play defaults to All, because a
+ * status such as a link to confirm sits outside the plays.
+ * @param {Want} want
+ * @param {{ key: string, dir: 'asc' | 'desc' }} sort
+ * @returns {Record<string, string>}
+ */
+export function toParams(want, sort) {
+  const status = want.status ?? '';
+  const playDefault = status ? 'all' : 'in_play';
+  const col = SORTS[sort.key];
+  return {
+    status: wordOfStatus(status), play: want.filter === playDefault ? '' : want.filter, state: want.state, q: want.query.trim(),
+    sort: sort.key === DEFAULT_SORT.key ? '' : sort.key, dir: col && sort.dir === col.first ? '' : sort.dir,
+  };
+}
+
+/** The sort the table opens on: the largest groups first. */
+export const DEFAULT_SORT = /** @type {{ key: string, dir: 'asc' | 'desc' }} */ ({ key: 'clinicians', dir: 'desc' });
+
+/**
+ * The view an address names. A word the table does not have falls back to the default, so a hand-edited address cannot break the page.
+ * @param {Record<string, string>} p
+ * @returns {{ want: Required<Want>, sort: { key: string, dir: 'asc' | 'desc' } }}
+ */
+export function fromParams(p) {
+  const status = statusOfWord(p.status);
+  const key = oneOf(p.sort, Object.keys(SORTS), DEFAULT_SORT.key);
+  return {
+    want: { status, filter: /** @type {FilterKey} */ (oneOf(p.play, FILTER_KEYS, status ? 'all' : 'in_play')), state: p.state ?? '', query: p.q ?? '' },
+    sort: { key, dir: /** @type {'asc' | 'desc'} */ (oneOf(p.dir, ['asc', 'desc'], SORTS[key].first)) },
+  };
 }

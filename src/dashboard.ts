@@ -45,7 +45,7 @@ export const MARKETS: { id: string; label: string; segments: Segment[] }[] = [
   { id: 'other', label: 'Other', segments: ['life_sciences', 'pe_investor', 'consulting_advisory', 'academic', 'media', 'competitor', 'non_us', 'unknown_org'] },
 ];
 
-const SALES_ROUTES = new Set(['rep_alert', 'owner_task', 'team_queue']);
+export const SALES_ROUTES = new Set(['rep_alert', 'owner_task', 'team_queue']);
 const ASSIGNED_ROUTES = new Set(['rep_alert', 'owner_task', 'team_queue', 'attach_to_existing']);
 const STAGES = ['normalize', 'resolve', 'qualify', 'score', 'route', 'notify', 'crm'] as const;
 

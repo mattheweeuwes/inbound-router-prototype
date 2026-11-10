@@ -70,19 +70,12 @@
       <div class="split">
         <div class="pane pane-list">
           <div class="list-tools">
-            <div class="chips" id="filterChips" role="group" aria-label="Filter by outcome">
-              <button class="chip is-on" data-filter="all">All</button>
-              <button class="chip" data-filter="alert">Rep alerts</button>
-              <button class="chip" data-filter="queue">Queue</button>
-              <button class="chip" data-filter="nurture">Nurture</button>
-              <button class="chip" data-filter="review">Needs a person</button>
-              <button class="chip" data-filter="other">Other</button>
-            </div>
+            <div class="chips" id="filterChips" role="group" aria-label="Filter by outcome"></div>
             <input class="search" id="search" type="search" placeholder="Search" aria-label="Search leads">
           </div>
-          <div class="list-head">
-            <span>Received</span><span>Lead</span><span>Organization</span><span>Routed to</span><span class="num">Speed</span>
-          </div>
+          <div class="filter-bar" id="filterBar" role="group" aria-label="Filters"></div>
+          <div class="list-count" id="listCount" role="status" aria-live="polite"></div>
+          <div class="list-head" id="listHead" role="row"></div>
           <div class="list" id="leadList" role="listbox" aria-label="Leads" tabindex="0"></div>
         </div>
 
@@ -313,7 +306,7 @@
               <li><b>A list alerts once per team.</b> An uploaded list is routed on the rules, and its queue, owner-task, nurture and review rows go out as one digest per list and team once the list is quiet. A rep alert still goes out on its own.</li>
               <li><b>Prepare at once, commit in lanes.</b> Each lead's lookups start when it is accepted; what depends on earlier leads commits one lead at a time, in order within its organization's lane, so round-robin and dedupe never race and one slow lead holds only its own lane.</li>
               <li><b>Idempotent by design.</b> A re-delivered webhook is a no-op, a repeat contact attaches to the first lead that went to sales (a guide download that only went to nurture does not swallow the demo request after it), and repeat alerts are suppressed for 24 hours.</li>
-              <li><b>A person's decision is kept.</b> A review decision and an outbound link decision are stored with who made them (the typed name: sign-in is not built) and survive every re-run and reload.</li>
+              <li><b>A person's decision is kept.</b> A review decision and an outbound link decision are stored with who made them (the typed name: sign-in is not built) and survive every re-run and reload. A link decision can be taken back; a review decision cannot.</li>
               <li><b>One finding, two uses.</b> The rate file becomes one finding per group, keyed on its EIN. It drives two outbound plays, and it adds a line about the prospect's own rate to an inbound brief. Code inserts every figure, a group someone already has is left alone, and nothing outbound is sent.</li>
               <li><b>Gated by an eval.</b> The classifier is scored on a sealed set of 24 synthetic leads and fails below set floors, and each run records hashes of the set and the classifier. CI runs the rules-only gate on every push.</li>
             </ol>
@@ -381,6 +374,6 @@
     </form>
   </aside>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

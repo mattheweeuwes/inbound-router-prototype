@@ -39,6 +39,8 @@ export interface AskedItem {
   /** null for an account-level web visit, which has no person */
   person: { name: string; title: string | null } | null;
   door: Source;
+  /** the tier of their newest lead (A or B is the dashboard's sales-ready), or null before it is scored */
+  tier: string | null;
   /** the strongest way they showed it, and every way they did */
   cue: CueKind;
   cues: CueKind[];
@@ -97,7 +99,7 @@ function askedItem(ctx: Ctx, a: Asker): AskedItem {
     owner: ownerOf(ctx, { domain, name, claimed_owner: r.claimed_owner }).owner,
     customer: isCustomerAccount(ctx, { domain, name }),
     person: r.source === 'web_intent' || !personName ? null : { name: personName, title: r.title },
-    door: r.source, cue: cues[0], cues, evidence: [...new Set(cues.flatMap(c => a.rows.filter(x => x.cue === c).map(x => x.evidence)))],
+    door: r.source, tier: r.tier, cue: cues[0], cues, evidence: [...new Set(cues.flatMap(c => a.rows.filter(x => x.cue === c).map(x => x.evidence)))],
     quote: cutNote(a.rows.find(x => x.cue === 'message')?.message ?? null, QUOTE_CHARS), at: r.received_at,
   };
 }

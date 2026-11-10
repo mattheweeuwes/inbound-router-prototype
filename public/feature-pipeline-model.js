@@ -1,6 +1,8 @@
 // The Feature to pipeline tab's logic with no DOM in it: how the API's numbers are worded, which share of the chart each bar gets,
 // and the one-line finding. feature-pipeline.js draws it. Kept apart so test/cockpit-feature-pipeline.test.ts can run it in Node.
-// Every figure comes from GET /api/attribution. Nothing here recomputes a rate or rounds a count; it formats what was sent.
+// Every figure comes from GET /api/attribution. Nothing here recomputes a rate or rounds a count; it formats what was sent. How the two
+// tables sort, how the asked list is filtered, and how the view is written to and read from the address are here too.
+import { isOn, oneOf } from './address-model.js';
 
 /**
  * @typedef {{ count: number, amount: number }} Tally
@@ -14,7 +16,7 @@
  *   leads: number, accounts: number, salesReady: number, byTier: Record<string, number>, byCue: Record<Cue, number>, sinceLaunch: number | null,
  * }} Interest
  * @typedef {{
- *   leadId: string, accountKey: string | null, accountName: string | null, owner: string | null, customer: boolean,
+ *   leadId: string, accountKey: string | null, accountName: string | null, owner: string | null, customer: boolean, tier: string | null,
  *   person: { name: string, title: string | null } | null, door: string, cue: Cue, cues: Cue[], evidence: string[], quote: string | null, at: string,
  * }} Asked
  * @typedef {{
@@ -174,3 +176,148 @@ const d30 = (/** @type {Signal['evidence']} */ e) => Math.round((Date.parse(e.wi
 
 /** "$30,000 to $50,000". */
 export const priceRange = (/** @type {Signal['addOn']} */ a) => `${money(a.priceLow)} to ${money(a.priceHigh)}`;
+
+// ─── sorting the features table ──────────────────────────────────────────────
+
+/**
+ * The features table's columns. `first` is the direction a first click gives; `get` is what the column sorts on, and a missing value
+ * (null: a rate over no closed deals, a median over no deals) always goes last.
+ * @type {Record<string, { label: string, first: 'asc' | 'desc', get: (f: Feature) => string | number | null }>}
+ */
+export const FEATURE_SORTS = {
+  feature: { label: 'Feature', first: 'asc', get: (f) => f.label.toLowerCase() },
+  accounts: { label: 'Accounts using', first: 'desc', get: (f) => f.accountsUsing },
+  deals: { label: 'Deals around it', first: 'desc', get: (f) => f.opportunities.count },
+  won: { label: 'Closed won', first: 'desc', get: (f) => f.byOutcome.won.count },
+  withRate: { label: 'Win rate with use', first: 'desc', get: (f) => f.winRate.with.rate },
+  withoutRate: { label: 'Win rate without', first: 'desc', get: (f) => f.winRate.without.rate },
+  days: { label: 'Median days, first use to deal', first: 'asc', get: (f) => f.firstUseToOpportunity.medianDays },
+  adoption: { label: 'Adoption since launch', first: 'desc', get: (f) => f.adoption.share },
+  interest: { label: 'Interest from inbound', first: 'desc', get: (f) => f.interest.leads },
+};
+
+/** The order the table opens in: the API's, which is the feature list as the product has it. */
+export const FEATURE_DEFAULT = /** @type {{ key: string, dir: 'asc' | 'desc' }} */ ({ key: '', dir: 'asc' });
+
+/**
+ * Sorted copy; with no column chosen, the order the API sent. Ties keep that order, so a click never shuffles rows that tie.
+ * @param {Feature[]} features
+ * @param {{ key: string, dir: 'asc' | 'desc' }} sort
+ */
+export function sortFeatures(features, { key, dir }) {
+  const col = FEATURE_SORTS[key];
+  if (!col) return [...features];
+  const sign = dir === 'asc' ? 1 : -1;
+  const at = new Map(features.map((f, i) => [f.feature, i]));
+  return [...features].sort((a, b) => {
+    const x = col.get(a);
+    const y = col.get(b);
+    if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1;
+    const by = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+    return sign * by || (at.get(a.feature) ?? 0) - (at.get(b.feature) ?? 0);
+  });
+}
+
+// ─── who asked: filters and order ────────────────────────────────────────────
+
+/** The ways a person can show interest, in the words of the cue filter. */
+export const CUE_OPTIONS = /** @type {const} */ ([
+  { key: 'message', label: 'In their message' }, { key: 'door', label: 'By the door' }, { key: 'path', label: 'By pages visited' }, { key: 'guide', label: 'By a guide' },
+]);
+
+/** @typedef {{ customers: boolean, ready: boolean, cue: '' | Cue }} AskedFilter */
+
+/** Sales-ready is the dashboard's: tier A or B. */
+export const isSalesReady = (/** @type {Asked} */ a) => a.tier === 'A' || a.tier === 'B';
+
+/**
+ * Whether a person passes. `skip` leaves one filter out, which is how a filter's own count is taken.
+ * @param {Asked} a
+ * @param {AskedFilter} f
+ * @param {keyof AskedFilter | null} [skip]
+ */
+function askedPasses(a, f, skip = null) {
+  if (skip !== 'customers' && f.customers && !a.customer) return false;
+  if (skip !== 'ready' && f.ready && !isSalesReady(a)) return false;
+  return skip === 'cue' || !f.cue || a.cues.includes(f.cue);
+}
+
+/** The people that pass, in the order the API sent them (newest first). */
+export const filterAsked = (/** @type {Asked[]} */ asked, /** @type {AskedFilter} */ f) => asked.filter((a) => askedPasses(a, f));
+
+/** The count beside each filter: how many people it would leave with the other filters as they are. */
+export function askedCounts(/** @type {Asked[]} */ asked, /** @type {AskedFilter} */ f) {
+  const cue = /** @type {Record<Cue, number>} */ ({ message: 0, door: 0, path: 0, guide: 0 });
+  let customers = 0;
+  let ready = 0;
+  for (const a of asked) {
+    if (askedPasses(a, f, 'customers') && a.customer) customers++;
+    if (askedPasses(a, f, 'ready') && isSalesReady(a)) ready++;
+    if (askedPasses(a, f, 'cue')) for (const c of a.cues) cue[c]++;
+  }
+  return { customers, ready, cue };
+}
+
+/** The asked list's sortable columns: when they asked (newest first to start) and the account A to Z. A person with no account goes last. */
+export const ASKED_SORTS = /** @type {Record<string, { label: string, first: 'asc' | 'desc', get: (a: Asked) => string | null }>} */ ({
+  when: { label: 'When', first: 'desc', get: (a) => a.at },
+  account: { label: 'Account', first: 'asc', get: (a) => (a.accountName ? a.accountName.toLowerCase() : null) },
+});
+
+/**
+ * Sorted copy of the asked list. Ties keep the newest first.
+ * @param {Asked[]} asked
+ * @param {{ key: string, dir: 'asc' | 'desc' }} sort
+ */
+export function sortAsked(asked, { key, dir }) {
+  const col = ASKED_SORTS[key] ?? ASKED_SORTS.when;
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...asked].sort((a, b) => {
+    const x = col.get(a);
+    const y = col.get(b);
+    if (x == null || y == null) return x == null && y == null ? b.at.localeCompare(a.at) : x == null ? 1 : -1;
+    return sign * x.localeCompare(y) || b.at.localeCompare(a.at) || a.leadId.localeCompare(b.leadId);
+  });
+}
+
+/** "7 of 13 asked", or the plain count when nothing is filtered. */
+export const askedCountLine = (/** @type {number} */ shown, /** @type {number} */ total) => `${shown} of ${total} asked`;
+
+// ─── the address ─────────────────────────────────────────────────────────────
+
+/**
+ * @typedef {{
+ *   feature: string | null, asked: AskedFilter, features: { key: string, dir: 'asc' | 'desc' }, askedSort: { key: string, dir: 'asc' | 'desc' },
+ * }} View
+ */
+
+/** The view with nothing chosen: no feature picked, nobody filtered, the API's order. */
+export const defaultView = () => /** @type {View} */ ({
+  feature: null, asked: { customers: false, ready: false, cue: '' }, features: { ...FEATURE_DEFAULT }, askedSort: { key: 'when', dir: 'desc' },
+});
+
+/**
+ * The view as address parameters: the feature (f), the asked filters, and the two sorts, leaving out what is the default.
+ * @param {View} v
+ * @returns {Record<string, string | boolean>}
+ */
+export function toParams(v) {
+  const fcol = FEATURE_SORTS[v.features.key];
+  return {
+    f: v.feature ?? '', customers: v.asked.customers, ready: v.asked.ready, cue: v.asked.cue,
+    sort: v.features.key, dir: fcol && v.features.dir === fcol.first ? '' : v.features.key ? v.features.dir : '',
+    asort: v.askedSort.key === 'when' ? '' : v.askedSort.key, adir: v.askedSort.dir === ASKED_SORTS[v.askedSort.key].first ? '' : v.askedSort.dir,
+  };
+}
+
+/** The view an address names; a word the page does not have falls back to the default. */
+export function fromParams(/** @type {Record<string, string>} */ p) {
+  const sort = oneOf(p.sort, Object.keys(FEATURE_SORTS), '');
+  const asort = oneOf(p.asort, Object.keys(ASKED_SORTS), 'when');
+  return /** @type {View} */ ({
+    feature: p.f || null,
+    asked: { customers: isOn(p.customers), ready: isOn(p.ready), cue: oneOf(p.cue, CUE_OPTIONS.map((c) => c.key), '') },
+    features: { key: sort, dir: oneOf(p.dir, ['asc', 'desc'], sort ? FEATURE_SORTS[sort].first : 'asc') },
+    askedSort: { key: asort, dir: oneOf(p.adir, ['asc', 'desc'], ASKED_SORTS[asort].first) },
+  });
+}

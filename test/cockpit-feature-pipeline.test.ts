@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import handler from '../api/attribution';
+import { buildAddress, parseAddress } from '../public/address-model.js';
 import { ROOT } from '../src/config';
 import {
-  adoptionWords, askedHow, barSegments, cueSummary, interestWords, launchWords, provenanceBadges, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
+  ASKED_SORTS, FEATURE_SORTS, adoptionWords, askedCountLine, askedCounts, askedHow, barSegments, defaultView, filterAsked, fromParams, isSalesReady, sortAsked, sortFeatures, toParams,
+  type Asked, cueSummary, interestWords, launchWords, provenanceBadges, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
 } from '../public/feature-pipeline-model.js';
 import { testCtx } from './helpers';
 
@@ -89,7 +91,7 @@ describe('cockpit feature to pipeline: interest from inbound', () => {
     assert.equal(cueSummary(f), '');
   });
   it('an asked-for item says how the person showed it, strongest cue first', () => {
-    const a = { leadId: 'l', accountKey: null, accountName: 'X', owner: null, customer: false, person: null, door: 'web_intent', cue: 'path' as const, cues: ['path' as const], evidence: ['/p/: 2 visits'], quote: null, at: '2026-11-10T00:00:00.000Z' };
+    const a = { leadId: 'l', accountKey: null, accountName: 'X', owner: null, customer: false, tier: null, person: null, door: 'web_intent', cue: 'path' as const, cues: ['path' as const], evidence: ['/p/: 2 visits'], quote: null, at: '2026-11-10T00:00:00.000Z' };
     assert.equal(askedHow(a), 'by pages visited: /p/: 2 visits');
   });
   it('two badges keep usage and deals apart from the lead stream, and say how many people are invented when not all are', async () => {
@@ -98,5 +100,78 @@ describe('cockpit feature to pipeline: interest from inbound', () => {
     const mixed = { ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 3, allSynthetic: false } } };
     assert.equal(provenanceBadges(mixed)[1].text, 'LEAD STREAM: 3 of 5 people invented');
     assert.equal(provenanceBadges({ ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 5, allSynthetic: true } } })[1].text, 'LEAD STREAM: PEOPLE INVENTED');
+  });
+});
+
+const person = (over: Partial<Asked> & { n: number }): Asked => ({
+  leadId: `L${over.n}`, accountKey: `ahrq:${over.n}`, accountName: `Account ${over.n}`, owner: 'Avery', customer: false, tier: 'C', person: { name: `Person ${over.n}`, title: 'Director' },
+  door: 'calendly_demo', cue: 'message', cues: ['message'], evidence: ['"x"'], quote: 'a quote', at: new Date(Date.UTC(2026, 10, over.n)).toISOString(), ...over,
+});
+
+describe('cockpit feature to pipeline: sorting the features table', () => {
+  it('sorts numbers as numbers and words A to Z, and puts a missing value last either way', async () => {
+    const d = await load();
+    const by = (key: string, dir: 'asc' | 'desc') => sortFeatures(d.features, { key, dir });
+    const deals = by('deals', 'desc').map(f => f.opportunities.count);
+    assert.deepEqual(deals, [...deals].sort((a, b) => b - a));
+    const names = by('feature', 'asc').map(f => f.label.toLowerCase());
+    assert.deepEqual(names, [...names].sort());
+    for (const dir of ['asc', 'desc'] as const) {
+      const rates = by('withRate', dir).map(f => f.winRate.with.rate);
+      const firstNull = rates.findIndex(r => r === null);
+      assert.ok(firstNull === -1 || rates.slice(firstNull).every(r => r === null), `a feature with no closed deals goes last (${dir})`);
+    }
+    assert.deepEqual(by('', 'asc').map(f => f.feature), d.features.map(f => f.feature), 'with no column chosen the API order stands');
+    assert.deepEqual(Object.keys(FEATURE_SORTS).length, 9, 'every column of the table sorts');
+  });
+  it('rows that tie keep the API order', async () => {
+    const d = await load();
+    const tied = sortFeatures(d.features.map(f => ({ ...f, accountsUsing: 1 })), { key: 'accounts', dir: 'asc' });
+    assert.deepEqual(tied.map(f => f.feature), d.features.map(f => f.feature));
+  });
+});
+
+describe('cockpit feature to pipeline: who asked', () => {
+  const asked = [
+    person({ n: 1, customer: true, tier: 'A', cue: 'message', cues: ['message', 'door'] }),
+    person({ n: 2, customer: true, tier: 'D', cue: 'door', cues: ['door'], quote: null }),
+    person({ n: 3, customer: false, tier: 'B', cue: 'path', cues: ['path'] }),
+    person({ n: 4, customer: false, tier: null, accountName: null, accountKey: null, person: null, cue: 'guide', cues: ['guide'] }),
+  ];
+  const none = { customers: false, ready: false, cue: '' } as const;
+  const ids = (a: Asked[]) => a.map(x => x.leadId);
+
+  it('Customers only, Sales-ready only and one cue each keep what they say, and combine', () => {
+    assert.deepEqual(ids(filterAsked(asked, none)), ['L1', 'L2', 'L3', 'L4']);
+    assert.deepEqual(ids(filterAsked(asked, { ...none, customers: true })), ['L1', 'L2']);
+    assert.deepEqual(ids(filterAsked(asked, { ...none, ready: true })), ['L1', 'L3']);
+    assert.deepEqual(ids(filterAsked(asked, { ...none, customers: true, ready: true })), ['L1']);
+    assert.deepEqual(ids(filterAsked(asked, { ...none, cue: 'door' })), ['L1', 'L2'], 'a person counts under every cue they showed');
+    assert.deepEqual(ids(filterAsked(asked, { customers: true, ready: false, cue: 'message' })), ['L1']);
+    assert.deepEqual([asked[0], asked[2], asked[1], asked[3]].map(isSalesReady), [true, true, false, false]);
+  });
+  it('each filter shows the count it would leave, with the others as they are', () => {
+    assert.deepEqual(askedCounts(asked, none), { customers: 2, ready: 2, cue: { message: 1, door: 2, path: 1, guide: 1 } });
+    assert.deepEqual(askedCounts(asked, { ...none, customers: true }), { customers: 2, ready: 1, cue: { message: 1, door: 2, path: 0, guide: 0 } });
+    assert.equal(askedCountLine(2, 4), '2 of 4 asked');
+  });
+  it('sorts by when, newest first to start, and by account A to Z with a person who has no account last', () => {
+    assert.deepEqual(ids(sortAsked(asked, { key: 'when', dir: 'desc' })), ['L4', 'L3', 'L2', 'L1']);
+    assert.deepEqual(ids(sortAsked(asked, { key: 'when', dir: 'asc' })), ['L1', 'L2', 'L3', 'L4']);
+    assert.deepEqual(ids(sortAsked(asked, { key: 'account', dir: 'asc' })), ['L1', 'L2', 'L3', 'L4']);
+    assert.deepEqual(ids(sortAsked(asked, { key: 'account', dir: 'desc' })), ['L3', 'L2', 'L1', 'L4']);
+    assert.deepEqual([ASKED_SORTS.when.first, ASKED_SORTS.account.first], ['desc', 'asc']);
+  });
+  it('the real asked list carries a tier, so sales-ready can be filtered', async () => {
+    const d = await load();
+    for (const f of d.features) for (const a of f.asked) assert.ok('tier' in a, `${f.feature}: ${a.leadId}`);
+  });
+  it('the view is written to the address without its defaults, and read back', () => {
+    assert.equal(buildAddress('feature-pipeline', toParams(defaultView())), '#feature');
+    const v = { ...defaultView(), feature: 'network_benchmarking', asked: { customers: true, ready: true, cue: 'message' as const }, features: { key: 'deals', dir: 'asc' as const }, askedSort: { key: 'account', dir: 'desc' as const } };
+    const hash = buildAddress('feature-pipeline', toParams(v));
+    assert.equal(hash, '#feature?f=network_benchmarking&customers=1&ready=1&cue=message&sort=deals&dir=asc&asort=account&adir=desc');
+    assert.deepEqual(fromParams(parseAddress(hash).params), v);
+    assert.deepEqual(fromParams(parseAddress('#feature?cue=bogus&sort=nope&asort=nope&adir=up').params), defaultView());
   });
 });

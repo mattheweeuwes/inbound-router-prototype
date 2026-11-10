@@ -217,6 +217,52 @@ describe('outbound link decisions: POST /api/outbound/<ein>/link', () => {
   });
 });
 
+describe('outbound link decisions: DELETE /api/outbound/<ein>/link takes one back', () => {
+  const del = (ein: string) => req(`/api/outbound/${ein}/link`, { method: 'DELETE' });
+  const statusOf = (ctx: ReturnType<typeof testCtx>, ein: string) => { const s = groupState(ctx, group(ctx, ein)); return [s.review.status, s.status.status, s.choice.play]; };
+
+  it('is not served without the demo actions, and says so', async () => {
+    const res = await handler(del(PECOS), testCtx());
+    assert.equal(res.status, 404);
+    assert.match((await res.json()).error, /demo actions are off/);
+  });
+  it('clears a confirmation: the group goes back to a probable link, out of the play, and the export loses its draft', async () => {
+    const ctx = demoCtx();
+    await handler(postLink(PECOS, { decision: 'confirm', accountKey: 'ahrq:SYS-PECOSVALE', by: 'Pat' }), ctx);
+    assert.deepEqual(statusOf(ctx, PECOS), ['confirmed', 'ready', 'system_gap']);
+    const res = await handler(del(PECOS), ctx);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual([body.cleared, body.linkReview.status, body.work.status], [true, 'probable', 'link_to_confirm']);
+    assert.deepEqual(statusOf(ctx, PECOS), ['probable', 'link_to_confirm', null]);
+    assert.equal(ctx.store.outbound.decision(PECOS), null);
+    assert.ok(!exportRows(ctx).some(r => r.ein === PECOS));
+  });
+  it('clears a rejection too, and leaves every other group\'s decision alone', async () => {
+    const ctx = demoCtx();
+    await handler(postLink(PECOS, { decision: 'reject', by: 'Pat' }), ctx);
+    await handler(postLink(PLAINS, { decision: 'reject', by: 'Sam' }), ctx);
+    assert.equal(statusOf(ctx, PECOS)[0], 'rejected');
+    assert.equal((await handler(del(PECOS), ctx)).status, 200);
+    assert.equal(statusOf(ctx, PECOS)[0], 'probable');
+    assert.equal(ctx.store.outbound.decision(PLAINS)?.decidedBy, 'Sam');
+  });
+  it('says so when there is nothing to clear, for an unknown EIN, and refuses a method it does not take', async () => {
+    const ctx = demoCtx();
+    const none = await handler(del(PECOS), ctx);
+    assert.equal(none.status, 404);
+    assert.match((await none.json()).error, /no recorded decision/);
+    assert.equal((await handler(del('123'), ctx)).status, 404);
+    assert.equal((await handler(req(`/api/outbound/${PECOS}/link`, { method: 'PUT' }), ctx)).status, 405);
+  });
+  it('a cleared decision stays cleared across a reload of the rate file', async () => {
+    const appDb = join(scratch, 'cleared.sqlite');
+    await handler(postLink(PECOS, { decision: 'confirm', accountKey: 'ahrq:SYS-PECOSVALE', by: 'Pat' }), demoCtx({ appDb }));
+    await handler(del(PECOS), demoCtx({ appDb }));
+    assert.equal(statusOf(testCtx({ appDb }), PECOS)[0], 'probable');
+  });
+});
+
 describe('outbound suppression', () => {
   it('a group under a CRM customer\'s name is not prospected, says who has it, and keeps its finding as a talking point', () => {
     const ctx = testCtx();

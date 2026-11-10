@@ -71,7 +71,7 @@ function workOf(s: GroupState) {
     play: s.choice.play, playReason: s.choice.reason, team: s.choice.play ? PLAY_TEAMS[s.choice.play] : null,
     status: s.status.status, statusReason: s.status.reason,
     link: {
-      status: r.status, why: r.why, accountKey: belongsTo(r)?.accountId ?? null, accountName: belongsTo(r)?.accountName ?? null,
+      status: r.status, why: r.why, basis: r.basis, accountKey: belongsTo(r)?.accountId ?? null, accountName: belongsTo(r)?.accountName ?? null,
       probable: r.probable, decision: r.decision, ifConfirmed: s.choice.ifConfirmed,
     },
     holder: s.hold && { by: s.hold.by, owner: s.hold.owner, detail: s.hold.detail, accountKey: s.hold.accountKey, leadId: s.hold.leadId },
