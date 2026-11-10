@@ -9,4 +9,7 @@ const NAMES: Record<string, string> = {
   VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', PR: 'Puerto Rico',
 };
 
+/** Every state's name, for words that name a place rather than an organization. */
+export const STATE_NAMES: string[] = Object.values(NAMES);
+
 export const stateName = (code: string | null) => (code ? NAMES[code] ?? code : 'an unnamed state');

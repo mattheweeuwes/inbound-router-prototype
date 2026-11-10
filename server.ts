@@ -33,7 +33,7 @@ const TYPES: Record<string, string> = {
 type Handler = (req: Request) => Promise<Response>;
 const routes: [RegExp, Handler][] = [
   [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
-  [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+)?\/?$/, outbound],
+  [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+(\/link)?)?\/?$/, outbound],
   [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution], [/^\/api\/accounts(\/[^/]+)?\/?$/, accounts],
 ];
 

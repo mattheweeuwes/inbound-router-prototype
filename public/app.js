@@ -1461,7 +1461,7 @@ async function onSubmit(ev) {
 let outboundTab = null;
 function outbound() {
   outboundTab ??= import('./outbound.js')
-    .then((m) => m.mountOutbound($('#outboundBody'), { getJSON, jsonHTML }))
+    .then((m) => m.mountOutbound($('#outboundBody'), { getJSON, postJSON, jsonHTML }))
     .catch((e) => { $('#outboundBody').innerHTML = `<div class="card ob-empty"><h3>Outbound is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
   return outboundTab;
 }

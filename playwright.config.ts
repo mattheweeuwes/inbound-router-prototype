@@ -41,6 +41,10 @@ export default defineConfig({
       OUTBOUND_PLATFORMS: 'test/fixtures/outbound-platforms-mini.json',
       APP_DB: join(dataDir, 'app.sqlite'),
       OUT_DIR: join(dataDir, 'out'),
+      // the mini registry the unit tests use (test/fixtures/registry-mini.sql), built in the throwaway folder: the Outbound
+      // spec confirms a link to an invented system there, so no test ever records a decision about a real organization
+      REGISTRY_DB: join(dataDir, 'no-registry.sqlite'),
+      CACHE_DIR: join(dataDir, 'cache'),
     },
   },
 });

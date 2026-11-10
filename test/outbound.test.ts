@@ -36,7 +36,7 @@ const unlinked: NameLink = { status: 'unlinked', accountId: null, accountName: n
 describe('outbound: loading the rate file', () => {
   it('loads every row, finds the card and the factor by search, and keeps one finding per group', () => {
     const ctx = testCtx();
-    assert.deepEqual([ctx.outbound.status, ctx.outbound.rows, ctx.outbound.groups], ['loaded', 16, 12]);
+    assert.deepEqual([ctx.outbound.status, ctx.outbound.rows, ctx.outbound.groups], ['loaded', 20, 16]);
     const p = ctx.store.outbound.patterns();
     assert.deepEqual([p.card?.value, p.card?.hits, p.card?.distinctRates], [143.21, 5, 14]);
     assert.deepEqual([p.factor?.value, p.factor?.hits], [3.53, 4]);
@@ -103,11 +103,11 @@ describe('outbound: identity and targeting', () => {
     const weak = resolveByName(ctx, 'Northwind Psychiatry PLLC', 'OK');
     assert.deepEqual([weak.status, weak.accountId], ['unlinked', null]);
   });
-  it('stores every group link with its method and score, and the invented groups link to nothing', () => {
+  it('stores every group link with its method and score; only the group named for an invented registry system links', () => {
     const ctx = testCtx();
     const link = ctx.store.outbound.link('900000007')!;
     assert.deepEqual([link.status, link.method], ['unlinked', 'company_name']);
-    assert.equal(ctx.store.outbound.linkedAccounts().size, 0);
+    assert.deepEqual([...ctx.store.outbound.linkedAccounts()], [['900000013', 'ahrq:SYS-CANYONLARK']]);
   });
   it('a confirmed platform is a target with a ready draft; an unconfirmed one is a target with a blocked draft', () => {
     const ctx = testCtx();
@@ -127,15 +127,15 @@ describe('outbound: identity and targeting', () => {
     assert.equal(hospital.fit, 'not_target');
     assert.match(hospital.fitReason, /Hospital or health system \(X Health\)/);
     const summary = outboundSummary(ctx);
-    assert.deepEqual(summary.summary?.fit, { target: 2, notTarget: 10 });
+    assert.deepEqual(summary.summary?.fit, { target: 2, notTarget: 14 });
     assert.deepEqual(summary.summary?.drafts, { ready: 1, blocked: 1 });
   });
   it('summarizes by size band and contract form, counting a group on both patterns in both columns', () => {
     const s = outboundSummary(testCtx()).summary!;
     assert.deepEqual(s.bands.map(b => [b.band, b.groups, b.card, b.factor, b.both, b.neither]), [
-      ['1-50', 5, 5, 0, 0, 0], ['51-500', 4, 2, 2, 1, 1], ['501+', 3, 0, 1, 0, 2],
+      ['1-50', 5, 5, 0, 0, 0], ['51-500', 6, 2, 2, 1, 3], ['501+', 5, 0, 3, 0, 2],
     ]);
-    assert.deepEqual(s.forms, { card: 6, factor: 2, both: 1, neither: 3 });
+    assert.deepEqual(s.forms, { card: 6, factor: 4, both: 1, neither: 5 });
   });
 });
 
@@ -245,10 +245,10 @@ describe('outbound: HubSpot (dry-run) and the API', () => {
     const ctx = testCtx();
     const list = await (await handler(get('/api/outbound'), ctx)).json();
     assert.equal(list.loaded, true);
-    assert.deepEqual([list.file.rows, list.file.groups, list.file.code, list.patterns.card.base, list.patterns.factor.unit], [16, 12, '90837', 143.21, 3.53]);
-    assert.equal(list.groups.length, 12);
+    assert.deepEqual([list.file.rows, list.file.groups, list.file.code, list.patterns.card.base, list.patterns.factor.unit], [20, 16, '90837', 143.21, 3.53]);
+    assert.equal(list.groups.length, 16);
     const one = await (await handler(get('/api/outbound/900000008'), ctx)).json();
-    assert.deepEqual(Object.keys(one).sort(), ['draft', 'draftUnavailable', 'finding', 'hubspot', 'link', 'rateLine', 'sourceRows']);
+    assert.deepEqual(Object.keys(one).sort(), ['draft', 'draftUnavailable', 'finding', 'hubspot', 'link', 'linkReview', 'rateLine', 'sourceRows', 'work']);
     assert.equal(one.draft.inserted.length > 0, true);
     assert.equal((await handler(get('/api/outbound/123'), ctx)).status, 404);
     assert.equal((await handler(new Request('http://local/api/outbound', { method: 'POST' }), ctx)).status, 405);

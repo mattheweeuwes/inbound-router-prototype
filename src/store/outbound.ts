@@ -1,10 +1,13 @@
 // SQL for the outbound module: the rate file's rows, the patterns, the findings and their registry links. The loader
 // (src/outbound/load.ts) writes them in one transaction; the API and the router's rate line read them. The one-rate rule
-// and the city tops are views in sql/models.
+// and the city tops are views in sql/models. A person's link decisions (rate_link_decisions) are written one at a time by
+// the API and are never cleared by a reload, and the newest inbound lead at an account is read here for suppression.
 import type { StatementSync } from 'node:sqlite';
 import { allRows, getRow, json, parse, type Db } from '../db';
 import type { Hook } from '../outbound/draft';
 import type { Band, Finding, GroupRow, Pattern, Patterns } from '../outbound/findings';
+import type { RecentLead } from '../outbound/holds';
+import type { Decision, LinkDecision } from '../outbound/linkReview';
 import type { ContractForm, Hit } from '../outbound/patterns';
 import type { RateFileScope, RateRow } from '../outbound/rateFile';
 import type { Targeting } from '../outbound/targeting';
@@ -36,6 +39,8 @@ type FindingRow = {
 type LinkRow = { status: NameLink['status']; account_id: string | null; account_name: string | null; method: 'company_name'; score: number | null; reason: string; candidates_json: string };
 type PatternRow = { kind: Pattern['kind']; value: number; hits: number; distinct_rates: number; runners_up_json: string | null };
 export type BandFormRow = { band: Band; form: ContractForm; groups: number };
+type DecisionRow = { ein: string; decision: Decision; account_id: string | null; account_name: string | null; decided_by: string; note: string | null; decided_at: string };
+type RecentLeadRow = { id: string; owner: string | null; route_team: string | null; received_at: string; name: string | null };
 
 const FINDING_COLS: (keyof FindingRow)[] = [
   'ein', 'account_key', 'name', 'name_norm', 'city', 'state', 'clinicians', 'band', 'rate', 'medicare', 'pct_medicare', 'form', 'card_tier',
@@ -57,6 +62,10 @@ const toRow = (g: OutboundGroup): FindingRow => ({
   factor_multiple: g.factorMultiple, city_top_rate: g.cityTopRate, city_top_clinicians: g.cityTopClinicians, city_top_ein: g.cityTopEin,
   band_median_pct: g.bandMedianPct, fit: g.fit, fit_reason: g.fitReason, platform: g.platform,
   platform_confirmed: g.platformConfirmed === null ? null : g.platformConfirmed ? 1 : 0, draft_status: g.draftStatus, draft_reason: g.draftReason, hook: g.hook,
+});
+
+const toDecision = (r: DecisionRow): LinkDecision => ({
+  ein: r.ein, decision: r.decision, accountId: r.account_id, accountName: r.account_name, decidedBy: r.decided_by, note: r.note, decidedAt: r.decided_at,
 });
 
 const toPattern = (r: PatternRow): Pattern => ({ kind: r.kind, value: r.value, hits: r.hits, distinctRates: r.distinct_rates, runnersUp: parse<Hit[]>(r.runners_up_json) ?? [] });
@@ -85,8 +94,23 @@ export function outboundStore(db: Db) {
       r.most_npis, r.claims_evidence, r.pos, (r.id = g.id) AS chosen
       FROM rate_rows r JOIN v_rate_groups g ON g.ein = r.ein WHERE r.ein = ? ORDER BY r.id`),
     bandForm: p(`SELECT band, form, COUNT(*) AS groups FROM rate_findings GROUP BY band, form ORDER BY band, form`),
-    linkedTo: p(`SELECT f.* FROM rate_findings f JOIN rate_links l ON l.ein = f.ein WHERE l.account_id = ? ORDER BY f.clinicians DESC, f.ein`),
+    // an exact link, or a link a person confirmed: the two ways a group is known to belong to an account
+    linkedTo: p(`SELECT f.* FROM rate_findings f WHERE f.ein IN (
+      SELECT ein FROM rate_links WHERE status = 'linked' AND account_id = ?
+      UNION SELECT ein FROM rate_link_decisions WHERE decision = 'confirmed' AND account_id = ?)
+      ORDER BY f.clinicians DESC, f.ein`),
     byName: p(`SELECT * FROM rate_findings WHERE name_norm = ? AND state = ? ORDER BY clinicians DESC, ein`),
+    decisions: p(`SELECT ein, decision, account_id, account_name, decided_by, note, decided_at FROM rate_link_decisions`),
+    decision: p(`SELECT ein, decision, account_id, account_name, decided_by, note, decided_at FROM rate_link_decisions WHERE ein = ?`),
+    // one decision per EIN: a later one replaces it
+    saveDecision: p(`INSERT INTO rate_link_decisions (ein, decision, account_id, account_name, decided_by, note, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ein) DO UPDATE SET decision = excluded.decision, account_id = excluded.account_id, account_name = excluded.account_name,
+        decided_by = excluded.decided_by, note = excluded.note, decided_at = excluded.decided_at`),
+    // the newest person lead at an account since a time (web intent has no person, so it is not a conversation)
+    recentLead: p(`SELECT l.id, l.owner, l.route_team, e.received_at, NULLIF(TRIM(COALESCE(l.first_name, '') || ' ' || COALESCE(l.last_name, '')), '') AS name
+      FROM leads l JOIN lead_events e ON e.id = l.id
+      WHERE l.account_id = ? AND e.received_at >= ? AND e.source != 'web_intent'
+      ORDER BY e.received_at DESC, l.id LIMIT 1`),
   };
 
   return {
@@ -132,10 +156,19 @@ export function outboundStore(db: Db) {
     linkedAccounts: (): Map<string, string> => new Map(allRows<{ ein: string; account_id: string }>(s.links).map(r => [r.ein, r.account_id])),
     sourceRows: (ein: string): SourceRow[] => allRows<SourceRow>(s.sourceRows, ein),
     bandForm: (): BandFormRow[] => allRows<BandFormRow>(s.bandForm),
-    /** Groups linked to a registry account, largest first. */
-    linkedTo: (accountId: string): OutboundGroup[] => allRows<FindingRow>(s.linkedTo, accountId).map(toGroup),
+    /** Groups that belong to a registry account (an exact link or a confirmed one), largest first. */
+    linkedTo: (accountId: string): OutboundGroup[] => allRows<FindingRow>(s.linkedTo, accountId, accountId).map(toGroup),
     /** Groups with this normalized name in this state, largest first. */
     byName: (nameNorm: string, state: string): OutboundGroup[] => allRows<FindingRow>(s.byName, nameNorm, state).map(toGroup),
+    /** Every person's link decision, by EIN. They outlive reloads of the rate file. */
+    decisions: (): Map<string, LinkDecision> => new Map(allRows<DecisionRow>(s.decisions).map(r => [r.ein, toDecision(r)])),
+    decision: (ein: string): LinkDecision | null => { const r = getRow<DecisionRow>(s.decision, ein); return r ? toDecision(r) : null; },
+    saveDecision: (d: LinkDecision) => { s.saveDecision.run(d.ein, d.decision, d.accountId, d.accountName, d.decidedBy, d.note, d.decidedAt); },
+    /** The newest person lead at an account received at or after `since`, or null. */
+    recentLead: (accountId: string, since: string): RecentLead | null => {
+      const r = getRow<RecentLeadRow>(s.recentLead, accountId, since);
+      return r ? { id: r.id, owner: r.owner, routeTeam: r.route_team, receivedAt: r.received_at, name: r.name } : null;
+    },
   };
 }
 

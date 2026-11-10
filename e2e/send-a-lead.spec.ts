@@ -1,6 +1,6 @@
 // "Send a lead" through the cockpit, as a person would: open the page on its Overview, wait for it to be live, fill the form, submit,
 // land on the Lead stream with the new lead, read the trail, then see the Overview count it.
-// The organization resolves offline from the committed registry by domain. Nothing here depends on the time of day: the routing outcome
+// The organization resolves offline by domain from the server's registry (the mini registry, test/fixtures/registry-mini.sql). Nothing here depends on the time of day: the routing outcome
 // (alert now, queue, next business open) varies with the clock, so the test checks that a decision exists, not which one.
 import { expect, test, type ConsoleMessage } from '@playwright/test';
 

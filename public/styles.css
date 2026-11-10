@@ -778,7 +778,7 @@ body.is-fixed .foot { padding: 8px var(--gutter) 12px; }
 .ob-c-form { white-space: nowrap; }
 .ob-c-form.is-none { color: var(--muted); }
 .ob-nofit { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
-.ob-c-fit .badge { white-space: nowrap; }
+.ob-c-status .badge { white-space: nowrap; }
 
 .ob .ob-detail { padding: 0; position: sticky; top: 118px; max-height: calc(100vh - 134px); overflow-y: auto; }
 .ob-d-empty { padding: 40px 28px; text-align: center; color: var(--muted); }
@@ -828,6 +828,27 @@ mark.ins { background: #dcebff; color: #0a3a96; padding: 0 1px; border-radius: 3
 .ob-pad { padding: 6px 10px 0; }
 a.jump-outbound { color: var(--blue); text-decoration: none; }
 a.jump-outbound:hover { text-decoration: underline; }
+/* the work: drafts ready by play, suppressed, links waiting, the export, and the Links to confirm panel */
+.ob-work { margin-top: -4px; }
+.ob-export { margin: -6px 0 20px; font-size: 13px; color: var(--muted); }
+.ob-export-link { color: var(--blue); font-weight: 500; text-decoration: none; }
+.ob-export-link:hover { text-decoration: underline; }
+.ob .ob-links { margin-bottom: 20px; padding: 14px 16px; }
+.ob-links-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+.ob .ob-links-head h3 { margin: 0; }
+.ob-by { margin-left: auto; }
+.ob-links-note { margin: 8px 0 10px; font-size: 12.5px; color: var(--muted); max-width: 980px; }
+.ob-links-off { margin: 0 0 10px; padding: 8px 10px; font-size: 12.5px; background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn); }
+.ob-links-off code { font-family: var(--mono); font-size: 12px; }
+.ob-link-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.ob-link { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) auto; gap: 6px 16px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.ob-link-cand { min-width: 0; overflow-wrap: anywhere; color: var(--body); }
+.ob-link-arrow { color: var(--muted); }
+.ob-link-acts { display: flex; gap: 6px; }
+.ob-link-msg { grid-column: 1 / -1; margin: 0; font-size: 12.5px; color: var(--ok); }
+.ob-link-msg.is-error { color: var(--warn); }
+.ob-held { background: var(--warn-bg); }
+.ob-held h4 { color: var(--warn); }
 .ob-empty { max-width: 720px; }
 .ob-empty p { margin: 0 0 10px; color: var(--body); }
 .ob-cmd { margin: 0 0 12px; padding: 12px 14px; background: var(--navy); color: #fff; font-family: var(--mono); font-size: 13px; overflow-x: auto; }
@@ -924,6 +945,7 @@ a.jump-outbound:hover { text-decoration: underline; }
   .ob-line { font-size: 17px; }
   .ob-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .ob-stats > :first-child, .ob-stat-bands { grid-column: 1 / -1; }
+  .ob-work > :first-child { grid-column: auto; }
   .ob-stat-value { font-size: 26px; }
   .ob .ob-chart-card { padding: 14px 12px; }
   .ob-split { grid-template-columns: minmax(0, 1fr); }
@@ -947,10 +969,14 @@ a.jump-outbound:hover { text-decoration: underline; }
   .ob-table td::before { content: attr(data-label); display: block; font-size: 11px; color: var(--muted); }
   .ob-table td.ob-c-name { grid-column: 1 / -1; min-width: 0; }
   .ob-table td.ob-c-name::before { content: none; }
-  .ob-table td.ob-c-form, .ob-table td.ob-c-fit { grid-column: span 2; }
+  .ob-table td.ob-c-form, .ob-table td.ob-c-status { grid-column: span 2; }
   .ob-table td.num { text-align: right; }
-  .ob-c-form, .ob-nofit, .ob-c-fit .badge { white-space: normal; }
+  .ob-c-form, .ob-nofit, .ob-c-status .badge { white-space: normal; }
   .ob-kv { grid-template-columns: 92px minmax(0, 1fr); }
+  .ob .ob-links { padding: 14px 12px; }
+  .ob-by { margin-left: 0; width: 100%; }
+  .ob-by input { width: 100%; }
+  .ob-link { grid-template-columns: minmax(0, 1fr); }
   .ob-ins thead { display: none; }
   .ob-ins, .ob-ins tbody { display: block; }
   .ob-ins tr { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }

@@ -1,5 +1,5 @@
 -- Tiny hand-made registry for tests and for running before the real ETL finishes.
--- Organizations are real names; counts are small round numbers, NOT the real figures.
+-- Organizations are real names, except the two marked invented below; counts are small round numbers, NOT the real figures.
 CREATE TABLE cms_hospitals(ccn TEXT PRIMARY KEY, name TEXT, address TEXT, city TEXT, state TEXT, zip TEXT, county TEXT, phone TEXT, hospital_type TEXT, ownership TEXT, emergency TEXT, overall_rating TEXT, name_norm TEXT);
 CREATE TABLE ahrq_systems(health_sys_id TEXT PRIMARY KEY, name TEXT, city TEXT, state TEXT, hosp_cnt INT, acutehosp_cnt INT, sys_beds INT, total_mds INT, multistate INT, name_norm TEXT, source_year INT);
 CREATE TABLE ahrq_hospital_links(ccn TEXT, health_sys_id TEXT, hospital_name TEXT, state TEXT, beds INT, source_year INT, PRIMARY KEY(ccn, health_sys_id));
@@ -31,7 +31,10 @@ INSERT INTO ahrq_systems VALUES
  -- added for the working-day fixtures (fixtures/day/morning.json): the enterprise and referral tests
  ('SYS-COMMONSPIRIT','CommonSpirit Health','Chicago','IL',140,130,20000,9000,1,'commonspirit health',2023),
  ('SYS-PIEDMONT','Piedmont Healthcare','Atlanta','GA',20,18,3500,2000,0,'piedmont healthcare',2023),
- ('SYS-EMORY','Emory Healthcare','Atlanta','GA',10,9,2500,2500,0,'emory healthcare',2023);
+ ('SYS-EMORY','Emory Healthcare','Atlanta','GA',10,9,2500,2500,0,'emory healthcare',2023),
+ -- invented, not real organizations: the outbound link review and system-gap tests (test/fixtures/rates-mini.csv, Amarillo)
+ ('SYS-CANYONLARK','Canyon Lark Health','Amarillo','TX',5,5,900,600,0,'canyon lark health',2023),
+ ('SYS-PECOSVALE','Pecos Vale Health System','Amarillo','TX',4,4,700,400,0,'pecos vale health system',2023);
 
 INSERT INTO cms_hospitals VALUES
  ('460010','Intermountain Medical Center','5121 S Cottonwood St','Murray','UT','84107','Salt Lake','8015071000','Acute Care Hospitals','Voluntary non-profit - Private','Yes','4','intermountain medical center'),
@@ -82,4 +85,5 @@ INSERT INTO org_domains VALUES
  ('commonspirit.org','ahrq_system','SYS-COMMONSPIRIT','CommonSpirit Health','mini registry','2026-11-10'),
  ('piedmont.org','ahrq_system','SYS-PIEDMONT','Piedmont Healthcare','mini registry','2026-11-10'),
  ('emoryhealthcare.org','ahrq_system','SYS-EMORY','Emory Healthcare','mini registry','2026-11-10'),
- ('humana.com','payer','humana','Humana','mini registry','2026-11-10');
+ ('humana.com','payer','humana','Humana','mini registry','2026-11-10'),
+ ('canyonlarkhealth.example','ahrq_system','SYS-CANYONLARK','Canyon Lark Health','mini registry, invented','2026-11-10');

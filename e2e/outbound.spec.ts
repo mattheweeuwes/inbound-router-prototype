@@ -1,5 +1,7 @@
-// The Outbound tab in the browser, on the server's invented rate file (test/fixtures/rates-mini.csv: 12 groups, Harborlight the
-// one platform, one entity confirmed and one not). Nothing here sends a lead, so the other spec's counts are untouched.
+// The Outbound tab in the browser, on the server's invented rate file (test/fixtures/rates-mini.csv: 16 groups, Harborlight the
+// one platform, one entity confirmed and one not; in Amarillo, Canyon Lark Health in the system-gap play, Pecos Vale Physicians
+// with a probable link, and Tallowmere Health Partners under a fictional CRM customer's name). Nothing here sends a lead, so the
+// other specs' counts are untouched; the link decision it records lives in this run's throwaway database.
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 
 /** Any console error, failed request or HTTP 4xx/5xx fails the test, as in the send-a-lead spec. */
@@ -21,19 +23,19 @@ test('the Outbound tab shows the finding, the chart and the targets, and a group
 
   // the finding in one line, the figures, and the chart
   await expect(page.getByText(/^Of the \d+ groups with 50 or fewer clinicians, \d+ are paid a whole percent of one \$\d+\.\d{2} base, and the band's median is \d+% of Medicare\. Groups with over 500 clinicians sit at a median of \d+%\.$/)).toBeVisible();
-  await expect(page.locator('.ob-stat', { hasText: 'Groups' }).first().locator('.ob-stat-value')).toHaveText('12');
+  await expect(page.locator('.ob-stat', { hasText: 'Groups' }).first().locator('.ob-stat-value')).toHaveText('16');
   await expect(page.locator('.ob-stat', { hasText: 'On the rate card' }).locator('.ob-stat-value')).toHaveText(/^\d+$/);
   await expect(page.locator('.ob-stat', { hasText: 'On a conversion factor' }).locator('.ob-stat-value')).toHaveText(/^\d+$/);
   await expect(page.getByRole('group', { name: 'Median percent of Medicare by size band' }).locator('.ob-band-val')).toHaveCount(3);
   const chart = page.getByRole('img', { name: 'Rate against size' });
   await expect(chart).toBeVisible();
-  await expect(chart.locator('.pt')).toHaveCount(12);
+  await expect(chart.locator('.pt')).toHaveCount(16);
   await expect(page.getByLabel('Chart key')).toContainText('Medicare 100%');
 
-  // Targets is the default filter: the two Harborlight entities
+  // In a play is the default filter: the two Harborlight entities and the system-gap group
   const table = page.getByRole('table').filter({ hasText: 'Contract form' });
-  await expect(page.getByRole('button', { name: /^Targets/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^In a play/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(table.locator('tbody tr')).toHaveCount(3);
 
   // opening the confirmed one shows its facts, its marked draft and the draft state, and the HubSpot request stays collapsed
   await table.getByRole('button', { name: 'HARBORLIGHT TELEPSYCH PLLC' }).click();
@@ -54,7 +56,7 @@ test('the Outbound tab shows the finding, the chart and the targets, and a group
 
   // All shows every group, and a header click sorts: Rate, largest first, then smallest first
   await page.getByRole('button', { name: /^All/ }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(12);
+  await expect(table.locator('tbody tr')).toHaveCount(16);
   const rates = async () => (await table.locator('tbody td.ob-c-rate').allTextContents()).map(t => Number(t.replace('$', '')));
   await page.getByRole('button', { name: 'Rate' }).click();
   expect(await rates()).toEqual([...(await rates())].sort((a, b) => b - a));
@@ -63,6 +65,72 @@ test('the Outbound tab shows the finding, the chart and the targets, and a group
   await expect(table.getByRole('columnheader', { name: /Rate/ })).toHaveAttribute('aria-sort', 'ascending');
 
   // the page itself never scrolls sideways
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expect(problems, problems.join('\n')).toEqual([]);
+});
+
+test('a person confirms a probable link, its system-gap draft is ready and exported, and a suppressed group shows who has it', async ({ page }) => {
+  const problems = watch(page);
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Outbound' }).click();
+  const work = page.getByRole('group', { name: 'Outbound work' });
+  const tile = (label: string) => work.locator('.ob-stat', { hasText: label }).locator('.ob-stat-value');
+  await expect(tile('Drafts ready: Platform')).toHaveText('1');
+  await expect(tile('Drafts ready: System gap')).toHaveText('1');
+  await expect(tile('Suppressed')).toHaveText('1');
+  await expect(tile('Links to confirm')).toHaveText('1');
+  const before = await (await page.request.get('/api/outbound/export.csv')).text();
+  expect(before).not.toContain('900000014');
+
+  // the panel shows the probable link with its candidate, score and state
+  const links = page.getByRole('region', { name: /Links to confirm/ });
+  const item = links.locator('li.ob-link', { hasText: 'PECOS VALE PHYSICIANS PLLC' });
+  await expect(item).toContainText('Pecos Vale Health System');
+  await expect(item).toContainText('TX · score 0.48');
+
+  // a decision needs a name, since sign-in is not built
+  await item.getByRole('button', { name: 'Confirm' }).click();
+  await expect(links.locator('.ob-link-msg.is-error')).toContainText('Type your name in Deciding as first');
+  await links.getByLabel('Deciding as').fill('Pat Okafor (test)');
+  await item.getByRole('button', { name: 'Confirm' }).click();
+  await expect(links.locator('.ob-link-msg')).toContainText('Confirmed for PECOS VALE PHYSICIANS PLLC.');
+  await expect(tile('Drafts ready: System gap')).toHaveText('2');
+  await expect(tile('Links to confirm')).toHaveText('0');
+
+  // the group now opens with a ready system-gap draft under the confirmed system's name
+  const table = page.getByRole('table').filter({ hasText: 'Contract form' });
+  await page.getByRole('button', { name: /^System gap/ }).click();
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await table.getByRole('button', { name: 'PECOS VALE PHYSICIANS PLLC' }).click();
+  const panel = page.getByRole('complementary', { name: 'Group detail' });
+  await expect(panel.locator('.ob-state.is-ready')).toBeVisible();
+  await expect(panel.getByText("Pecos Vale Health System's UHC rate for 90837 in Amarillo: 81% of Medicare")).toBeVisible();
+  await expect(panel.getByText('Confirmed by Pat Okafor (test)', { exact: false })).toBeVisible();
+
+  // and the export has it, with the export link on the tab pointing at the same file
+  await expect(page.getByRole('link', { name: /Export the 3 ready drafts/ })).toHaveAttribute('href', '/api/outbound/export.csv');
+  const after = await (await page.request.get('/api/outbound/export.csv')).text();
+  expect(after).toContain("900000014,ein:900000014;ahrq:SYS-PECOSVALE,system_gap,HSP,PECOS VALE PHYSICIANS PLLC,Amarillo,TX");
+
+  // a suppressed group says who has it, in the table and in its detail
+  await page.getByRole('button', { name: /^All/ }).click();
+  const row = table.locator('tr', { hasText: 'TALLOWMERE HEALTH PARTNERS' });
+  await expect(row.locator('.ob-c-status')).toContainText('Suppressed · Jordan has it');
+  await row.getByRole('button', { name: 'TALLOWMERE HEALTH PARTNERS' }).click();
+  await expect(panel.locator('.ob-held')).toContainText('Jordan has it.');
+  await expect(panel.locator('.ob-held')).toContainText('Tallowmere Health is a customer in the CRM');
+  expect(problems, problems.join('\n')).toEqual([]);
+});
+
+test('at 390 px the Outbound tab, its work tiles and the links panel fit with no sideways scroll', async ({ page }) => {
+  const problems = watch(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Outbound' }).click();
+  await expect(page.getByRole('group', { name: 'Outbound work' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Links to confirm/ })).toBeVisible();
+  await page.getByRole('button', { name: /^All/ }).click();
+  await expect(page.locator('tr', { hasText: 'TALLOWMERE HEALTH PARTNERS' }).locator('.ob-c-status')).toContainText('Jordan has it');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   expect(problems, problems.join('\n')).toEqual([]);
 });

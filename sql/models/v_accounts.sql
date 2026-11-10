@@ -23,6 +23,7 @@ SELECT
   (SELECT COUNT(*) FROM account_signals g WHERE g.account_id = a.id AND g.type = 'referral')       AS referrals_out,
   (SELECT COUNT(*) FROM account_signals g WHERE g.account_id = a.id AND g.type = 'web_intent')     AS web_intent_signals,
   EXISTS (SELECT 1 FROM rate_links k WHERE k.account_id = a.id AND k.status = 'linked')
+    OR EXISTS (SELECT 1 FROM rate_link_decisions d WHERE d.account_id = a.id AND d.decision = 'confirmed')
     OR EXISTS (SELECT 1 FROM leads l WHERE l.account_id = a.id AND l.rate_fact_json IS NOT NULL)   AS has_rate_fact,
   (SELECT COUNT(*) FROM review_queue r JOIN leads l ON l.id = r.lead_id WHERE l.account_id = a.id AND r.resolved = 0) AS open_reviews
 FROM accounts a

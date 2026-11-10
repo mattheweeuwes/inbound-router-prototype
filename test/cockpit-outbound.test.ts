@@ -1,20 +1,26 @@
 // The Outbound tab's logic with no DOM (public/outbound-model.js), run on the groups the API returns for the invented rate file:
-// what each filter keeps, how a click sorts, the headline, and where the chart puts things.
+// what each filter keeps, how a click sorts, the status words, the work tiles and the links to confirm, the headline, and where
+// the chart puts things.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import handler from '../api/outbound';
 import {
-  bandWords, chartGeometry, filterGroups, fitLabel, formCounts, formLabel, headline, median, sortGroups, statesOf, type Group, type Loaded,
+  bandWords, chartGeometry, filterGroups, formCounts, formLabel, headline, linksToConfirm, median, sortGroups, statesOf, statusLabel, workCounts,
+  type Group, type Loaded,
 } from '../public/outbound-model.js';
+import { outboundDetail } from '../src/outbound/view';
 import { testCtx } from './helpers';
 
 const load = async (): Promise<Loaded> => (await (await handler(new Request('http://local/api/outbound'), testCtx())).json()) as Loaded;
 const want = { filter: 'all', state: '', query: '' } as const;
 
 describe('cockpit outbound: the table', () => {
-  it('Targets keeps the targets, All keeps everything, and a group on both forms is on the card and on a factor', async () => {
+  it('In a play keeps both plays, each play chip keeps its own, All keeps everything, and a group on both forms is on the card and on a factor', async () => {
     const d = await load();
-    assert.deepEqual(filterGroups(d.groups, { ...want, filter: 'targets' }).map(g => g.ein).sort(), ['900000008', '900000009']);
+    const eins = (filter: 'in_play' | 'platform' | 'system_gap') => filterGroups(d.groups, { ...want, filter }).map(g => g.ein).sort();
+    assert.deepEqual(eins('in_play'), ['900000008', '900000009', '900000013']);
+    assert.deepEqual(eins('platform'), ['900000008', '900000009']);
+    assert.deepEqual(eins('system_gap'), ['900000013']);
     assert.equal(filterGroups(d.groups, want).length, d.groups.length);
     const card = filterGroups(d.groups, { ...want, filter: 'card' });
     const factor = filterGroups(d.groups, { ...want, filter: 'factor' });
@@ -44,15 +50,36 @@ describe('cockpit outbound: the table', () => {
       const order = sortGroups(tied, { key: 'rate', dir }).map(g => g.name);
       assert.deepEqual(order, [...order].sort());
     }
-    assert.deepEqual(sortGroups(d.groups, { key: 'fit', dir: 'asc' }).slice(0, 2).map(g => g.draftStatus), ['ready', 'blocked']);
+    assert.deepEqual(sortGroups(d.groups, { key: 'status', dir: 'asc' }).slice(0, 5).map(g => g.status), ['ready', 'ready', 'blocked', 'link_to_confirm', 'suppressed']);
   });
-  it('labels the contract form by its tier or multiple, and the fit by its draft state', async () => {
+  it('labels the contract form by its tier or multiple, and the status by its play and who has it', async () => {
     const d = await load();
     const of = (ein: string) => d.groups.find(g => g.ein === ein) as Group;
     assert.equal(formLabel(of('900000001')), 'Card 80%');
     assert.equal(formLabel({ ...of('900000001'), cardTier: 80, factorMultiple: 35, form: 'both' }), 'Card 80% · Factor ×35');
     assert.equal(formLabel({ ...of('900000001'), cardTier: null, factorMultiple: null, form: 'neither' }), 'Neither');
-    assert.deepEqual(['900000008', '900000009', '900000003'].map(e => fitLabel(of(e))), ['Target · draft ready', 'Target · draft blocked', 'Not a target']);
+    assert.deepEqual(['900000008', '900000013', '900000009', '900000015', '900000014', '900000003'].map(e => statusLabel(of(e))),
+      ['Ready · Platform', 'Ready · System gap', 'Blocked · Platform', 'Suppressed · Jordan has it', 'Link to confirm', 'Not a target']);
+  });
+});
+
+describe('cockpit outbound: the work', () => {
+  it('the tiles count drafts ready by play, groups someone has and links waiting, as the API gave them', async () => {
+    const d = await load();
+    assert.deepEqual(workCounts(d), { ready: { platform: 1, system_gap: 1, total: 2 }, suppressed: 1, linksWaiting: 1 });
+    assert.deepEqual(d.actions, { linkDecisions: false, export: '/api/outbound/export.csv' });
+  });
+  it('Links to confirm lists each probable link with its candidate, largest group first', async () => {
+    const d = await load();
+    const rows = linksToConfirm(d.groups);
+    assert.deepEqual(rows.map(g => [g.ein, g.link.probable?.name, g.link.probable?.state, g.link.ifConfirmed]), [['900000014', 'Pecos Vale Health System', 'TX', 'system_gap']]);
+    const bigger = { ...rows[0], ein: '900000099', clinicians: 900 };
+    assert.deepEqual(linksToConfirm([rows[0], bigger, { ...rows[0], ein: '900000098', link: { ...rows[0].link, status: 'unlinked' } }]).map(g => g.ein), ['900000099', '900000014']);
+  });
+  it('the list and the detail agree on a group\'s status', async () => {
+    const d = await load();
+    const ctx = testCtx();
+    for (const g of d.groups) assert.equal(outboundDetail(ctx, g.ein)!.work.status, g.status, g.ein);
   });
 });
 

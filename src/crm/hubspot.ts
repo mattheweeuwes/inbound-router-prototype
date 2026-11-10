@@ -108,6 +108,10 @@ export interface OutboundCompanyInput {
   registryAccountKey: string | null;
   /** payer, network, code and month the rate is from, e.g. "UnitedHealthcare Choice Plus 90837 202608" */
   rateScope: string;
+  /** the outbound play the group is in (src/outbound/plays.ts) */
+  play: 'platform' | 'system_gap';
+  /** how the group's registry link stands: exact, probable, unlinked, confirmed or rejected (src/outbound/linkReview.ts) */
+  linkStatus: 'exact' | 'probable' | 'unlinked' | 'confirmed' | 'rejected';
 }
 
 export function outboundCompanyProperties(c: OutboundCompanyInput): Record<string, unknown> {
@@ -116,7 +120,7 @@ export function outboundCompanyProperties(c: OutboundCompanyInput): Record<strin
     serif_ein: c.ein, serif_registry_account_key: c.registryAccountKey, serif_rate_scope: c.rateScope, serif_rate: c.rate,
     serif_rate_pct_medicare: c.pctOfMedicare, serif_contract_form: c.form, serif_card_tier_pct: c.cardTier, serif_conversion_factor: c.factorMultiple,
     serif_clinicians: c.clinicians, serif_size_band: c.band, serif_city_top_rate: c.cityTopRate, serif_band_median_pct: c.bandMedianPct,
-    serif_outbound_fit: c.fit, serif_platform: c.platform,
+    serif_outbound_fit: c.fit, serif_platform: c.platform, serif_outbound_play: c.play, serif_link_status: c.linkStatus,
   });
 }
 
@@ -125,7 +129,7 @@ export function buildOutboundCompanyUpsert(c: OutboundCompanyInput): CrmRequest 
   return {
     method: 'POST', path: PATHS.companiesUpsert,
     body: { inputs: [{ id: c.accountKey, idProperty: 'serif_account_key', properties: outboundCompanyProperties(c) }] },
-    note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate. Built for target groups; never enqueued or sent.',
+    note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate, its play and its link status. Built for groups in a play that nobody already has; never enqueued or sent.',
   };
 }
 
@@ -472,7 +476,7 @@ export const COMPANY_PROPERTIES: Prop[] = [
   { name: 'serif_account_score', label: 'Account score', type: 'number', fieldType: 'number', description: 'Reverse-ETL account score (max lead score at the account).' },
   { name: 'serif_open_leads', label: 'Leads (30d)', type: 'number', fieldType: 'number', description: 'Reverse-ETL count of leads in the last 30 days.' },
   { name: 'serif_web_intent_points', label: 'Web intent points', type: 'number', fieldType: 'number', description: 'Reverse-ETL account-level web intent points.' },
-  // written by the outbound module for target groups in the rate file (dry-run)
+  // written by the outbound module for groups in a play (dry-run)
   text('serif_ein', 'EIN', 'Employer identification number of the group in the rate file.'),
   text('serif_registry_account_key', 'Registry account key', 'Registry account the rate group links to by name and state, when it does.'),
   text('serif_rate_scope', 'Rate scope', 'Payer, network, code and month the rate is from.'),
@@ -487,6 +491,8 @@ export const COMPANY_PROPERTIES: Prop[] = [
   { name: 'serif_band_median_pct', label: 'Band median, % of Medicare', type: 'number', fieldType: 'number', description: 'Median percent of Medicare across the group\'s size band.' },
   enumProp('serif_outbound_fit', 'Outbound fit', ['target', 'not_target'], 'Whether the outbound finding is for this group.'),
   text('serif_platform', 'Platform', 'The behavioral health platform the EIN is mapped to by hand.'),
+  enumProp('serif_outbound_play', 'Outbound play', ['platform', 'system_gap'], 'The outbound play the group is in: a behavioral health platform, or a health system\'s group paid well under the top rate in its city.'),
+  enumProp('serif_link_status', 'Registry link status', ['exact', 'probable', 'unlinked', 'confirmed', 'rejected'], 'How the group\'s link to a registry organization stands: an exact name match, a probable one waiting for a person, none, or a person\'s decision.'),
   // written by the reverse ETL from product usage (src/usage); the counts are for the 30 days up to the newest event
   text('serif_features_30d', 'Features used (30d)', 'Features the account used in the last 30 days, separated by semicolons (signal_search, signal_watch, api, mcp, network_benchmarking, quality_preview).'),
   text('serif_last_feature', 'Last feature used', 'The feature the account used most recently.'),

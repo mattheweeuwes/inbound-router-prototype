@@ -4,30 +4,48 @@
 
 /**
  * @typedef {'card' | 'factor' | 'both' | 'neither'} Form
+ * @typedef {'platform' | 'system_gap'} Play
+ * @typedef {'ready' | 'blocked' | 'suppressed' | 'link_to_confirm' | 'not_target'} Status
+ * @typedef {{ accountId: string, name: string, kind: string, state: string | null, score: number }} Candidate
+ * @typedef {{ decision: 'confirmed' | 'rejected', accountId: string | null, accountName: string | null, decidedBy: string, note: string | null, decidedAt: string }} Decision
+ * @typedef {{
+ *   status: 'exact' | 'probable' | 'unlinked' | 'confirmed' | 'rejected', why: string, accountKey: string | null, accountName: string | null,
+ *   probable: Candidate | null, decision: Decision | null, ifConfirmed: Play | null,
+ * }} Link
+ * @typedef {{ by: 'crm' | 'claim' | 'inbound', owner: string, detail: string, accountKey: string, leadId: string | null }} Holder
  * @typedef {{
  *   ein: string, accountKey: string, name: string, city: string, state: string | null, clinicians: number, band: string,
  *   rate: number, medicare: number, pctOfMedicare: number, form: Form, cardTier: number | null, factorMultiple: number | null,
  *   fit: 'target' | 'not_target', fitReason: string, platform: string | null, platformConfirmed: boolean | null,
  *   draftStatus: 'ready' | 'blocked' | 'none', draftReason: string | null, hook: string, registryAccountKey: string | null,
+ *   play: Play | null, playReason: string, team: string | null, status: Status, statusReason: string, link: Link, holder: Holder | null,
  * }} Group
  * @typedef {{ band: string, groups: number, medianPctOfMedicare: number | null, card: number, factor: number, both: number, neither: number }} Band
  * @typedef {{ value: number, hits: number, distinctRates: number }} Pattern
+ * @typedef {{ name: string, team: string, groups: number, ready: number, blocked: number, suppressed: number }} PlayCount
  * @typedef {{
  *   loaded: true, status: string, reason: null,
  *   file: { path: string, rows: number, groups: number, payer: string, network: string, networkMonth: string, code: string },
  *   patterns: { card: (Pattern & { base: number }) | null, factor: (Pattern & { unit: number }) | null },
- *   summary: { bands: Band[], forms: Record<Form, number>, fit: { target: number, notTarget: number }, drafts: { ready: number, blocked: number } },
+ *   summary: {
+ *     bands: Band[], forms: Record<Form, number>, fit: { target: number, notTarget: number }, drafts: { ready: number, blocked: number },
+ *     plays: Record<Play, PlayCount>, statuses: Record<Status, number>, links: Record<Link['status'], number>,
+ *   },
+ *   actions: { linkDecisions: boolean, export: string },
  *   groups: Group[],
  * }} Loaded
  * @typedef {{ loaded: false, status: string, reason: string | null, file: { path: string | null }, groups: [] }} NotLoaded
  */
 
-export const FILTER_KEYS = /** @type {const} */ (['targets', 'all', 'card', 'factor']);
+export const FILTER_KEYS = /** @type {const} */ (['in_play', 'platform', 'system_gap', 'all', 'card', 'factor']);
 /** @typedef {typeof FILTER_KEYS[number]} FilterKey */
 
 /** @type {Record<FilterKey, { label: string, keeps: (g: Group) => boolean }>} */
 export const FILTERS = {
-  targets: { label: 'Targets', keeps: (g) => g.fit === 'target' },
+  // a play's group someone already has stays in its play, so its owner can find it; its status says it is not prospected
+  in_play: { label: 'In a play', keeps: (g) => g.play !== null },
+  platform: { label: 'Platform', keeps: (g) => g.play === 'platform' },
+  system_gap: { label: 'System gap', keeps: (g) => g.play === 'system_gap' },
   all: { label: 'All', keeps: () => true },
   // a group that fits both contract forms is on the card and on a factor, as the API's summary counts it
   card: { label: 'On the card', keeps: (g) => g.form === 'card' || g.form === 'both' },
@@ -46,11 +64,14 @@ export const SORTS = {
   rate: { label: 'Rate', numeric: true, first: 'desc', get: (g) => g.rate },
   pct: { label: '% of Medicare', numeric: true, first: 'desc', get: (g) => g.pctOfMedicare },
   form: { label: 'Contract form', numeric: false, first: 'asc', get: (g) => formLabel(g) },
-  fit: { label: 'Fit', numeric: false, first: 'asc', get: (g) => fitRank(g) },
+  status: { label: 'Status', numeric: false, first: 'asc', get: (g) => STATUS_ORDER.indexOf(g.status) },
 };
 
-/** Targets with a ready draft first, then blocked ones, then the rest. */
-const fitRank = (/** @type {Group} */ g) => (g.fit === 'target' ? (g.draftStatus === 'ready' ? 0 : 1) : 2);
+/** What a team works first: ready drafts, then blocked ones, links waiting for a person, groups someone has, the rest. */
+export const STATUS_ORDER = /** @type {const} */ (['ready', 'blocked', 'link_to_confirm', 'suppressed', 'not_target']);
+
+/** @type {Record<Play, string>} */
+export const PLAY_WORDS = { platform: 'Platform', system_gap: 'System gap' };
 
 /** "Card 80%", "Factor ×35", "Card 80% · ×35" or "Neither": the tier or the multiple, which is what the form means for this group. */
 export function formLabel(/** @type {Group} */ g) {
@@ -59,10 +80,39 @@ export function formLabel(/** @type {Group} */ g) {
   return [card, factor].filter(Boolean).join(' · ') || 'Neither';
 }
 
-/** @param {Group} g */
-export function fitLabel(g) {
-  if (g.fit !== 'target') return 'Not a target';
-  return g.draftStatus === 'ready' ? 'Target · draft ready' : g.draftStatus === 'blocked' ? 'Target · draft blocked' : 'Target';
+/**
+ * The status in a few words: "Ready · System gap", "Blocked · Platform", "Suppressed · Jordan has it", "Link to confirm" or
+ * "Not a target".
+ * @param {Group} g
+ */
+export function statusLabel(g) {
+  const play = g.play ? PLAY_WORDS[g.play] : '';
+  if (g.status === 'ready') return `Ready · ${play}`;
+  if (g.status === 'blocked') return `Blocked · ${play}`;
+  if (g.status === 'suppressed') return `Suppressed · ${g.holder?.owner ?? 'someone'} has it`;
+  if (g.status === 'link_to_confirm') return 'Link to confirm';
+  return 'Not a target';
+}
+
+/**
+ * The work tiles: drafts ready by play, groups someone already has, and links waiting for a person. Every count is the API's.
+ * @param {Loaded} d
+ */
+export function workCounts(d) {
+  const p = d.summary.plays;
+  return {
+    ready: { platform: p.platform.ready, system_gap: p.system_gap.ready, total: d.summary.statuses.ready },
+    suppressed: d.summary.statuses.suppressed,
+    linksWaiting: d.summary.links.probable,
+  };
+}
+
+/**
+ * The probable links a person should look at, largest group first: the rows of the Links to confirm panel.
+ * @param {Group[]} groups
+ */
+export function linksToConfirm(groups) {
+  return groups.filter((g) => g.link.status === 'probable' && g.link.probable).sort((a, b) => b.clinicians - a.clinicians || a.ein.localeCompare(b.ein));
 }
 
 /**
@@ -194,6 +244,6 @@ export function chartGeometry(groups, card, bands, { width, height }) {
   // Medicare's 100% line: the median of the groups' own baselines, because the baseline varies a little by locality
   const medicare = median(groups.map((g) => g.medicare));
 
-  const points = groups.map((g) => ({ ein: g.ein, x: x(g.clinicians), y: y(g.rate), form: g.form, target: g.fit === 'target' }));
+  const points = groups.map((g) => ({ ein: g.ein, x: x(g.clinicians), y: y(g.rate), form: g.form, target: g.play !== null }));
   return { width, height, plot, xTicks, yTicks, dividers, bandCaptions, tierLines, medicare: { value: medicare, y: y(medicare) }, points, x, y };
 }

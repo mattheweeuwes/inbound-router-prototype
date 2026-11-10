@@ -717,6 +717,61 @@
       "description": "The behavioral health platform the EIN is mapped to by hand."
     },
     {
+      "name": "serif_outbound_play",
+      "label": "Outbound play",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "The outbound play the group is in: a behavioral health platform, or a health system's group paid well under the top rate in its city.",
+      "options": [
+        {
+          "label": "platform",
+          "value": "platform",
+          "displayOrder": 0
+        },
+        {
+          "label": "system_gap",
+          "value": "system_gap",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "name": "serif_link_status",
+      "label": "Registry link status",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "inbound_router",
+      "description": "How the group's link to a registry organization stands: an exact name match, a probable one waiting for a person, none, or a person's decision.",
+      "options": [
+        {
+          "label": "exact",
+          "value": "exact",
+          "displayOrder": 0
+        },
+        {
+          "label": "probable",
+          "value": "probable",
+          "displayOrder": 1
+        },
+        {
+          "label": "unlinked",
+          "value": "unlinked",
+          "displayOrder": 2
+        },
+        {
+          "label": "confirmed",
+          "value": "confirmed",
+          "displayOrder": 3
+        },
+        {
+          "label": "rejected",
+          "value": "rejected",
+          "displayOrder": 4
+        }
+      ]
+    },
+    {
       "name": "serif_features_30d",
       "label": "Features used (30d)",
       "type": "string",

@@ -28,9 +28,9 @@ export interface Config {
   port: number;
   demoRoutes: boolean; // /api/demo/* (send a lead, replay a day) is served only when this is on
   appDb: string;
-  registryDb: string;
+  registryDb: string; // the built registry (REGISTRY_DB); with no complete file there, the mini registry is built in cacheDir
   registryMiniSql: string;
-  cacheDir: string;
+  cacheDir: string; // the mini registry and the homepage-title cache (CACHE_DIR)
   outDir: string;
   fixturesDir: string;
   ratesCsv: string; // Serif's public rate search export; the outbound module loads it at startup when its hash changes (RATES_CSV)
@@ -125,9 +125,9 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     port: Number(env.PORT ?? 3480),
     demoRoutes: env.DEMO_ROUTES === '1',
     appDb: envPath(env.APP_DB, join(dataDir, 'app.sqlite')),
-    registryDb: join(dataDir, 'registry.sqlite'),
+    registryDb: envPath(env.REGISTRY_DB, join(dataDir, 'registry.sqlite')),
     registryMiniSql: join(ROOT, 'test', 'fixtures', 'registry-mini.sql'),
-    cacheDir: join(dataDir, 'cache'),
+    cacheDir: envPath(env.CACHE_DIR, join(dataDir, 'cache')),
     outDir: envPath(env.OUT_DIR, join(ROOT, 'out')),
     fixturesDir: join(ROOT, 'fixtures'),
     ratesCsv: envPath(env.RATES_CSV, join(dataDir, 'rates', 'mrf_rate_search_export.csv')),
