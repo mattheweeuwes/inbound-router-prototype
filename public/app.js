@@ -1072,7 +1072,7 @@ function ovSpeed(d) {
     <div><div class="k"><i class="sw p50"></i>Processing</div><div class="v">${esc(fmtMs(sp.processing.p50))}<small>p90 ${esc(fmtMs(sp.processing.p90))}</small></div></div>
     <div><div class="k"><i class="sw wait"></i>Queue wait</div><div class="v">${esc(fmtMs(sp.queue.p50))}<small>p90 ${esc(fmtMs(sp.queue.p90))}</small></div></div>
     <div><div class="k">Time to route</div><div class="v">${esc(fmtMs(sp.timeToRoute.p50))}<small>p90 ${esc(fmtMs(sp.timeToRoute.p90))}</small></div></div>
-    <div><div class="k">Time to alert</div><div class="v">${esc(fmtMs(alert.p50))}<small>p90 ${esc(fmtMs(alert.p90))}</small></div></div>
+    <div title="${esc(sp.digestDelay?.n ? `Leads with their own alert. ${sp.digestDelay.n} list rows were alerted by their list's digest, about ${fmtMs(sp.digestDelay.p50)} after arriving.` : 'Leads with their own alert.')}"><div class="k">Time to alert</div><div class="v">${esc(fmtMs(alert.p50))}<small>p90 ${esc(fmtMs(alert.p90))}</small></div></div>
   </div>`;
   const legend = `<div class="legend"><span><i class="sw p50"></i>p50</span><span><i class="sw p90"></i>p90</span></div>`;
   const table = dtable(['Step', 'Leads', 'p50', 'p90'], [

@@ -265,6 +265,9 @@ describe('the dashboard and the replay', () => {
     assert.equal(d.lists[0].waitingForDigest, 0);
     assert.equal(d.funnel.find(f => f.id === 'alerted')!.n, alertedBefore + 1, 'the team-queue row is alerted once its digest is out');
     assert.equal(d.sla.salesReady.notAlerted, 0);
+    // the digest's wait is the list settling, not slow routing: it is reported apart from time to alert
+    assert.deepEqual([d.speed.timeToAlert.n, d.speed.digestDelay.n], [0, 1]);
+    assert.equal(d.speed.digestDelay.p50, QUIET, 'the row was alerted when its list had been quiet for the period');
   });
 
   it("the replay posts the day's event scans into digests and records them once everything is posted", async () => {

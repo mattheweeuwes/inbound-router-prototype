@@ -286,12 +286,17 @@ export function computeDashboard(ctx: Ctx, opts: { now?: number } = {}) {
     const t = rows.filter(l => timedSet.has(l));
     return { n: t.length, processingP50: percentile(t.map(l => processingMs(l)!), 50), queueP50: percentile(t.map(l => l.timings!.queued), 50), routeP50: percentile(t.map(l => l.ttr!), 50) };
   };
-  // time to alert: the 202 to the alert on a sales route (a rep, the account owner or a team queue), which is what a rep feels
+  // time to alert: the 202 to the lead's own alert on a sales route (a rep, the account owner or a team queue), which is what
+  // a rep feels. A row of an uploaded list is alerted by its list's digest, which waits for the list to settle by design
+  // (decision 24). Counting that wait here would make a list upload read as slow routing, so those rows are kept out of the
+  // figure and reported beside it as digestDelay.
   const alertedSales = done.filter(l => SALES_ROUTES.has(l.action ?? '') && alertSent(l) && typeof l.timings?.alerted === 'number');
+  const byDigest = alertedSales.filter(l => !!l.alert?.digest);
   const opinions = leads.map(secondOpinionOf).filter((o): o is SecondOpinion => !!o);
   const speed = {
     processing: spread(processing), queue: spread(queue), timeToRoute: spread(routeTotal),
-    timeToAlert: spread(alertedSales.map(l => l.timings!.alerted)),
+    timeToAlert: spread(alertedSales.filter(l => !l.alert?.digest).map(l => l.timings!.alerted)),
+    digestDelay: spread(byDigest.map(l => l.timings!.alerted)),
     stages: stageSpread,
     // the model call a route waited for
     model: modelLeads.length ? { ...spread(modelLeads.map(l => Number(l.qual.latencyMs ?? 0))), answered: modelLeads.filter(l => !!l.qual?.llm).length } : null,

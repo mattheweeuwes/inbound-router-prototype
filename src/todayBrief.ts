@@ -259,7 +259,7 @@ function health(ctx: Ctx, d: Dashboard): BriefSection {
     })),
   ];
   const p90 = (v: number | null) => (v == null ? 'no data' : `${v} ms`);
-  return section('health', 'Health', `Queue wait p90 ${p90(d.speed.queue.p90)}, time to alert p90 ${p90(d.speed.timeToAlert.p90)} (all leads); ${plural(failing.length, 'lead')} failed or retrying; ${undelivered.length} HubSpot writes waiting or dead.`,
+  return section('health', 'Health', `Queue wait p90 ${p90(d.speed.queue.p90)}, time to alert p90 ${p90(d.speed.timeToAlert.p90)} (all leads with their own alert; list rows wait for their digest); ${plural(failing.length, 'lead')} failed or retrying; ${undelivered.length} HubSpot writes waiting or dead.`,
     items.length, [
       figure('Queue wait p90', d.speed.queue.p90, 'overview', 'ms'), figure('Time to alert p90', d.speed.timeToAlert.p90, 'overview', 'ms'),
       figure('Failed or retrying leads', failing.length, 'stream'), figure('HubSpot writes waiting or dead', undelivered.length, 'stream'),
