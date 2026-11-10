@@ -115,11 +115,18 @@ export function bandWords(/** @type {string} */ band) {
   return lo === '1' ? `${hi} or fewer clinicians` : `${lo} to ${hi} clinicians`;
 }
 
-/** The finding in one line, from the first and last size band's medians. Null when a median is missing. */
+/**
+ * The finding in one line, as the take-home states it: how many of the smallest groups sit on the one rate card, and the
+ * gap between the smallest and largest bands' medians. Every figure is the API's. With no card pattern, or no small group
+ * on it, it is the medians alone. Null when a median is missing.
+ */
 export function headline(/** @type {Loaded} */ d) {
   const [small, , large] = d.summary.bands;
   if (!small || !large || small.medianPctOfMedicare == null || large.medianPctOfMedicare == null) return null;
-  return `Rates rise with group size: groups with ${bandWords(small.band)} are paid a median of ${small.medianPctOfMedicare}% of Medicare, groups with ${bandWords(large.band)} a median of ${large.medianPctOfMedicare}%.`;
+  const top = `Groups with ${bandWords(large.band)} sit at a median of ${large.medianPctOfMedicare}%.`;
+  const card = d.patterns.card;
+  if (!card || !small.card) return `Groups with ${bandWords(small.band)} are paid a median of ${small.medianPctOfMedicare}% of Medicare. ${top}`;
+  return `Of the ${small.groups} groups with ${bandWords(small.band)}, ${small.card} are paid a whole percent of one $${card.base.toFixed(2)} base, and the band's median is ${small.medianPctOfMedicare}% of Medicare. ${top}`;
 }
 
 /** Counts for the stat tiles: groups on the card and on a factor (a group on both is in both), and either. */

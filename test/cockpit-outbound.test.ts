@@ -57,10 +57,16 @@ describe('cockpit outbound: the table', () => {
 });
 
 describe('cockpit outbound: the headline and the chart', () => {
-  it('the headline states the first and last band medians the API gave, and bands read as words', async () => {
+  it('the headline states the small band card count, the card base and both band medians the API gave, and bands read as words', async () => {
     const d = await load();
     const [small, , large] = d.summary.bands;
-    assert.equal(headline(d), `Rates rise with group size: groups with 50 or fewer clinicians are paid a median of ${small.medianPctOfMedicare}% of Medicare, groups with over 500 clinicians a median of ${large.medianPctOfMedicare}%.`);
+    const top = `Groups with over 500 clinicians sit at a median of ${large.medianPctOfMedicare}%.`;
+    assert.ok(d.patterns.card && small.card > 0, 'the fixture has a card and small groups on it');
+    assert.equal(headline(d), `Of the ${small.groups} groups with 50 or fewer clinicians, ${small.card} are paid a whole percent of one $${d.patterns.card.base.toFixed(2)} base, and the band's median is ${small.medianPctOfMedicare}% of Medicare. ${top}`);
+    // no card pattern, or no small group on it: the medians alone
+    const mediansOnly = `Groups with 50 or fewer clinicians are paid a median of ${small.medianPctOfMedicare}% of Medicare. ${top}`;
+    assert.equal(headline({ ...d, patterns: { ...d.patterns, card: null } }), mediansOnly);
+    assert.equal(headline({ ...d, summary: { ...d.summary, bands: [{ ...small, card: 0 }, d.summary.bands[1], large] } }), mediansOnly);
     assert.deepEqual(['1-50', '51-500', '501+'].map(bandWords), ['50 or fewer clinicians', '51 to 500 clinicians', 'over 500 clinicians']);
     assert.equal(headline({ ...d, summary: { ...d.summary, bands: [{ ...small, medianPctOfMedicare: null }, d.summary.bands[1], large] } }), null);
   });

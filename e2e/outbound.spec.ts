@@ -20,7 +20,7 @@ test('the Outbound tab shows the finding, the chart and the targets, and a group
   await expect(page.getByRole('tab', { name: 'Outbound' })).toHaveAttribute('aria-selected', 'true');
 
   // the finding in one line, the figures, and the chart
-  await expect(page.getByText(/^Rates rise with group size: groups with 50 or fewer clinicians are paid a median of \d+% of Medicare/)).toBeVisible();
+  await expect(page.getByText(/^Of the \d+ groups with 50 or fewer clinicians, \d+ are paid a whole percent of one \$\d+\.\d{2} base, and the band's median is \d+% of Medicare\. Groups with over 500 clinicians sit at a median of \d+%\.$/)).toBeVisible();
   await expect(page.locator('.ob-stat', { hasText: 'Groups' }).first().locator('.ob-stat-value')).toHaveText('12');
   await expect(page.locator('.ob-stat', { hasText: 'On the rate card' }).locator('.ob-stat-value')).toHaveText(/^\d+$/);
   await expect(page.locator('.ob-stat', { hasText: 'On a conversion factor' }).locator('.ob-stat-value')).toHaveText(/^\d+$/);
