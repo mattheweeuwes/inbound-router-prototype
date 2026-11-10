@@ -66,6 +66,15 @@ Before, the dashboard had the pieces and no one place to start. Now there is a T
 
 For engineering, the Feature to pipeline tab used to answer "how did Network benchmarking help sales" from invented usage and deals only: 5 of 12 accounts adopted it, 5 deals ($487K) had it around, a median of 41 days from first use to an opportunity. It still does, and it now has an Interest column beside those. After the day, on the real registry, interest from the lead stream reads Network benchmarking 11 people, API 10, Signal Watch 9, Signal search 2, Signal Ask 2, MCP 1 and the quality preview 0. The day's two people who named or visited Network benchmarking (D02, D09) and the one who took the benefits playbook (D03) are among them, each with its evidence. The list rows add the rest, from their booth notes. This is what was asked for, and not a measure of what a feature did for a deal: interest is people who said or showed something, it is kept apart from usage and deals on the page, and it changes no score.
 
+## The first run, repeated by hand
+
+After the changes I repeated the first run's steps over HTTP against a running server, under the first run's conditions (the local model on, registry lookups on, the 40 base fixtures replayed first), with the same two scripts.
+
+- The fifteen events posted together: thirteen were alerted in under 300 ms. The two that needed the model before routing took 4.9 s (D06) and 7.7 s (D10, which waited for D06's call to free the model's one slot). In the first run seven leads took 12 to 14 s.
+- The same 150-badge list: the queue was empty 1.5 s after the first post, against 219 s. Time to route was p50 2 ms, p90 20 ms, slowest 26 ms. Five digests went out in place of 48 queue alerts and 17 review alerts.
+- A demo request from a 36-hospital system, posted while the list was being worked, was a tier A rep alert in 7 ms.
+- Three of the six repeat scans were attached to their first scan. The other three followed a first scan that had gone to nurture, which decision 6 leaves alone.
+
 ## What still does not hold
 
 - The model has one slot. A lead that needs it before routing (D06 and D10 here) waits for its own call, and two such leads wait for each other. The second opinions of a 150-row list still take minutes.

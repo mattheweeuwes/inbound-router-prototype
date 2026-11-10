@@ -425,8 +425,8 @@ function enterpriseNote(run: Run, i: NotifyInputs, brief: Brief) {
     notedRecently: ctx.store.leads.enterpriseNotedSince(accountId, id, since, ev.receivedAt),
   });
   return send ? buildEnterpriseNote({
-    person: brief.person, org: i.res.accountName ?? i.n.companyRaw ?? accountId, enterprise: brief.enterprise, route: i.routed.route,
-    door: DOOR_TEXT[ev.source], synthetic: ev.synthetic,
+    person: brief.person, org: i.res.accountName ?? i.n.companyRaw ?? accountId, enterprise: brief.enterprise,
+    isEnterprise: i.signals.deal.enterprise.enterprise, route: i.routed.route, door: DOOR_TEXT[ev.source], synthetic: ev.synthetic,
   }) : null;
 }
 

@@ -56,8 +56,10 @@ export interface EnterpriseNoteInput {
   person: string;
   /** the account's name */
   org: string;
-  /** the brief's Enterprise line */
+  /** the brief's Enterprise line, or its Deal size line when only a cue put the lead here */
   enterprise: string | null;
+  /** the account meets the enterprise definition; false when a deal-size cue alone sent the lead to a named rep */
+  isEnterprise: boolean;
   route: Route;
   door: string;
   synthetic: boolean;
@@ -65,10 +67,12 @@ export interface EnterpriseNoteInput {
 
 /**
  * The short note to the enterprise deals channel on the first enterprise lead of an account in 30 days (decision 25): who
- * came in, the account's fact line and the cues, and who has it. Every word is from the brief or the route.
+ * came in, the account's fact line and the cues, and who has it. Every word is from the brief or the route. An account
+ * that is not enterprise by the definition is never called one: its note is headed by the cue.
  */
 export function buildEnterpriseNote(i: EnterpriseNoteInput): SlackPayload {
-  const header = `Enterprise lead: ${i.org}`;
+  const header = `${i.isEnterprise ? 'Enterprise lead' : 'Deal-size cue'}: ${i.org}`;
+  const first = i.isEnterprise ? 'First enterprise lead from this account in 30 days.' : 'First lead with a deal-size cue from this account in 30 days.';
   const lines = [
     `${i.person} (${i.door})`,
     ...(i.enterprise ? [stripLabel(i.enterprise)] : []),
@@ -80,7 +84,7 @@ export function buildEnterpriseNote(i: EnterpriseNoteInput): SlackPayload {
     dryRun: true,
     blocks: [
       { type: 'section', text: { type: 'mrkdwn', text: `*${header.slice(0, 150)}*\n${lines.join('\n').slice(0, 2800)}` } },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `First enterprise lead from this account in 30 days. ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: `${first} ${i.synthetic ? ':test_tube: *SYNTHETIC* lead from the prototype fixtures' : 'Live lead'}` }] },
     ],
   };
 }

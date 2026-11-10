@@ -117,4 +117,15 @@ describe('a working day: enterprise accounts and referrals', () => {
     const row = ctx.db.prepare(`SELECT title_seniority FROM leads`).get() as { title_seniority: string };
     assert.equal(row.title_seniority, 'vp');
   });
+
+  it('D08: a cue alone sends a known company to a named rep, and the note never calls the account enterprise', async () => {
+    const { leads } = await run(['D08']);
+    const d = leads.D08;
+    assert.equal(d.deal.enterprise.enterprise, false, 'a life sciences company is not enterprise by the definition');
+    assert.deepEqual([d.route.rule, d.route.action, d.route.slaMinutes], ['R10', 'rep_alert', 15]);
+    assert.match(d.route.reason, /asks for wide coverage \("ten states"\)/);
+    assert.match(d.alert.enterprise?.text ?? '', /^Deal-size cue: Vertex Pharmaceuticals/);
+    assert.ok(!fieldText(d.alert.enterprise ?? null).includes('enterprise lead'), 'ten states is a cue, not an enterprise account');
+    assert.match(fieldText(d.alert.enterprise ?? null), /First lead with a deal-size cue from this account in 30 days/);
+  });
 });

@@ -68,7 +68,7 @@ export function findDealCues(message: string | null): DealCue[] {
 export const CUE_TEXT: Record<DealCueKind, string> = {
   enterprise_license: 'asks for a bulk or enterprise license',
   full_dataset: 'asks for the full dataset',
-  broad_coverage: 'asks for national coverage',
+  broad_coverage: 'asks for wide coverage',
   multi_year: 'asks for a multi-year term',
   multi_entity: 'covers several entities',
   approved_budget: 'says the budget is approved',
