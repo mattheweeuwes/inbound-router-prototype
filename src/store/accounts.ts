@@ -23,6 +23,9 @@ export function accountStore(db: Db) {
         domain = COALESCE(excluded.domain, accounts.domain), ids_json = excluded.ids_json, firmographics_json = excluded.firmographics_json,
         updated_at = excluded.updated_at`),
     owner: p(`SELECT owner FROM accounts WHERE id = ?`),
+    exists: p(`SELECT 1 AS found FROM accounts WHERE id = ?`),
+    byDomain: p(`SELECT id FROM accounts WHERE domain = ? ORDER BY id LIMIT 1`),
+    info: p(`SELECT name, segment, owner FROM accounts WHERE id = ?`),
     repActivity: p(`SELECT owner, MAX(at) AS last, COALESCE(SUM(at >= ?), 0) AS load FROM assignments WHERE owner IN (SELECT value FROM json_each(?)) GROUP BY owner`),
     assign: p(`INSERT INTO assignments (owner, team, lead_id, at) VALUES (?, ?, ?, ?)`),
     takeOwnership: p(`UPDATE accounts SET owner = ?, updated_at = ? WHERE id = ? AND owner IS NULL`),
@@ -46,6 +49,13 @@ export function accountStore(db: Db) {
     upsert: (a: AccountUpsert) => { s.upsert.run(a.id, a.name, a.segment, a.subsegment, a.domain, a.idsJson, a.firmographicsJson, a.at, a.at); },
     /** The owner a rep claimed on an earlier lead. Seeded CRM owners are never stored here; they live in the mirror file. */
     claimedOwner: (accountId: string): string | null => getRow<{ owner: string | null }>(s.owner, accountId)?.owner ?? null,
+    /** Whether the router has created this account key from a lead. */
+    exists: (accountId: string): boolean => !!getRow<{ found: number }>(s.exists, accountId),
+    /** The name, segment and claimed owner the router holds for an account, if it has one. */
+    info: (accountId: string): { name: string | null; segment: string | null; owner: string | null } | null =>
+      getRow<{ name: string | null; segment: string | null; owner: string | null }>(s.info, accountId) ?? null,
+    /** The account the router holds for this exact domain, if any. */
+    byDomain: (domain: string): string | null => getRow<{ id: string }>(s.byDomain, domain)?.id ?? null,
     repActivity: (names: string[], since: string): RepActivityRow[] => allRows<RepActivityRow>(s.repActivity, since, JSON.stringify(names)),
     /**
      * Records a rep assignment and, when asked, claims the account in the same transaction. Returns whether the claim was

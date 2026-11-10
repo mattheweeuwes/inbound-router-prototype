@@ -8,7 +8,7 @@ import { buildPayload } from '../src/payloads';
 import { normalizeEvent } from '../src/normalize';
 import { spec, submit, testCtx } from './helpers';
 
-// The shipped fixtures/crm-mirror.json (loaded by testCtx) lists three fictional accounts that no public registry contains.
+// The shipped fixtures/crm-mirror.json (loaded by testCtx) lists fictional accounts (three for the router, nine more for the usage fixtures) that no public registry contains.
 const CRM_DOMAIN = 'brookmerehealth.example';
 
 const unresolved = (over: Partial<Resolution> = {}): Resolution => ({

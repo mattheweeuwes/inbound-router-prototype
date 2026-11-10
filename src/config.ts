@@ -35,6 +35,7 @@ export interface Config {
   fixturesDir: string;
   ratesCsv: string; // Serif's public rate search export; the outbound module loads it at startup when its hash changes (RATES_CSV)
   outboundPlatforms: string; // the hand-made EIN to platform mapping the outbound module targets with (OUTBOUND_PLATFORMS)
+  usageFixtures: string | null; // the folder of synthetic usage fixtures (features, deals, PostHog events), loaded at startup; null switches them off (USAGE_FIXTURES)
   calendlyKey: string | null;
   llmProvider: 'ollama' | 'rules' | 'anthropic';
   ollamaUrl: string;
@@ -98,6 +99,7 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     fixturesDir: join(ROOT, 'fixtures'),
     ratesCsv: envPath(env.RATES_CSV, join(dataDir, 'rates', 'mrf_rate_search_export.csv')),
     outboundPlatforms: envPath(env.OUTBOUND_PLATFORMS, join(ROOT, 'fixtures', 'outbound-platforms.json')),
+    usageFixtures: envPath(env.USAGE_FIXTURES, join(ROOT, 'fixtures', 'usage')),
     calendlyKey: env.CALENDLY_SIGNING_KEY || null,
     llmProvider: ['ollama', 'rules', 'anthropic'].includes(provider) ? provider : 'ollama',
     ollamaUrl: env.OLLAMA_URL ?? 'http://127.0.0.1:11434',

@@ -159,6 +159,8 @@ Definitions: `docs/hubspot-properties.json` (one-time setup; a test keeps it equ
 | `serif_ein`, `serif_registry_account_key`, `serif_rate_scope`, `serif_platform` | text | outbound target groups (section 7): the EIN, the registry account it links to, what the rate is for, the mapped platform |
 | `serif_rate`, `serif_rate_pct_medicare`, `serif_card_tier_pct`, `serif_conversion_factor`, `serif_clinicians`, `serif_city_top_rate`, `serif_band_median_pct` | number | the finding |
 | `serif_contract_form` (`card`, `factor`, `both`, `neither`), `serif_size_band` (`1-50`, `51-500`, `501+`), `serif_outbound_fit` (`target`, `not_target`) | enum | the finding and its fit |
+| `serif_features_30d`, `serif_last_feature`, `serif_last_feature_at` | text | product use (section 8), written by `npm run reverse-etl`: the features used in the 30 days up to the newest event (semicolon-separated keys, an empty string when none), the feature last used, and when |
+| `serif_events_30d_<feature>` (six: `signal_search`, `signal_watch`, `api`, `mcp`, `network_benchmarking`, `quality_preview`) | number | product events for that feature in the same 30 days, zero when unused |
 
 ## 6. Registry tables read (read-only, attached as `reg`)
 
@@ -194,4 +196,46 @@ Loaded at startup when the file's SHA-256 differs from `rate_file.sha256`, or wh
 | card range in a draft | the lowest and highest card tiers that two or more small groups share, shown in whole dollars rounded outward ($106.10 to $148.54 reads as $106 to $149) |
 
 **API** (read-only). `GET /api/outbound`: `loaded`, `status` (`loaded`, `unchanged`, `missing`, `failed`), `reason`, `file`, `patterns` (each with its search rule), `summary` (per band: groups, median percent of Medicare, card, factor, both, neither, where card and factor count a group on both in both; totals per form; fit and draft counts) and `groups`. `GET /api/outbound/<ein>`: `finding`, `sourceRows` (each rate row, `chosen` marking the one rate), `link`, `draft` (a draft for a target, a labelled preview for any other group: `kind`, `status`, `label`, `reason`, `hook`, `hookNote`, `subject`, `body`, `linkedin`, `parts` (the same three texts as runs, `{subject, body, linkedin}`, each an array of `{text, placeholder?, open?}`: a run with a `placeholder` is a value code inserted, one with `open` is a placeholder left for a person; the runs join back to the text, and the cockpit marks inserted figures from them), `inserted` (each `{placeholder, value, field}`), `placeholders` (`{first_name}`)), `draftUnavailable`, `rateLine` and `hubspot` (`{mode: 'dry_run', requests, skipped}`: the company upsert for a target, nothing for any other group). 404 for an unknown EIN, with the reason when no file is loaded.
+
+## 8. Product usage and deals (`src/usage/`, migration 005)
+
+Ties what accounts do in the product to the deals sales works, so "I built this feature, did it help sell?" has an answer with its counts. PostHog is the source of events and HubSpot of deals; in this prototype the events arrive through `POST /api/usage` and both are also loaded from synthetic fixtures. Times are stored as UTC ISO text with milliseconds, the only form the adapter and the loader write, so a text comparison is a time comparison.
+
+### Events
+
+`POST /api/usage` takes PostHog's shape: a bare array, a capture body `{ batch: [...] }`, or one event. Each event: `event` (name), `distinct_id`, `timestamp` (ISO), `uuid`, and `properties` carrying the company group (`$groups.company`, else `$group_0`) and optionally `synthetic: true` (or `synthetic: true` on the batch). At most 1,000 events per request. Unsigned, like every door but Calendly.
+
+| table | one row per | columns |
+|---|---|---|
+| `usage_events` | PostHog event uuid | `event_id` (primary key; with no uuid, a hash of the name, id and time, never the server's clock), `account_key` (null when the group named no account), `group_key` (as sent), `contact_key` (the router's contact key when `distinct_id` is an email, else null), `feature` (null when the name is not in the taxonomy), `event_name`, `occurred_at`, `received_at`, `synthetic`, `source` (`api` or `fixture`) |
+| `features` | feature | `feature`, `label`, `launched_at`, `team`, `preview_of_add_on` (the add-on a preview feature previews). From `fixtures/usage/features.json`, replaced whole on load |
+| `add_ons` | add-on | `id`, `label`, `price_low`, `price_high` (whole dollars) |
+| `deals` | deal | `id`, `account_key`, `stage`, `amount` (whole dollars), `created_at`, `closed_at`, `outcome` (`won`, `lost`, null while open; set exactly when `closed_at` is), `add_on` (the add-on the deal sells, null for the base product and for seat or renewal deals), `synthetic`, `source` |
+| `usage_fixture` | the loaded fixture | `sha256` of the three fixture files, so an unchanged restart does nothing |
+
+**Taxonomy** (`src/usage/taxonomy.ts`, the one place): `signal_search_run` and `search` (the sample sign-up door's name for it) to Signal search (`signal_search`); `watch_alert_created` to Signal Watch alert created (`signal_watch`); `api_call` to `api`; `mcp_tool_call` to `mcp`; `benchmark_viewed` to network benchmarking view (`network_benchmarking`); `quality_preview_viewed` to quality data preview (`quality_preview`). Any other name (`$pageview`, say) is stored with `feature` null, counted as unmapped, and never dropped.
+
+**Account resolution** (`src/usage/account.ts`): the group key is either an account key (`crm:...`, `ahrq:...`, `domain:...`) or a domain. A key resolves when the router knows it (a CRM mirror entry or an account a lead created). A domain resolves through the CRM mirror's domains, then the domain on an account a lead created, subdomains included. Anything else is stored with `account_key` null and counted as unresolved; a name is never guessed into an account.
+
+**Idempotency.** An event whose uuid is stored changes nothing and is counted as a duplicate; the first copy wins. A batch is written in one transaction. The answer is `{ received, stored, duplicates, unmapped, unresolved, rejected }` with `received = stored + duplicates + rejected.length`; `unmapped` and `unresolved` count the events stored by this request. An event with no name or no valid timestamp is listed in `rejected` as `{ index, reason }` and the rest go through. A body that is not JSON answers 400, one that is not a batch or is over the limit 422, any method but POST 405.
+
+**Fixtures** (`fixtures/usage/`, loaded at startup by `src/usage/load.ts` when their hash changes; `USAGE_FIXTURES` points elsewhere): `features.json` (written by hand), `deals.json` and `events.json` (generated by `npm run gen-usage` from the tables in `scripts/gen-usage-fixtures.ts`). Events go through the same adapter and writer as the API, with `source` `fixture`. A changed file replaces every `fixture` row (events, deals, reference data) and leaves rows from the API alone; a file that cannot be used (a deal on an unknown account, a stage that disagrees with its close date) is refused whole and the fixture rows are removed. Deal stages: `qualified`, `proposal`, `negotiation` (open), `closed_won`, `closed_lost`. Every account is one of the twelve fictional organizations in `fixtures/crm-mirror.json`, keyed `crm:<mirror id>`. Demo reset does not touch these tables.
+
+### The attribution definition
+
+`sql/models/v_usage_deal_influence.sql`. A feature **influenced** a deal when the deal's account used it in the **90 days before the deal was created, or while the deal was open**: from 90 days before `created_at` to `closed_at`, both ends included, and for a deal still open to the **as-of date**, which is the newest event (`v_usage_asof`; replayed history keeps a window, as in `v_account_scores`). Only mapped events on a resolved account count. A deal can be influenced by several features, so the rows overlap and do not add up. This is influence, not proof of cause, and the API and the cockpit say so.
+
+`v_usage_feature_influence` gives per feature: accounts using it and events; the influenced deals (count and amount) as won, lost and open; **win rate with use** (won over closed among influenced deals) and **without** (the same over every other closed deal), each returned with its counts; the **median days from the account's first use to the deal opening**, over influenced deals whose first use came first (the others are counted as `used_after_open`); and **adoption since launch**, the accounts that used the feature since `launched_at` over the accounts that used any feature since then. `GET /api/attribution` marks a comparison with fewer than 5 closed deals on either side `small`.
+
+### Expansion signals
+
+`v_usage_expansion` holds the facts (uses and people in the 30 days up to the as-of date, both ends included; whether the account is a customer; how many deals it has for the add-on), and `src/usage/expansion.ts` is the rule: **a customer account that used an add-on's preview at least 3 times in the last 30 days and has no deal, of any stage, for that add-on.** A customer is an account with a closed-won deal for the base product. Each signal lists its evidence and a dry-run HubSpot plan (the company, so the task has something to attach to, and a task for the account's owner whose body is the evidence and its price range). The plan is built with the router's request builders. It is never put in `crm_outbox`, because a dry-run lead plan never is and a plan stored there would be sent by a live boot. No routing changes.
+
+### API
+
+`GET /api/attribution` (read-only): `loaded`, `status`, `reason` (when not loaded), `asOf`, `model` (`kind`, `windowDays`, `definition`, `caveat`, `smallSample`, `note`), `synthetic` (`events`, `deals`, `allSynthetic`, `note`), `data` (`accounts`; `events` total, mapped, unmapped, unresolved; `deals` total, open, won, lost and influenced, each with count and amount; `unmappedByName`), `features` (per feature: `label`, `team`, `launchedAt`, `daysSinceLaunch`, `accountsUsing`, `events`, `adoption`, `opportunities`, `byOutcome`, `winRate` with `with`, `without` and `small`, `firstUseToOpportunity`, and `deals` with each influenced deal's account, stage, amount, dates and uses in the window) and `expansion` (`rule`, `minUses`, `windowDays`, `signals`).
+
+### Reverse ETL
+
+`npm run reverse-etl` writes each company's usage properties (section 5) beside its lead scores, for every account with product use, in the same dry-run batch. The expansion tasks are written to `out/hubspot/expansion-tasks-<date>.jsonl` as a dry run in every mode.
 

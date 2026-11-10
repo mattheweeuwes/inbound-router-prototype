@@ -630,6 +630,78 @@
       "fieldType": "text",
       "groupName": "inbound_router",
       "description": "The behavioral health platform the EIN is mapped to by hand."
+    },
+    {
+      "name": "serif_features_30d",
+      "label": "Features used (30d)",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "Features the account used in the last 30 days, separated by semicolons (signal_search, signal_watch, api, mcp, network_benchmarking, quality_preview)."
+    },
+    {
+      "name": "serif_last_feature",
+      "label": "Last feature used",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "The feature the account used most recently."
+    },
+    {
+      "name": "serif_last_feature_at",
+      "label": "Last feature use",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "inbound_router",
+      "description": "When the account last used any feature, as a UTC ISO time."
+    },
+    {
+      "name": "serif_events_30d_signal_search",
+      "label": "Events (30d): signal_search",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for signal_search in the last 30 days."
+    },
+    {
+      "name": "serif_events_30d_signal_watch",
+      "label": "Events (30d): signal_watch",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for signal_watch in the last 30 days."
+    },
+    {
+      "name": "serif_events_30d_api",
+      "label": "Events (30d): api",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for api in the last 30 days."
+    },
+    {
+      "name": "serif_events_30d_mcp",
+      "label": "Events (30d): mcp",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for mcp in the last 30 days."
+    },
+    {
+      "name": "serif_events_30d_network_benchmarking",
+      "label": "Events (30d): network_benchmarking",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for network_benchmarking in the last 30 days."
+    },
+    {
+      "name": "serif_events_30d_quality_preview",
+      "label": "Events (30d): quality_preview",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "inbound_router",
+      "description": "Product events for quality_preview in the last 30 days."
     }
   ]
 }

@@ -851,7 +851,7 @@ function renderStrip() {
   const d = state.dash;
   const box = $('#envStrip');
   if (!box) return;
-  const items = ['Synthetic people, real organizations (three CRM accounts are fictional)'];
+  const items = ['Synthetic people, real organizations (the CRM accounts are fictional)'];
   if (d && d.env) {
     const live = d.env.hubspot === 'live';
     items.push(live ? 'HubSpot: <span class="live-tag">LIVE</span>' : 'HubSpot: dry-run, nothing sent');
@@ -1413,6 +1413,14 @@ function outbound() {
     .catch((e) => { $('#outboundBody').innerHTML = `<div class="card ob-empty"><h3>Outbound is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
   return outboundTab;
 }
+// The Feature to pipeline tab is its own module (feature-pipeline.js), loaded and mounted the first time the tab opens.
+let featurePipelineTab = null;
+function featurePipeline() {
+  featurePipelineTab ??= import('./feature-pipeline.js')
+    .then((m) => m.mountFeaturePipeline($('#featurePipelineBody'), { getJSON, jsonHTML }))
+    .catch((e) => { $('#featurePipelineBody').innerHTML = `<div class="card ob-empty"><h3>Feature to pipeline is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
+  return featurePipelineTab;
+}
 function showTab(tab) {
   const changed = state.tab !== tab;
   state.tab = tab;
@@ -1429,6 +1437,7 @@ function showTab(tab) {
   if (tab === 'evals') loadEval();
   if (tab === 'quality') loadQuality();
   if (tab === 'outbound') outbound().then((t) => t.show()).catch(() => {});
+  if (tab === 'feature-pipeline') featurePipeline().then((t) => t.show()).catch(() => {});
 }
 
 // ─── wiring ──────────────────────────────────────────────────────────────────

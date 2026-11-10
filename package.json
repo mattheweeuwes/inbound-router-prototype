@@ -20,7 +20,8 @@
     "etl": "python3 etl/build_registry.py",
     "reverse-etl": "tsx scripts/reverse-etl.ts",
     "rates:fetch": "tsx scripts/fetch-rates.ts",
-    "gen-fixtures": "tsx scripts/gen-fixtures.ts"
+    "gen-fixtures": "tsx scripts/gen-fixtures.ts",
+    "gen-usage": "tsx scripts/gen-usage-fixtures.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.59.1",

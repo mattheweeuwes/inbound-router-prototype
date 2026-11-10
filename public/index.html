@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23001639'/%3E%3Cpath d='M7 9h6l5 7h7M7 16h11M7 23h6l5-7' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='16' r='2.6' fill='%2355b1ff'/%3E%3C/svg%3E">
 </head>
 <body>
-  <div class="strip" id="envStrip" role="note" aria-label="Environment"><div class="strip-in"><b>Prototype</b><span class="item">Synthetic people, real organizations (three CRM accounts are fictional)</span></div></div>
+  <div class="strip" id="envStrip" role="note" aria-label="Environment"><div class="strip-in"><b>Prototype</b><span class="item">Synthetic people, real organizations (the CRM accounts are fictional)</span></div></div>
 
   <header class="topbar">
     <div class="topbar-row">
@@ -41,6 +41,7 @@
       <button class="tab" role="tab" data-tab="stream" aria-selected="false" aria-controls="view-stream">Lead stream</button>
       <button class="tab" role="tab" data-tab="review" aria-selected="false" aria-controls="view-review">Needs a person <span class="tab-count" id="reviewCount">0</span></button>
       <button class="tab" role="tab" data-tab="outbound" aria-selected="false" aria-controls="view-outbound">Outbound</button>
+      <button class="tab" role="tab" data-tab="feature-pipeline" aria-selected="false" aria-controls="view-feature-pipeline">Feature to pipeline</button>
       <button class="tab" role="tab" data-tab="evals" aria-selected="false" aria-controls="view-evals">Classifier eval</button>
       <button class="tab" role="tab" data-tab="quality" aria-selected="false" aria-controls="view-quality">Data quality</button>
       <button class="tab" role="tab" data-tab="how" aria-selected="false" aria-controls="view-how">How it works</button>
@@ -99,6 +100,16 @@
           <h2>Outbound</h2>
         </div>
         <div id="outboundBody"></div>
+      </div>
+    </section>
+
+    <!-- FEATURE TO PIPELINE (drawn by feature-pipeline.js) -->
+    <section class="view" id="view-feature-pipeline" role="tabpanel" aria-label="Feature to pipeline">
+      <div class="page fp">
+        <div class="page-head">
+          <h2>Feature to pipeline</h2>
+        </div>
+        <div id="featurePipelineBody"></div>
       </div>
     </section>
 

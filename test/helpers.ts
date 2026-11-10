@@ -24,6 +24,8 @@ export function testCtx(over: Parameters<typeof createCtx>[0] = {}, fetchImpl?: 
     network: false, llmProvider: 'rules', calendlyKey: KEY, demoRoutes: false, anthropicKey: null,
     // the synthetic rate file and its platform mapping, never the real export, which may or may not be on disk
     ratesCsv: RATES_MINI, outboundPlatforms: PLATFORMS_MINI,
+    // no usage fixtures unless a test asks: the usage tests seed exactly the events and deals they mean to read
+    usageFixtures: null,
     // never inherit the real .env: live HubSpot and its key are opt-in per test
     hubspotLive: false, hubspotToken: null, ...over,
   }, fetchImpl ?? (async () => { throw new Error('network is off in tests'); }));

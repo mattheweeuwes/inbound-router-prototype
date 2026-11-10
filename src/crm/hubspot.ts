@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Ctx } from '../context';
 import { parseRetryAfter } from '../retry';
 import type { CrmRequest, LeadEvent, Normalized, Qualification, Resolution, Route, Score } from '../schema';
+import { FEATURE_KEYS, type Feature } from '../usage/taxonomy';
 
 export const PATHS = {
   contactsUpsert: '/crm/v3/objects/contacts/batch/upsert',
@@ -110,6 +111,74 @@ export function buildOutboundCompanyUpsert(c: OutboundCompanyInput): CrmRequest 
     body: { inputs: [{ id: c.accountKey, idProperty: 'serif_account_key', properties: outboundCompanyProperties(c) }] },
     note: 'Keyed on serif_account_key = ein:<EIN>, the group\'s stable id in the rate file. Carries the finding about its own rate. Built for target groups; never enqueued or sent.',
   };
+}
+
+/** What the reverse ETL knows about one account's product use: the features used in the last 30 days, the latest use, and counts per feature. */
+export interface UsageRollup {
+  /** features with at least one event in the 30 days up to the as-of date, in taxonomy order */
+  features30d: Feature[];
+  lastFeature: Feature | null;
+  lastFeatureAt: string | null;
+  /** events in those 30 days, for every feature (zero when unused) */
+  events30d: Record<Feature, number>;
+}
+
+/** The HubSpot property name for one feature's 30-day event count. */
+export const eventsProperty = (feature: Feature) => `serif_events_30d_${feature}`;
+
+/**
+ * The company properties a usage rollup writes. Not pruned: an account whose 30-day use has fallen to nothing must write
+ * the empty list and the zeros, or HubSpot keeps showing last month's features.
+ */
+export function usageCompanyProperties(u: UsageRollup): Record<string, unknown> {
+  return {
+    serif_features_30d: u.features30d.join(';'), serif_last_feature: u.lastFeature ?? '', serif_last_feature_at: u.lastFeatureAt ?? '',
+    ...Object.fromEntries(FEATURE_KEYS.map(f => [eventsProperty(f), u.events30d[f]])),
+  };
+}
+
+/** What an expansion task says and who it goes to. Every figure is a count or a date taken from the usage rows. */
+export interface ExpansionTaskInput {
+  accountKey: string; accountName: string; segment: string | null; ownerId: string | null;
+  addOnLabel: string; priceLow: number; priceHigh: number; featureLabel: string;
+  uses: number; people: number; windowFrom: string; windowTo: string; lastUseAt: string;
+  /** when the task is due, ISO */
+  dueAt: string;
+}
+
+const dollars = (n: number) => `$${n.toLocaleString('en-US')}`;
+const dayOf = (iso: string) => iso.slice(0, 10);
+
+/** The task body: the evidence in a few sentences, and what it does not show. */
+export function expansionTaskBody(i: ExpansionTaskInput): string {
+  const people = i.people === 1 ? '1 person' : `${i.people} people`;
+  return `${i.accountName} used ${i.featureLabel} ${i.uses} times from ${dayOf(i.windowFrom)} to ${dayOf(i.windowTo)}, across ${people}, most recently on ${dayOf(i.lastUseAt)}. ` +
+    `It has no ${i.addOnLabel} deal at any stage. ${i.addOnLabel} lists at ${dollars(i.priceLow)} to ${dollars(i.priceHigh)}. ` +
+    `This is product usage, not a statement of intent from the account.`;
+}
+
+/**
+ * The plan for one expansion signal: the company (so the task has something to attach to) and a task for the account's owner.
+ * It is built the way a lead's plan is, and shown or written as a dry run only. It is never put in the outbox, so a live boot cannot send it.
+ */
+export function planExpansionTask(i: ExpansionTaskInput): { requests: CrmRequest[]; skipped: string | null } {
+  const company: CrmRequest = {
+    method: 'POST', path: PATHS.companiesUpsert,
+    body: { inputs: [{ id: i.accountKey, idProperty: 'serif_account_key', properties: prune({ name: i.accountName, serif_account_key: i.accountKey, serif_segment: i.segment }) }] },
+    note: 'Keyed on serif_account_key, as for every company. Only here so the task can be associated to it.',
+  };
+  const task: CrmRequest = {
+    method: 'POST', path: PATHS.tasks,
+    body: {
+      properties: prune({
+        hs_timestamp: i.dueAt, hs_task_subject: `Expansion signal: ${i.accountName} previewed ${i.addOnLabel}`, hs_task_body: expansionTaskBody(i),
+        hubspot_owner_id: i.ownerId, hs_task_status: 'NOT_STARTED', hs_task_priority: 'MEDIUM', hs_task_type: 'TODO',
+      }),
+      associations: [{ to: { id: COMPANY_ID }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_COMPANY }] }],
+    },
+    note: 'A task for the account owner. Built from product usage; not sent by anything in this project.',
+  };
+  return { requests: [company, task], skipped: null };
 }
 
 export function buildAssociation(): CrmRequest {
@@ -352,6 +421,11 @@ export const COMPANY_PROPERTIES: Prop[] = [
   { name: 'serif_band_median_pct', label: 'Band median, % of Medicare', type: 'number', fieldType: 'number', description: 'Median percent of Medicare across the group\'s size band.' },
   enumProp('serif_outbound_fit', 'Outbound fit', ['target', 'not_target'], 'Whether the outbound finding is for this group.'),
   text('serif_platform', 'Platform', 'The behavioral health platform the EIN is mapped to by hand.'),
+  // written by the reverse ETL from product usage (src/usage); the counts are for the 30 days up to the newest event
+  text('serif_features_30d', 'Features used (30d)', 'Features the account used in the last 30 days, separated by semicolons (signal_search, signal_watch, api, mcp, network_benchmarking, quality_preview).'),
+  text('serif_last_feature', 'Last feature used', 'The feature the account used most recently.'),
+  text('serif_last_feature_at', 'Last feature use', 'When the account last used any feature, as a UTC ISO time.'),
+  ...FEATURE_KEYS.map((f): Prop => ({ name: eventsProperty(f), label: `Events (30d): ${f}`, type: 'number', fieldType: 'number', description: `Product events for ${f} in the last 30 days.` })),
 ];
 
 export function propertyDefinitions() {

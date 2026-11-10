@@ -1,5 +1,5 @@
 // Generates fixtures/submissions.json and fixtures/gold-labels.json from the table below.
-// People are synthetic; organizations are real, except the three CRM accounts in fixtures/crm-mirror.json, which are fictional (.example domains)
+// People are synthetic; organizations are real, except the CRM accounts in fixtures/crm-mirror.json, which are fictional (.example domains)
 // so that no real organization appears as a Serif customer, prospect or partner. Every payload carries "synthetic": true.
 // Edit the table below and run `npm run gen-fixtures`. data/fixture-overrides.json is applied at load time, not here.
 import { writeFileSync } from 'node:fs';

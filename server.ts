@@ -4,6 +4,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import attribution from './api/attribution';
 import dashboard from './api/dashboard';
 import demo from './api/demo';
 import evalHandler from './api/eval';
@@ -13,6 +14,7 @@ import metrics from './api/metrics';
 import outbound from './api/outbound';
 import quality from './api/quality';
 import stream from './api/stream';
+import usage from './api/usage';
 import { getCtx } from './src/context';
 import { warmOllama } from './src/qualify/llm';
 import { resumePending } from './src/pipeline';
@@ -31,6 +33,7 @@ type Handler = (req: Request) => Promise<Response>;
 const routes: [RegExp, Handler][] = [
   [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
   [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+)?\/?$/, outbound],
+  [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution],
 ];
 
 async function toWebRequest(req: IncomingMessage, port: number): Promise<Request> {
@@ -93,6 +96,7 @@ export function start(port = getCtx().cfg.port) {
     const warning = signedDoorWarning(ctx.cfg);
     if (warning) console.warn(warning);
     console.log(`outbound: ${ctx.outbound.message} (${ctx.outbound.status}, ${ctx.outbound.ms} ms)`);
+    console.log(`usage: ${ctx.usage.message} (${ctx.usage.status}, ${ctx.usage.ms} ms)`);
     const resumed = resumePending(ctx);
     if (resumed) console.log(`resumed ${resumed} unfinished lead(s)`);
     void warmOllama(ctx).then(ok => console.log(ok ? 'ollama warm' : 'ollama not available (rules only)'));
