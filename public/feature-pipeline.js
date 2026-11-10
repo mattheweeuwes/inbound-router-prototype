@@ -3,7 +3,8 @@
 // The numbers are influence, not proof of cause, and the page says so before it shows a single one. The wording and geometry with
 // no DOM in them are in feature-pipeline-model.js.
 import {
-  OUTCOME_WORDS, adoptionWords, barSegments, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote,
+  OUTCOME_WORDS, adoptionWords, askedHow, barSegments, cueSummary, day, evidenceWords, headline, interestWords, launchWords, leadTimeWords, money, moneyShort,
+  priceRange, provenanceBadges, rateWords, sampleNote,
 } from './feature-pipeline-model.js';
 
 /**
@@ -13,6 +14,7 @@ import {
  * @typedef {import('./feature-pipeline-model.js').NotLoaded} NotLoaded
  * @typedef {import('./feature-pipeline-model.js').Feature} Feature
  * @typedef {import('./feature-pipeline-model.js').Signal} Signal
+ * @typedef {import('./feature-pipeline-model.js').Asked} Asked
  */
 
 const esc = (/** @type {unknown} */ v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[/** @type {string} */ (c)] ?? c));
@@ -44,7 +46,14 @@ export function mountFeaturePipeline(root, h) {
     const t = e.target instanceof Element ? e.target.closest('[data-feature]') : null;
     if (t instanceof HTMLElement && t.dataset.feature) { S.selected = t.dataset.feature; render(); }
   });
-  return { show };
+  return { show, select };
+}
+
+/** Another tab (Today) points at a feature: select it, once the API has been read, and draw. */
+async function select(/** @type {string} */ feature) {
+  await show();
+  S.selected = feature;
+  render();
 }
 
 /** The tab was opened: read the API the first time, draw from what is already read after that. */
@@ -87,22 +96,24 @@ function render() {
 
 function pageHTML(/** @type {Loaded} */ d) {
   return `
-    <div class="fp-head">${syntheticBadge(d)}<span class="fp-asof">Measured to ${esc(day(d.asOf))}, the newest event</span></div>
+    <div class="fp-head">${provenanceHTML(d)}<span class="fp-asof">Measured to ${esc(day(d.asOf))}, the newest event</span></div>
     <div class="ob-finding"><p class="ob-line">${esc(headline(d))}</p></div>
     <div class="card fp-caveat" role="note"><b>Influence, not proof of cause.</b> ${esc(d.model.caveat.replace(/^This is influence, not proof of cause\.\s*/, ''))}</div>
     ${tilesHTML(d)}
     ${chartHTML(d)}
     ${tableHTML(d)}
     ${dealsHTML(d)}
+    ${askedHTML(d)}
     ${signalsHTML(d)}
-    <p class="ob-chart-note fp-def"><b>The definition.</b> ${esc(d.model.definition)} ${esc(d.model.note)}</p>`;
+    <p class="ob-chart-note fp-def"><b>The definition.</b> ${esc(d.model.definition)} ${esc(d.model.note)}</p>
+    <p class="ob-chart-note fp-def"><b>Interest from inbound.</b> A person in the router's lead stream counts for a feature when they name it in their message, come in through its door, take a guide about it or (for an account's web visits) visit its pages. It is not usage, it is not in any win rate, and it never changes a lead's tier or route. A person who came in twice counts once.</p>`;
 }
 
-/** Visible on every view of the tab: the data behind it is invented. */
-function syntheticBadge(/** @type {Loaded} */ d) {
-  const s = d.synthetic;
-  const text = s.allSynthetic ? 'SYNTHETIC DATA' : `SYNTHETIC: ${nf(s.events)} events, ${nf(s.deals)} deals`;
-  return `<span class="syn fp-syn" title="${esc(s.note)}">${esc(text)}</span><span class="fp-syn-note">${esc(s.note)}</span>`;
+/** Visible on every view of the tab, one badge for each kind of data behind it, so the two are never read as one. */
+function provenanceHTML(/** @type {Loaded} */ d) {
+  const notes = { usage: d.synthetic.note, interest: d.synthetic.interest.note };
+  return `<div class="fp-prov">${provenanceBadges(d).map((b) =>
+    `<div class="fp-prov-row"><span class="syn fp-syn fp-syn-${b.kind}" title="${esc(b.title)}">${esc(b.text)}</span><span class="fp-syn-note">${esc(notes[b.kind])}</span></div>`).join('')}</div>`;
 }
 
 function tilesHTML(/** @type {Loaded} */ d) {
@@ -151,6 +162,7 @@ function tableHTML(/** @type {Loaded} */ d) {
       <thead><tr>
         <th>Feature</th><th class="num">Accounts using</th><th class="num">Deals around it</th><th class="num">Closed won</th>
         <th class="num">Win rate with use</th><th class="num">Win rate without</th><th class="num">Median days, first use to deal</th><th class="num">Adoption since launch</th>
+        <th class="num">Interest from inbound</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -162,12 +174,13 @@ function rowHTML(/** @type {Feature} */ f) {
   const wo = rateWords(f.winRate.without);
   const lead = leadTimeWords(f);
   const ad = adoptionWords(f);
+  const ask = interestWords(f);
   const on = f.feature === S.selected;
   const cell = (/** @type {string} */ big, /** @type {string} */ small) => `<span class="fp-big">${esc(big)}</span><span class="fp-small">${esc(small)}</span>`;
   const note = sampleNote(f, /** @type {Loaded} */ (S.data).model.smallSample);
   return `<tr class="fp-row${on ? ' is-selected' : ''}"${on ? ' aria-current="true"' : ''}>
     <td class="fp-c-name" data-label="Feature"><button type="button" class="ob-open" data-feature="${esc(f.feature)}">${esc(f.label)}</button>
-      <span class="ob-city">launched ${esc(day(f.launchedAt))} · ${esc(f.team)}</span></td>
+      <span class="ob-city">${esc(launchWords(f))} · ${esc(f.team)}</span></td>
     <td class="num" data-label="Accounts using">${cell(nf(f.accountsUsing), `${nf(f.events)} events`)}</td>
     <td class="num" data-label="Deals around it">${cell(nf(f.opportunities.count), money(f.opportunities.amount))}</td>
     <td class="num" data-label="Closed won">${cell(nf(f.byOutcome.won.count), money(f.byOutcome.won.amount))}</td>
@@ -175,6 +188,7 @@ function rowHTML(/** @type {Feature} */ f) {
     <td class="num" data-label="Win rate without">${cell(wo.pct, wo.counts)}${note ? `<span class="badge warn fp-flag" title="${esc(note)}">small sample</span>` : ''}</td>
     <td class="num" data-label="Median days, first use to deal">${cell(lead.value, lead.counts)}</td>
     <td class="num" data-label="Adoption since launch">${cell(ad.pct, ad.counts)}</td>
+    <td class="num" data-label="Interest from inbound">${cell(ask.value, ask.counts)}</td>
   </tr>`;
 }
 
@@ -199,6 +213,39 @@ function dealsHTML(/** @type {Loaded} */ d) {
     ${f.deals.length ? `<table class="fp-table fp-deal-table"><thead><tr><th>Deal</th><th>Account</th><th>Stage</th><th class="num">Amount</th><th>Opened</th><th>Closed</th><th class="num">Uses in the window</th></tr></thead><tbody>${rows}</tbody></table>`
       : '<p class="fp-none">No deal had an account using this feature in its window.</p>'}
   </section>`;
+}
+
+// ─── who asked for the selected feature ──────────────────────────────────────
+
+function askedHTML(/** @type {Loaded} */ d) {
+  const f = d.features.find((x) => x.feature === S.selected);
+  if (!f) return '';
+  const i = f.interest;
+  const how = cueSummary(f);
+  const customers = f.asked.filter((a) => a.customer).length;
+  const head = i.leads
+    ? `${nf(i.leads)} ${i.leads === 1 ? 'person' : 'people'} at ${nf(i.accounts)} ${i.accounts === 1 ? 'account' : 'accounts'}, ${nf(i.salesReady)} sales-ready${customers ? `; ${nf(customers)} at customers` : ''}. ${how}.`
+    : 'Nobody in the lead stream has asked for this feature.';
+  const since = i.sinceLaunch === null ? '' : ` ${nf(i.sinceLaunch)} came in after the launch.`;
+  return `<section class="card fp-asked" aria-labelledby="fpAskedTitle" aria-live="polite">
+    <div class="card-head"><h3 id="fpAskedTitle">Who asked for ${esc(f.label)}</h3><span class="sub">for customer success, newest first; nothing is sent</span></div>
+    <p class="fp-asked-sum">${esc(head + since)}</p>
+    ${f.asked.map((a) => askedItemHTML(a)).join('')}
+  </section>`;
+}
+
+function askedItemHTML(/** @type {Asked} */ a) {
+  const who = a.person ? `${esc(a.person.name)}${a.person.title ? `, ${esc(a.person.title)}` : ''}` : 'Account-level web visits, no person';
+  return `<article class="fp-asked-item">
+    <div class="fp-signal-head">
+      <h4>${esc(a.accountName ?? 'Organization not identified')}</h4>
+      <span class="badge${a.customer ? ' fp-cust' : ''}">${a.customer ? 'customer' : 'not a customer'}</span>
+      <span class="fp-signal-meta">${a.owner ? `owner ${esc(a.owner)}` : 'no owner'} · ${esc(day(a.at))}</span>
+    </div>
+    <p>${who}</p>
+    <p class="fp-signal-facts">${esc(askedHow(a))}</p>
+    ${a.quote ? `<blockquote class="fp-quote">${esc(a.quote)}</blockquote>` : ''}
+  </article>`;
 }
 
 // ─── expansion signals ───────────────────────────────────────────────────────

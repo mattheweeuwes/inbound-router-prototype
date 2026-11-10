@@ -38,6 +38,7 @@
     </div>
     <nav class="tabs" role="tablist" aria-label="Views">
       <button class="tab is-active" role="tab" data-tab="overview" aria-selected="true" aria-controls="view-overview">Overview</button>
+      <button class="tab" role="tab" data-tab="today" aria-selected="false" aria-controls="view-today">Today</button>
       <button class="tab" role="tab" data-tab="stream" aria-selected="false" aria-controls="view-stream">Lead stream</button>
       <button class="tab" role="tab" data-tab="review" aria-selected="false" aria-controls="view-review">Needs a person <span class="tab-count" id="reviewCount">0</span></button>
       <button class="tab" role="tab" data-tab="outbound" aria-selected="false" aria-controls="view-outbound">Outbound</button>
@@ -52,6 +53,16 @@
     <!-- OVERVIEW -->
     <section class="view is-active" id="view-overview" role="tabpanel" aria-label="Overview">
       <div class="wrap ov" id="overview"><div class="none">Loading…</div></div>
+    </section>
+
+    <!-- TODAY (drawn by today.js) -->
+    <section class="view" id="view-today" role="tabpanel" aria-label="Today">
+      <div class="page td">
+        <div class="page-head">
+          <h2>Today</h2>
+        </div>
+        <div id="todayBody"></div>
+      </div>
     </section>
 
     <!-- STREAM -->

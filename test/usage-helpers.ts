@@ -33,7 +33,7 @@ export function deal(ctx: Ctx, id: string, account: string, createdAt: string, c
 
 /** Reference data: the six features (all launched on 2026-01-01 unless said) and the one add-on, with quality_preview previewing it. */
 export function reference(ctx: Ctx, launched = '2026-01-01T00:00:00.000Z') {
-  const f = (feature: string, previewOfAddOn: string | null = null) => ({ feature, label: feature, launchedAt: launched, team: 'T', previewOfAddOn });
+  const f = (feature: string, previewOfAddOn: string | null = null) => ({ feature, label: feature, status: 'launched' as const, launchedAt: launched, team: 'T', previewOfAddOn });
   ctx.store.usage.replaceReference(
     [f('signal_search'), f('signal_watch'), f('api'), f('mcp'), f('network_benchmarking'), f('quality_preview', 'provider_quality_data')],
     [{ id: 'provider_quality_data', label: 'Provider quality data', priceLow: 30_000, priceHigh: 50_000 }],

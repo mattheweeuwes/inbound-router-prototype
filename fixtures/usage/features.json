@@ -6,7 +6,8 @@
     { "feature": "signal_watch", "label": "Signal Watch alerts", "launchedAt": "2026-02-09", "team": "Signal", "previewOfAddOn": null },
     { "feature": "mcp", "label": "MCP tools", "launchedAt": "2026-05-04", "team": "Platform", "previewOfAddOn": null },
     { "feature": "network_benchmarking", "label": "Network benchmarking", "launchedAt": "2026-06-15", "team": "Insights", "previewOfAddOn": null },
-    { "feature": "quality_preview", "label": "Quality data preview", "launchedAt": "2026-08-17", "team": "Data products", "previewOfAddOn": "provider_quality_data" }
+    { "feature": "quality_preview", "label": "Quality data preview", "launchedAt": "2026-08-17", "team": "Data products", "previewOfAddOn": "provider_quality_data" },
+    { "feature": "signal_ask", "label": "Signal Ask", "status": "preview", "launchedAt": null, "team": "Signal", "previewOfAddOn": null }
   ],
   "addOns": [
     { "id": "provider_quality_data", "label": "Provider quality data", "priceLow": 30000, "priceHigh": 50000 }

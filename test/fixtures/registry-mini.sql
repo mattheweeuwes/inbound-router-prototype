@@ -71,7 +71,11 @@ INSERT INTO curated_orgs VALUES
  ('chartis.com','Chartis','consulting_advisory','healthcare advisory','national','https://example.org/curated',1),
  ('paytient.com','Paytient','innovator_api_data','patient payments','other','https://example.org/curated',1),
  ('transcarent.com','Transcarent','innovator_navigation','care navigation','national','https://example.org/curated',1),
- ('hylant.com','Hylant','benefits_consultant_broker','benefits broker','regional','https://example.org/curated',1);
+ ('hylant.com','Hylant','benefits_consultant_broker','benefits broker','regional','https://example.org/curated',1),
+ -- added for the working day (fixtures/day/morning.json): D07, D08 and D15 come from these three, as they do in the real registry
+ ('welshcarson.com','Welsh, Carson, Anderson & Stowe','pe_investor','healthcare private equity','national','https://example.org/curated',1),
+ ('vrtx.com','Vertex Pharmaceuticals','life_sciences','biopharma','national','https://example.org/curated',1),
+ ('lockton.com','Lockton','benefits_consultant_broker','broker','national','https://example.org/curated',1);
 
 INSERT INTO org_domains VALUES
  ('intermountainhealthcare.org','ahrq_system','SYS-INTERMTN','Intermountain Health','mini registry','2026-11-06'),

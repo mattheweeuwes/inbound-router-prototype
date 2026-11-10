@@ -56,11 +56,19 @@ export interface AccountDetail extends AccountSummary {
   reviews: AccountReview[];
 }
 
-function ownerOf(ctx: Ctx, r: AccountRow): Pick<AccountSummary, 'owner' | 'ownerSource'> {
+/** What names an account to the CRM mirror and to a claim: its domain and name, and the rep who claimed it on a rep alert. */
+export type AccountIdentity = Pick<AccountRow, 'domain' | 'name' | 'claimed_owner'>;
+
+/** The CRM owner, else the rep who claimed the account, else nobody. */
+export function ownerOf(ctx: Ctx, r: AccountIdentity): Pick<AccountSummary, 'owner' | 'ownerSource'> {
   const crm = matchMirror(ctx.mirror, r.domain, r.name);
   if (crm) return { owner: crm.owner, ownerSource: 'crm' };
   return r.claimed_owner ? { owner: r.claimed_owner, ownerSource: 'claim' } : { owner: null, ownerSource: null };
 }
+
+/** Whether the CRM mirror holds the account as a customer. */
+export const isCustomerAccount = (ctx: Ctx, r: Pick<AccountIdentity, 'domain' | 'name'>): boolean =>
+  matchMirror(ctx.mirror, r.domain, r.name)?.status === 'customer';
 
 function toSummary(ctx: Ctx, r: AccountRow): AccountSummary {
   return {

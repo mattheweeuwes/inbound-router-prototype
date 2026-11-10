@@ -9,14 +9,25 @@
  *   id: string, accountKey: string, accountName: string, stage: string, outcome: 'won' | 'lost' | null, amount: number, addOn: string | null,
  *   createdAt: string, closedAt: string | null, uses: number, firstUseInWindow: string, lastUseInWindow: string,
  * }} Deal
+ * @typedef {'message' | 'door' | 'path' | 'guide'} Cue
  * @typedef {{
- *   feature: string, label: string, team: string, launchedAt: string, daysSinceLaunch: number, accountsUsing: number, events: number,
+ *   leads: number, accounts: number, salesReady: number, byTier: Record<string, number>, byCue: Record<Cue, number>, sinceLaunch: number | null,
+ * }} Interest
+ * @typedef {{
+ *   leadId: string, accountKey: string | null, accountName: string | null, owner: string | null, customer: boolean,
+ *   person: { name: string, title: string | null } | null, door: string, cue: Cue, cues: Cue[], evidence: string[], quote: string | null, at: string,
+ * }} Asked
+ * @typedef {{
+ *   feature: string, label: string, team: string, status: 'launched' | 'preview', launchedAt: string | null, daysSinceLaunch: number | null,
+ *   accountsUsing: number, events: number,
  *   adoption: { accounts: number, of: number, share: number | null },
  *   opportunities: Tally,
  *   byOutcome: { won: Tally, open: Tally, lost: Tally },
  *   winRate: { with: Rate, without: Rate, small: boolean },
  *   firstUseToOpportunity: { medianDays: number | null, deals: number, usedAfterOpen: number },
  *   deals: Deal[],
+ *   interest: Interest,
+ *   asked: Asked[],
  * }} Feature
  * @typedef {{
  *   account: { key: string, name: string, segment: string | null, owner: string | null },
@@ -28,7 +39,10 @@
  * @typedef {{
  *   loaded: true, status: string, reason: null, asOf: string,
  *   model: { kind: string, windowDays: number, definition: string, caveat: string, smallSample: number, note: string },
- *   synthetic: { events: number, deals: number, allSynthetic: boolean, note: string },
+ *   synthetic: {
+ *     events: number, deals: number, allSynthetic: boolean, note: string,
+ *     interest: { leads: number, synthetic: number, allSynthetic: boolean, note: string },
+ *   },
  *   data: {
  *     accounts: number,
  *     events: { total: number, mapped: number, unmapped: number, unresolved: number },
@@ -64,6 +78,7 @@ export function rateWords(/** @type {Rate} */ r) {
 
 /** "11 of 12 accounts (92%)", or a dash when no account has been active since the launch. */
 export function adoptionWords(/** @type {Feature} */ f) {
+  if (f.status === 'preview') return { pct: 'n/a', counts: 'not launched' };
   const a = f.adoption;
   if (a.share === null) return { pct: 'n/a', counts: 'no accounts active since launch' };
   return { pct: `${Math.round(a.share * 100)}%`, counts: `${a.accounts} of ${a.of} accounts` };
@@ -109,6 +124,44 @@ export function headline(/** @type {Loaded} */ d) {
     ? ` ${top.label} was around the most pipeline: ${plural(top.opportunities.count, 'deal')}, ${money(top.opportunities.amount)}.`
     : '';
   return first + second;
+}
+
+/** When the feature launched, or that it has not: a preview has no date to show. */
+export const launchWords = (/** @type {Feature} */ f) => (f.launchedAt === null ? 'in preview, no launch date' : `launched ${day(f.launchedAt)}`);
+
+/** The interest column: people who showed interest, with the accounts and sales-ready people behind the count. */
+export function interestWords(/** @type {Feature} */ f) {
+  const i = f.interest;
+  if (i.leads === 0) return { value: '0', counts: 'nobody has asked' };
+  return { value: String(i.leads), counts: `${plural(i.accounts, 'account')}, ${i.salesReady} sales-ready` };
+}
+
+const CUE_WORDS = /** @type {Record<Cue, string>} */ ({ message: 'in their message', door: 'by the door', path: 'by pages visited', guide: 'by a guide' });
+const CUE_ORDER = /** @type {const} */ (['message', 'door', 'path', 'guide']);
+
+/** How the people showed it, in the order of how strong the cue is: "2 in their message, 1 by the door". Empty when nobody did. */
+export function cueSummary(/** @type {Feature} */ f) {
+  return CUE_ORDER.filter((c) => f.interest.byCue[c] > 0).map((c) => `${f.interest.byCue[c]} ${CUE_WORDS[c]}`).join(', ');
+}
+
+/** What an asked-for item says about how the person showed it: the cue in words, then the evidence. */
+export const askedHow = (/** @type {Asked} */ a) => `${CUE_WORDS[a.cue]}: ${a.evidence.join('; ')}`;
+
+/**
+ * The two provenance badges, kept apart: usage and deals are invented on fictional accounts; interest is read from the lead
+ * stream, whose people are invented and whose organizations are the ones in the stream. The second says how many of its people
+ * are synthetic when they are not all.
+ */
+export function provenanceBadges(/** @type {Loaded} */ d) {
+  const s = d.synthetic;
+  const i = s.interest;
+  return /** @type {{ kind: 'usage' | 'interest', text: string, title: string }[]} */ ([
+    { kind: 'usage', text: s.allSynthetic ? 'SYNTHETIC: USAGE AND DEALS' : `SYNTHETIC: ${s.events.toLocaleString('en-US')} events, ${s.deals.toLocaleString('en-US')} deals`, title: s.note },
+    {
+      kind: 'interest', title: i.note,
+      text: i.leads === 0 ? 'LEAD STREAM: NO PEOPLE YET' : i.allSynthetic ? 'LEAD STREAM: PEOPLE INVENTED' : `LEAD STREAM: ${i.synthetic} of ${i.leads} people invented`,
+    },
+  ]);
 }
 
 /** The evidence for an expansion signal, in a sentence. */

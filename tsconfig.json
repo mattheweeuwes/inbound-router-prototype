@@ -13,5 +13,5 @@
     "types": ["node"],
     "noUncheckedIndexedAccess": false
   },
-  "include": ["api", "src", "scripts", "test", "e2e", "server.ts", "playwright.config.ts", "public/outbound.js", "public/outbound-model.js", "public/feature-pipeline.js", "public/feature-pipeline-model.js"]
+  "include": ["api", "src", "scripts", "test", "e2e", "server.ts", "playwright.config.ts", "public/outbound.js", "public/outbound-model.js", "public/feature-pipeline.js", "public/feature-pipeline-model.js", "public/today.js", "public/today-model.js"]
 }

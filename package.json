@@ -22,7 +22,9 @@
     "rates:fetch": "tsx scripts/fetch-rates.ts",
     "gen-fixtures": "tsx scripts/gen-fixtures.ts",
     "gen-usage": "tsx scripts/gen-usage-fixtures.ts",
-    "list:upload": "tsx scripts/list-upload.ts"
+    "list:upload": "tsx scripts/list-upload.ts",
+    "brief": "tsx scripts/brief.ts",
+    "day": "tsx scripts/day.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.59.1",

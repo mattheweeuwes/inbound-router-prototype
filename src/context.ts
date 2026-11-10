@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeConfig, type Config } from './config';
 import { chooseRegistry, openDb, type Db, type RegistryChoice } from './db';
+import { backfillInterest, type InterestBackfill } from './interest/tag';
 import { loadOutbound, type OutboundLoad } from './outbound/load';
 import { loadUsage, type UsageLoad } from './usage/load';
 import type { CrmMirrorEntry, Owners } from './schema';
@@ -27,6 +28,8 @@ export interface Ctx {
   outbound: OutboundLoad;
   /** how the synthetic usage fixtures were loaded at startup (src/usage/load.ts); the attribution API explains an empty state from it */
   usage: UsageLoad;
+  /** the start-up pass that tagged leads committed before feature interest existed (src/interest/tag.ts) */
+  interest: InterestBackfill;
 }
 
 const readJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
@@ -47,9 +50,11 @@ export function createCtx(over: Partial<Config> = {}, fetchImpl?: FetchFn): Ctx 
     q: { waiting: [], committing: false, pending: 0, head: null, idle: [] },
     outbound: { status: 'missing', path: cfg.ratesCsv, message: 'not loaded yet', rows: 0, groups: 0, ms: 0 },
     usage: { status: 'off', message: 'not loaded yet', features: 0, deals: 0, events: 0, ms: 0 },
+    interest: { checked: 0, tagged: 0, ms: 0 },
   };
   ctx.outbound = loadOutbound(ctx);
   ctx.usage = loadUsage(ctx);
+  ctx.interest = backfillInterest(ctx);
   return ctx;
 }
 

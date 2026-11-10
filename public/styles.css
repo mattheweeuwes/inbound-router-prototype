@@ -868,7 +868,10 @@ a.jump-outbound:hover { text-decoration: underline; }
 .fp [hidden] { display: none !important; }
 .fp .page-head { margin-bottom: 10px; }
 .fp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+.fp-prov { display: grid; gap: 6px; }
+.fp-prov-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .fp-syn { font-size: 11px; padding: 2px 7px; color: var(--ink); border-color: var(--ink); }
+.fp-syn-interest { color: var(--blue); border-color: var(--blue); }
 .fp-syn-note { max-width: 70ch; }
 .fp-asof { margin-left: auto; }
 .fp .fp-caveat { margin: 0 0 18px; padding: 12px 16px; background: var(--warn-bg); border-color: var(--warn-line); color: var(--body); font-size: 13px; line-height: 1.55; max-width: 980px; }
@@ -915,6 +918,13 @@ a.jump-outbound:hover { text-decoration: underline; }
 .fp-deal-id { font-family: var(--mono); font-size: 12px; color: var(--ink); }
 .fp-addon { margin-left: 6px; font-size: 11px; padding: 1px 6px; }
 
+.fp .fp-asked { margin-bottom: 20px; }
+.fp-asked-sum { margin: 8px 0 4px; font-size: 13px; max-width: 980px; }
+.fp-asked-item { border: 1px solid var(--line); padding: 12px 14px; margin-top: 10px; }
+.fp .fp-asked-item h4 { margin: 0; font-size: 14.5px; color: var(--ink); font-weight: 500; }
+.fp-asked-item p { margin: 6px 0 0; font-size: 13px; }
+.fp-cust { color: var(--ink); border-color: var(--ink); }
+.fp-quote { margin: 8px 0 0; padding: 4px 0 4px 12px; border-left: 3px solid var(--line); color: var(--body); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .fp .fp-signals { margin-bottom: 16px; }
 .fp-rule { margin: 8px 0 12px; font-size: 13px; max-width: 980px; }
 .fp-signal { border: 1px solid var(--line); padding: 12px 14px; margin-top: 10px; }
@@ -932,7 +942,7 @@ a.jump-outbound:hover { text-decoration: underline; }
   body { min-width: 0; --gutter: 16px; }
   /* every other tab is still the 1240px console: it scrolls sideways inside its own region, never the page */
   .views { overflow-x: auto; }
-  .view:not(#view-outbound):not(#view-feature-pipeline) { min-width: 1240px; }
+  .view:not(#view-outbound):not(#view-feature-pipeline):not(#view-today) { min-width: 1240px; }
   .strip-in { justify-content: flex-start; padding: 8px 0; }
   .strip .item { white-space: normal; line-height: 1.35; }
   .topbar-row { flex-wrap: wrap; gap: 10px; padding-top: 10px; }
@@ -1003,4 +1013,57 @@ a.jump-outbound:hover { text-decoration: underline; }
   .fp-table td.num { text-align: left; }
   .fp-deals .card-head { padding: 14px 12px 6px; }
   .fp-warn, .fp-none { padding-left: 12px; padding-right: 12px; }
+  .fp .fp-asked { padding: 14px 12px; }
+}
+
+/* ─── Today tab (today.js): the brief in sections, and the accounts table ─────────────────────────────────────────────── */
+.td-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 14px; }
+.td-asof { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+.td-refresh { margin-left: auto; }
+.td-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 20px; }
+.td .td-card { padding: 16px 18px; }
+.td-count { margin-left: auto; font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.td-headline { margin: 6px 0 10px; font-size: 13px; color: var(--body); line-height: 1.5; }
+.td-figs { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 10px; }
+.td-fig { display: flex; flex-direction: column; min-width: 0; }
+.td-fig-v { font-size: 17px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.td-fig-l { font-size: 11.5px; color: var(--muted); }
+.td-items { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.td-item { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.td-kind { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.td-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.td-main b { color: var(--ink); font-weight: 500; }
+.td-main span { color: var(--body); line-height: 1.45; }
+.td-open { border: 1px solid var(--line); background: var(--surface); color: var(--blue); font: 500 12px/1.2 var(--sans); padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.td-open:hover { border-color: var(--blue); }
+.td-more, .td-none { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.td .td-accounts { padding: 0; overflow: hidden; margin-bottom: 16px; }
+.td-accounts .card-head { padding: 14px 16px 10px; }
+.td-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.td-table th { text-align: left; font-weight: 400; font-size: 12px; color: var(--muted); padding: 7px 10px; background: #fafbfc; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); vertical-align: bottom; }
+.td-table th.num { text-align: right; }
+.td-table th:first-child, .td-table td:first-child { padding-left: 16px; }
+.td-table th:last-child, .td-table td:last-child { padding-right: 16px; }
+.td-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); overflow-wrap: anywhere; }
+.td-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.td-arow.is-enterprise { background: var(--tint-2); }
+.td-c-name { min-width: 180px; }
+.td-ent { margin-left: 8px; font-size: 11px; padding: 1px 6px; color: var(--blue); border-color: var(--blue); }
+.td-note { max-width: 980px; }
+@media (max-width: 900px) {
+  #view-today .page { padding: 20px 16px 28px; }
+  .td-grid { grid-template-columns: minmax(0, 1fr); }
+  .td-refresh { margin-left: 0; }
+  .td .td-card { padding: 14px 12px; }
+  .td-item { grid-template-columns: minmax(0, 1fr); }
+  .td-open { justify-self: start; }
+  .td-accounts .card-head { padding: 14px 12px 10px; }
+  .td-table thead { display: none; }
+  .td-table, .td-table tbody { display: block; }
+  .td-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px; border-bottom: 1px solid var(--line); }
+  .td-table td { display: block; padding: 0 !important; border: 0; min-width: 0; }
+  .td-table td::before { content: attr(data-label); display: block; font-size: 11px; color: var(--muted); }
+  .td-table td.td-c-name { grid-column: 1 / -1; min-width: 0; }
+  .td-table td.td-c-name::before { content: none; }
+  .td-table td.num { text-align: left; }
 }

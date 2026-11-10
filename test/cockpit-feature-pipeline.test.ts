@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import handler from '../api/attribution';
 import { ROOT } from '../src/config';
 import {
-  adoptionWords, barSegments, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
+  adoptionWords, askedHow, barSegments, cueSummary, interestWords, launchWords, provenanceBadges, day, evidenceWords, headline, leadTimeWords, money, moneyShort, priceRange, rateWords, sampleNote, type Feature, type Loaded,
 } from '../public/feature-pipeline-model.js';
 import { testCtx } from './helpers';
 
@@ -68,5 +68,35 @@ describe('cockpit feature to pipeline: the bars', () => {
   it('with nothing to draw there is no width', async () => {
     const d = await load();
     assert.deepEqual(barSegments({ ...feature(d, 'mcp'), byOutcome: { won: { count: 0, amount: 0 }, open: { count: 0, amount: 0 }, lost: { count: 0, amount: 0 } } }, 0), []);
+  });
+});
+
+describe('cockpit feature to pipeline: interest from inbound', () => {
+  it('a feature in preview says it has no launch date, and its adoption is n/a because it is not launched', async () => {
+    const d = await load();
+    const ask = feature(d, 'signal_ask');
+    assert.equal(launchWords(ask), 'in preview, no launch date');
+    assert.equal(launchWords(feature(d, 'api')), 'launched 2025-11-03');
+    assert.deepEqual(adoptionWords(ask), { pct: 'n/a', counts: 'not launched' });
+  });
+  it('the interest column carries the people, accounts and sales-ready behind the count', async () => {
+    const d = await load();
+    const f = feature(d, 'network_benchmarking');
+    assert.deepEqual(interestWords(f), { value: '0', counts: 'nobody has asked' });
+    const asked = { ...f, interest: { leads: 3, accounts: 2, salesReady: 1, byTier: {}, byCue: { message: 2, door: 0, path: 1, guide: 0 }, sinceLaunch: 3 } };
+    assert.deepEqual(interestWords(asked), { value: '3', counts: '2 accounts, 1 sales-ready' });
+    assert.equal(cueSummary(asked), '2 in their message, 1 by pages visited');
+    assert.equal(cueSummary(f), '');
+  });
+  it('an asked-for item says how the person showed it, strongest cue first', () => {
+    const a = { leadId: 'l', accountKey: null, accountName: 'X', owner: null, customer: false, person: null, door: 'web_intent', cue: 'path' as const, cues: ['path' as const], evidence: ['/p/: 2 visits'], quote: null, at: '2026-11-10T00:00:00.000Z' };
+    assert.equal(askedHow(a), 'by pages visited: /p/: 2 visits');
+  });
+  it('two badges keep usage and deals apart from the lead stream, and say how many people are invented when not all are', async () => {
+    const d = await load();
+    assert.deepEqual(provenanceBadges(d).map(b => [b.kind, b.text]), [['usage', 'SYNTHETIC: USAGE AND DEALS'], ['interest', 'LEAD STREAM: NO PEOPLE YET']]);
+    const mixed = { ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 3, allSynthetic: false } } };
+    assert.equal(provenanceBadges(mixed)[1].text, 'LEAD STREAM: 3 of 5 people invented');
+    assert.equal(provenanceBadges({ ...d, synthetic: { ...d.synthetic, interest: { ...d.synthetic.interest, leads: 5, synthetic: 5, allSynthetic: true } } })[1].text, 'LEAD STREAM: PEOPLE INVENTED');
   });
 });

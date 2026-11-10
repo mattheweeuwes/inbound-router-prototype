@@ -16,6 +16,7 @@ import {
 } from './decisions';
 import { crmMode, planCrm, planReferralThanks, recordDryRun } from './crm/hubspot';
 import { enterpriseOf, type DealSignals } from './enterprise';
+import { tagLead } from './interest/tag';
 import { dealSignalsOf, referralOf } from './leadSignals';
 import { digestChannel, foldsIntoDigest } from './lists';
 import { enqueuePlan, type CrmRecord } from './crm/outbox';
@@ -202,6 +203,8 @@ export function commitPrepared(run: Run, p: Prepared): Committed {
     enterprise: signals.deal.enterprise.enterprise, dealJson: json(signals.deal)!, referralJson: referral ? json(storedReferral(ctx, referral, n, res, ev.receivedAt)) : null,
     referralKind: referral?.kind ?? null, referrerAccountId: referral?.account?.key ?? null,
   });
+  // feature interest (decision 30): what the lead showed, stored as it is committed and read by nothing that scores or routes
+  tagLead(ctx, id, ev, nowIso(ctx));
   announce(run, 'qualified');
   return { n, res, qual, touches, signals };
 }

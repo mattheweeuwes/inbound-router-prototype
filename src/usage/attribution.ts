@@ -1,7 +1,7 @@
 // The attribution read model: turns the rows of v_usage_feature_influence and v_usage_deal_influence into what GET /api/attribution
 // serves. The model itself is the SQL in sql/models; this file only names its constants, divides, and says in words what the
 // numbers do and do not mean. Pure: rows in, payload out.
-import type { DealOutcome, FeatureInfluenceRow, InfluencedDealRow } from '../store/usage';
+import type { DealOutcome, FeatureInfluenceRow, FeatureStatus, InfluencedDealRow } from '../store/usage';
 
 /** The window before a deal is created in which use counts. The same number is in sql/models/v_usage_deal_influence.sql; a test moves an event across its edge. */
 export const INFLUENCE_WINDOW_DAYS = 90;
@@ -26,7 +26,9 @@ export interface InfluencedDeal {
 }
 
 export interface FeatureAttribution {
-  feature: string; label: string; team: string; launchedAt: string; daysSinceLaunch: number;
+  feature: string; label: string; team: string;
+  /** launched, or in preview with no launch date (launchedAt and daysSinceLaunch are then null, and nothing is measured since launch) */
+  status: FeatureStatus; launchedAt: string | null; daysSinceLaunch: number | null;
   accountsUsing: number; events: number;
   /** accounts that used the feature since launch, of the accounts that used any feature since launch */
   adoption: { accounts: number; of: number; share: number | null };
@@ -52,7 +54,8 @@ export function attributeFeature(
   const withUse = rate(r.won_count, closedWith);
   const without = rate(r.won_all - r.won_count, r.closed_all - closedWith);
   return {
-    feature: r.feature, label: r.label, team: r.team, launchedAt: r.launched_at, daysSinceLaunch: daysBetween(r.launched_at, asOf),
+    feature: r.feature, label: r.label, team: r.team, status: r.status, launchedAt: r.launched_at,
+    daysSinceLaunch: r.launched_at === null ? null : daysBetween(r.launched_at, asOf),
     accountsUsing: r.accounts_using, events: r.events,
     adoption: { accounts: r.using_since_launch, of: r.active_since_launch, share: r.active_since_launch > 0 ? r.using_since_launch / r.active_since_launch : null },
     opportunities: tally(r.won_count + r.lost_count + r.open_count, r.won_amount + r.lost_amount + r.open_amount),

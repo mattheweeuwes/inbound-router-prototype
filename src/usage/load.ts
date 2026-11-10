@@ -68,7 +68,12 @@ function parseFeatures(raw: unknown): { features: FeatureRef[]; addOns: AddOnRef
     if (!isFeature(feature)) throw new Error(`${what}: ${feature} is not in the taxonomy (src/usage/taxonomy.ts)`);
     const previewOfAddOn = typeof f.previewOfAddOn === 'string' ? f.previewOfAddOn : null;
     if (previewOfAddOn && !addOns.some(a => a.id === previewOfAddOn)) throw new Error(`${what}: previewOfAddOn ${previewOfAddOn} is not in addOns`);
-    return { feature, label: need(f, 'label', what), launchedAt: isoTime(f.launchedAt, `${what}: launchedAt`), team: need(f, 'team', what), previewOfAddOn };
+    // a feature in preview says so and has no launch date; a launched one needs its date
+    const status = f.status === undefined ? 'launched' : f.status;
+    if (status !== 'launched' && status !== 'preview') throw new Error(`${what}: status must be launched or preview`);
+    if (status === 'preview' && f.launchedAt != null) throw new Error(`${what}: a feature in preview has no launchedAt`);
+    const launchedAt = status === 'preview' ? null : isoTime(f.launchedAt, `${what}: launchedAt`);
+    return { feature, label: need(f, 'label', what), status, launchedAt, team: need(f, 'team', what), previewOfAddOn };
   });
   return { features, addOns };
 }

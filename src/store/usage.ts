@@ -8,7 +8,9 @@ import type { AdaptedEvent } from '../usage/posthog';
 export type DealOutcome = 'won' | 'lost';
 export type UsageSource = 'api' | 'fixture';
 
-export interface FeatureRef { feature: string; label: string; launchedAt: string; team: string; previewOfAddOn: string | null }
+export type FeatureStatus = 'launched' | 'preview';
+/** A feature in preview has no launch date; a launched one always has. */
+export interface FeatureRef { feature: string; label: string; status: FeatureStatus; launchedAt: string | null; team: string; previewOfAddOn: string | null }
 export interface AddOnRef { id: string; label: string; priceLow: number; priceHigh: number }
 
 /** A deal as stored. closedAt and outcome are both null while it is open. */
@@ -17,7 +19,7 @@ export interface Deal {
   outcome: DealOutcome | null; addOn: string | null; synthetic: boolean;
 }
 
-type FeatureRow = { feature: string; label: string; launched_at: string; team: string; preview_of_add_on: string | null };
+type FeatureRow = { feature: string; label: string; status: FeatureStatus; launched_at: string | null; team: string; preview_of_add_on: string | null };
 type AddOnRow = { id: string; label: string; price_low: number; price_high: number };
 type DealRow = {
   id: string; account_key: string; stage: string; amount: number; created_at: string; closed_at: string | null;
@@ -26,7 +28,7 @@ type DealRow = {
 
 /** One row of v_usage_feature_influence. */
 export type FeatureInfluenceRow = {
-  feature: string; label: string; launched_at: string; team: string; accounts_using: number; events: number;
+  feature: string; label: string; status: FeatureStatus; launched_at: string | null; team: string; accounts_using: number; events: number;
   active_since_launch: number; using_since_launch: number;
   won_count: number; won_amount: number; lost_count: number; lost_amount: number; open_count: number; open_amount: number;
   used_after_open: number; median_days: number | null; median_n: number; closed_all: number; won_all: number;
@@ -53,7 +55,7 @@ export type DealTotals = {
   synthetic: number; influenced: number; influenced_amount: number;
 };
 
-const toFeature = (r: FeatureRow): FeatureRef => ({ feature: r.feature, label: r.label, launchedAt: r.launched_at, team: r.team, previewOfAddOn: r.preview_of_add_on });
+const toFeature = (r: FeatureRow): FeatureRef => ({ feature: r.feature, label: r.label, status: r.status, launchedAt: r.launched_at, team: r.team, previewOfAddOn: r.preview_of_add_on });
 const toAddOn = (r: AddOnRow): AddOnRef => ({ id: r.id, label: r.label, priceLow: r.price_low, priceHigh: r.price_high });
 const toDeal = (r: DealRow): Deal => ({
   id: r.id, accountKey: r.account_key, stage: r.stage, amount: r.amount, createdAt: r.created_at, closedAt: r.closed_at,
@@ -65,7 +67,7 @@ export function usageStore(db: Db) {
   const s = {
     insertEvent: p(`INSERT INTO usage_events (event_id, account_key, group_key, contact_key, feature, event_name, occurred_at, received_at, synthetic, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO NOTHING`),
-    insertFeature: p(`INSERT INTO features (feature, label, launched_at, team, preview_of_add_on) VALUES (?, ?, ?, ?, ?)`),
+    insertFeature: p(`INSERT INTO features (feature, label, status, launched_at, team, preview_of_add_on) VALUES (?, ?, ?, ?, ?, ?)`),
     insertAddOn: p(`INSERT INTO add_ons (id, label, price_low, price_high) VALUES (?, ?, ?, ?)`),
     insertDeal: p(`INSERT INTO deals (id, account_key, stage, amount, created_at, closed_at, outcome, add_on, synthetic, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -78,7 +80,8 @@ export function usageStore(db: Db) {
     clearFixtureSha: p(`DELETE FROM usage_fixture`),
     fixtureSha: p(`SELECT sha256 FROM usage_fixture WHERE id = 1`),
     saveFixtureSha: p(`INSERT INTO usage_fixture (id, sha256, loaded_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET sha256 = excluded.sha256, loaded_at = excluded.loaded_at`),
-    features: p(`SELECT feature, label, launched_at, team, preview_of_add_on FROM features ORDER BY launched_at, feature`),
+    // launched features in launch order, then the ones with no launch date
+    features: p(`SELECT feature, label, status, launched_at, team, preview_of_add_on FROM features ORDER BY launched_at IS NULL, launched_at, feature`),
     addOns: p(`SELECT id, label, price_low, price_high FROM add_ons ORDER BY id`),
     asOf: p(`SELECT t FROM v_usage_asof`),
     featureInfluence: p(`SELECT * FROM v_usage_feature_influence`),
@@ -112,7 +115,7 @@ export function usageStore(db: Db) {
     replaceReference: (features: FeatureRef[], addOns: AddOnRef[]) => {
       s.clearFeatures.run();
       s.clearAddOns.run();
-      for (const f of features) s.insertFeature.run(f.feature, f.label, f.launchedAt, f.team, f.previewOfAddOn);
+      for (const f of features) s.insertFeature.run(f.feature, f.label, f.status, f.launchedAt, f.team, f.previewOfAddOn);
       for (const a of addOns) s.insertAddOn.run(a.id, a.label, a.priceLow, a.priceHigh);
     },
     /** Removes everything the fixture files put in, and the record of their hash. Rows from POST /api/usage stay. */

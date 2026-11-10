@@ -7,7 +7,7 @@ import { parseRetryAfter } from '../retry';
 import type { DealSignals, Enterprise } from '../enterprise';
 import type { Referral } from '../referral';
 import type { CrmRequest, LeadEvent, Normalized, Qualification, Resolution, Route, Score } from '../schema';
-import { FEATURE_KEYS, type Feature } from '../usage/taxonomy';
+import { FEATURE_KEYS, type UsageFeature } from '../usage/taxonomy';
 
 export const PATHS = {
   contactsUpsert: '/crm/v3/objects/contacts/batch/upsert',
@@ -136,15 +136,15 @@ export function buildOutboundCompanyUpsert(c: OutboundCompanyInput): CrmRequest 
 /** What the reverse ETL knows about one account's product use: the features used in the last 30 days, the latest use, and counts per feature. */
 export interface UsageRollup {
   /** features with at least one event in the 30 days up to the as-of date, in taxonomy order */
-  features30d: Feature[];
-  lastFeature: Feature | null;
+  features30d: UsageFeature[];
+  lastFeature: UsageFeature | null;
   lastFeatureAt: string | null;
   /** events in those 30 days, for every feature (zero when unused) */
-  events30d: Record<Feature, number>;
+  events30d: Record<UsageFeature, number>;
 }
 
 /** The HubSpot property name for one feature's 30-day event count. */
-export const eventsProperty = (feature: Feature) => `serif_events_30d_${feature}`;
+export const eventsProperty = (feature: UsageFeature) => `serif_events_30d_${feature}`;
 
 /**
  * The company properties a usage rollup writes. Not pruned: an account whose 30-day use has fallen to nothing must write

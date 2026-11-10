@@ -4,6 +4,8 @@
 -- won_all), so the caller subtracts. Counts are returned beside every rate so a rate over a handful of deals can be read as one.
 -- first use is the account's first use of the feature ever; a deal whose first use came after the deal opened is counted in
 -- used_after_open and left out of the median, which describes use that came first.
+-- A feature in preview has no launch date: the comparisons with launched_at are then NULL, so its since-launch counts are 0 and its
+-- adoption reads as n/a, and it sorts after the launched features.
 DROP VIEW IF EXISTS v_usage_feature_influence;
 CREATE VIEW v_usage_feature_influence AS
 WITH influenced AS (
@@ -25,7 +27,7 @@ lead_time AS (
   FROM influenced WHERE first_use_at <= created_at),
 median AS (
   SELECT feature, AVG(days) AS days, MAX(n) AS n FROM lead_time WHERE rn IN ((n + 1) / 2, (n + 2) / 2) GROUP BY feature)
-SELECT f.feature, f.label, f.launched_at, f.team,
+SELECT f.feature, f.label, f.status, f.launched_at, f.team,
   (SELECT COUNT(DISTINCT u.account_key) FROM v_usage_by_account_feature u WHERE u.feature = f.feature) AS accounts_using,
   (SELECT COALESCE(SUM(u.events), 0) FROM v_usage_by_account_feature u WHERE u.feature = f.feature) AS events,
   (SELECT COUNT(DISTINCT e.account_key) FROM usage_events e
@@ -42,4 +44,4 @@ SELECT f.feature, f.label, f.launched_at, f.team,
 FROM features f
 LEFT JOIN by_feature b ON b.feature = f.feature
 LEFT JOIN median m ON m.feature = f.feature
-ORDER BY f.launched_at, f.feature;
+ORDER BY f.launched_at IS NULL, f.launched_at, f.feature;

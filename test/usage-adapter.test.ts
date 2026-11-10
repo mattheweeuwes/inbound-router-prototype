@@ -8,7 +8,7 @@ import { contactKey } from '../src/normalize';
 import { PayloadError } from '../src/sources/common';
 import { accountForGroup } from '../src/usage/account';
 import { adaptBatch, MAX_BATCH } from '../src/usage/posthog';
-import { EVENT_FEATURE, FEATURE_KEYS, featureOf, primaryEvent } from '../src/usage/taxonomy';
+import { ALL_FEATURE_KEYS, EVENT_FEATURE, FEATURE_KEYS, featureOf, primaryEvent } from '../src/usage/taxonomy';
 import { testCtx } from './helpers';
 
 const ev = (over: Record<string, unknown> = {}) => ({
@@ -59,7 +59,7 @@ describe('usage: the PostHog adapter', () => {
 });
 
 describe('usage: the taxonomy', () => {
-  it('maps the six features, an unknown name to nothing, and every feature has a name it is sent under', () => {
+  it('maps the six features with usage, an unknown name to nothing, and every one of them has a name it is sent under', () => {
     assert.deepEqual(['signal_search_run', 'watch_alert_created', 'api_call', 'mcp_tool_call', 'benchmark_viewed', 'quality_preview_viewed'].map(featureOf),
       ['signal_search', 'signal_watch', 'api', 'mcp', 'network_benchmarking', 'quality_preview']);
     assert.equal(featureOf('$pageview'), null);
@@ -71,7 +71,7 @@ describe('usage: the taxonomy', () => {
   });
   it('fixtures/usage/features.json lists exactly the taxonomy\'s features', () => {
     const file = JSON.parse(readFileSync(join(ROOT, 'fixtures', 'usage', 'features.json'), 'utf8')) as { features: { feature: string }[] };
-    assert.deepEqual(file.features.map(f => f.feature).sort(), [...FEATURE_KEYS].sort());
+    assert.deepEqual(file.features.map(f => f.feature).sort(), [...ALL_FEATURE_KEYS].sort());
   });
 });
 

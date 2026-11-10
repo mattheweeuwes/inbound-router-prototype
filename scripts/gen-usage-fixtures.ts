@@ -12,11 +12,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../src/config';
 import type { CrmMirrorEntry } from '../src/schema';
-import { primaryEvent, type Feature } from '../src/usage/taxonomy';
+import { primaryEvent, type UsageFeature } from '../src/usage/taxonomy';
 
 const DIR = join(ROOT, 'fixtures', 'usage');
 const mirror = JSON.parse(readFileSync(join(ROOT, 'fixtures', 'crm-mirror.json'), 'utf8')) as CrmMirrorEntry[];
-const features = (JSON.parse(readFileSync(join(DIR, 'features.json'), 'utf8')) as { features: { feature: Feature; launchedAt: string }[] }).features;
+const features = (JSON.parse(readFileSync(join(DIR, 'features.json'), 'utf8')) as { features: { feature: string; launchedAt: string | null }[] }).features;
 const launch = new Map(features.map(f => [f.feature, f.launchedAt]));
 
 /** Made-up people per account: a first initial and a surname each. */
@@ -38,9 +38,9 @@ const PEOPLE: Record<string, string[]> = {
 // ---- usage ----------------------------------------------------------------------------------------------------------------
 // A run of n events between two days (the first on `from`, the last on `to`, the rest spread across weekdays between), or an
 // explicit list of days. `who` limits which of the account's people do it (indexes into PEOPLE).
-interface Use { a: string; f: Feature; n?: number; from?: string; to?: string; days?: string[]; who?: number[] }
-const run = (a: string, f: Feature, n: number, from: string, to: string, who?: number[]): Use => ({ a, f, n, from, to, who });
-const on = (a: string, f: Feature, days: string[], who?: number[]): Use => ({ a, f, days, who });
+interface Use { a: string; f: UsageFeature; n?: number; from?: string; to?: string; days?: string[]; who?: number[] }
+const run = (a: string, f: UsageFeature, n: number, from: string, to: string, who?: number[]): Use => ({ a, f, n, from, to, who });
+const on = (a: string, f: UsageFeature, days: string[], who?: number[]): Use => ({ a, f, days, who });
 
 const USES: Use[] = [
   // Signal search: nearly everyone, so there is almost no one to compare them to
@@ -82,7 +82,7 @@ const USES: Use[] = [
 // PostHog sends events this project does not map. They are kept and counted as unmapped.
 const NOISE: { name: string; per: number }[] = [{ name: '$pageview', per: 3 }, { name: 'export_downloaded', per: 2 }];
 // Events from a company group the router does not know, and one with no group at all: stored, counted as unresolved.
-const STRANGERS: { group: string | null; f: Feature; at: string }[] = [
+const STRANGERS: { group: string | null; f: UsageFeature; at: string }[] = [
   { group: 'unlisted-clinic.example', f: 'signal_search', at: '2026-09-03T15:10:00.000Z' },
   { group: 'unlisted-clinic.example', f: 'signal_search', at: '2026-09-03T15:14:00.000Z' },
   { group: 'unlisted-clinic.example', f: 'api', at: '2026-09-04T16:02:00.000Z' },
@@ -156,7 +156,7 @@ const accountOf = (slug: string): CrmMirrorEntry => {
   return m;
 };
 
-const EXTRA: Partial<Record<Feature, (rand: () => number) => Record<string, unknown>>> = {
+const EXTRA: Partial<Record<UsageFeature, (rand: () => number) => Record<string, unknown>>> = {
   signal_search: r => ({ code: ['CPT 27447', 'CPT 29881', 'CPT 99214', 'CPT 70553', 'CPT 45378'][Math.floor(r() * 5)], market: ['GA', 'MI', 'OH', 'TX', 'UT', 'CA'][Math.floor(r() * 6)] }),
   api: r => ({ endpoint: ['/v1/rates', '/v1/providers', '/v1/markets'][Math.floor(r() * 3)] }),
   mcp: r => ({ tool: ['get_negotiated_rates', 'compare_markets', 'find_providers'][Math.floor(r() * 3)] }),

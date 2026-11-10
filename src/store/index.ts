@@ -4,15 +4,19 @@
 import type { Db } from '../db';
 import { accountStore, type AccountStore } from './accounts';
 import { accountViewStore, type AccountViewStore } from './accountViews';
+import { interestStore, type InterestStore } from './interest';
 import { leadStore, type LeadStore } from './leads';
 import { listStore, type ListStore } from './lists';
 import { outboundStore, type OutboundStore } from './outbound';
 import { outboxStore, type OutboxStore } from './outbox';
 import { stageLogStore, type StageLogStore } from './stageLog';
+import { todayStore, type TodayStore } from './today';
 import { usageStore, type UsageStore } from './usage';
 
 export interface Store {
-  leads: LeadStore; accounts: AccountStore; stages: StageLogStore; outbox: OutboxStore; outbound: OutboundStore; usage: UsageStore; lists: ListStore;
+  leads: LeadStore; accounts: AccountStore; stages: StageLogStore; outbox: OutboxStore; outbound: OutboundStore; usage: UsageStore; lists: ListStore; interest: InterestStore;
+  /** reads for the team brief (src/todayBrief.ts) */
+  today: TodayStore;
   /** reads for the accounts API, over the views in sql/models/v_accounts.sql */
   accountViews: AccountViewStore;
 }
@@ -23,7 +27,7 @@ const stores = new WeakMap<Db, Store>();
 export function storeFor(db: Db): Store {
   let s = stores.get(db);
   if (!s) {
-    s = { leads: leadStore(db), accounts: accountStore(db), stages: stageLogStore(db), outbox: outboxStore(db), outbound: outboundStore(db), usage: usageStore(db), lists: listStore(db), accountViews: accountViewStore(db) };
+    s = { leads: leadStore(db), accounts: accountStore(db), stages: stageLogStore(db), outbox: outboxStore(db), outbound: outboundStore(db), usage: usageStore(db), lists: listStore(db), interest: interestStore(db), today: todayStore(db), accountViews: accountViewStore(db) };
     stores.set(db, s);
   }
   return s;

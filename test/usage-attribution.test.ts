@@ -116,7 +116,7 @@ describe('attribution: per feature', () => {
   });
   it('adoption since launch is the accounts using the feature of the accounts active since it launched', () => {
     const ctx = seeded(ASOF);
-    ctx.store.usage.replaceReference([{ feature: 'api', label: 'API', launchedAt: '2026-05-01T00:00:00.000Z', team: 'T', previewOfAddOn: null }], []);
+    ctx.store.usage.replaceReference([{ feature: 'api', label: 'API', status: 'launched', launchedAt: '2026-05-01T00:00:00.000Z', team: 'T', previewOfAddOn: null }], []);
     usage(ctx, ACCT, 'signal_search', '2026-04-30T23:59:59.999Z'); // before launch: not active since launch
     usage(ctx, ACCT, 'api', '2026-04-30T12:00:00.000Z'); // before launch: not counted as adoption
     usage(ctx, OTHER, 'signal_search', '2026-05-01T00:00:00.000Z'); // at launch: active

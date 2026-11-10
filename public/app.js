@@ -1473,6 +1473,30 @@ function featurePipeline() {
     .catch((e) => { $('#featurePipelineBody').innerHTML = `<div class="card ob-empty"><h3>Feature to pipeline is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
   return featurePipelineTab;
 }
+// The Today tab is its own module (today.js), loaded and mounted the first time the tab opens.
+let todayTab = null;
+function today() {
+  todayTab ??= import('./today.js')
+    .then((m) => m.mountToday($('#todayBody'), { getJSON, go: goTo }))
+    .catch((e) => { $('#todayBody').innerHTML = `<div class="card ob-empty"><h3>Today is not available</h3><p>${esc(e.message)}</p></div>`; throw e; });
+  return todayTab;
+}
+/** Opens a review item's card in Needs a person, with its list's group open, and flashes it. */
+function openReviewCard(id) {
+  showTab('review');
+  const card = document.querySelector(`.rcard[data-id="${CSS.escape(id)}"]`);
+  const group = card?.closest('details.rlist');
+  if (group) group.open = true; // a list's rows sit under its collapsed heading
+  if (card) { card.scrollIntoView({ block: 'center' }); card.classList.add('is-flash'); setTimeout(() => card.classList.remove('is-flash'), 1700); }
+}
+/** Opens what a Today row points at, in the tab that holds its detail. */
+function goTo(t) {
+  if (t.tab === 'review') { if (t.leadId) openReviewCard(t.leadId); else showTab('review'); return; }
+  if (t.tab === 'stream' && t.leadId) { state.follow = false; showTab('stream'); select(t.leadId); return; }
+  showTab(t.tab);
+  if (t.tab === 'outbound' && t.ein) outbound().then((o) => o.open(t.ein)).catch(() => {});
+  if (t.tab === 'feature-pipeline' && t.feature) featurePipeline().then((f) => f.select(t.feature)).catch(() => {});
+}
 function showTab(tab) {
   const changed = state.tab !== tab;
   state.tab = tab;
@@ -1488,6 +1512,7 @@ function showTab(tab) {
   if (tab === 'review') renderReview();
   if (tab === 'evals') loadEval();
   if (tab === 'quality') loadQuality();
+  if (tab === 'today') today().then((t) => t.show()).catch(() => {});
   if (tab === 'outbound') outbound().then((t) => t.show()).catch(() => {});
   if (tab === 'feature-pipeline') featurePipeline().then((t) => t.show()).catch(() => {});
 }
@@ -1551,13 +1576,7 @@ function wire() {
     const t = e.target.closest('.tbl-toggle');
     if (t) { state.tableView[t.dataset.card] = !state.tableView[t.dataset.card]; renderOverview(); return; }
     const o = e.target.closest('.fq-open');
-    if (o) {
-      showTab('review');
-      const card = document.querySelector(`.rcard[data-id="${CSS.escape(o.dataset.id)}"]`);
-      const group = card?.closest('details.rlist');
-      if (group) group.open = true; // a list's rows sit under its collapsed heading
-      if (card) { card.scrollIntoView({ block: 'center' }); card.classList.add('is-flash'); setTimeout(() => card.classList.remove('is-flash'), 1700); }
-    }
+    if (o) openReviewCard(o.dataset.id);
   });
 }
 

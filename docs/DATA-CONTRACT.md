@@ -234,7 +234,7 @@ Ties what accounts do in the product to the deals sales works, so "I built this 
 | table | one row per | columns |
 |---|---|---|
 | `usage_events` | PostHog event uuid | `event_id` (primary key; with no uuid, a hash of the name, id and time, never the server's clock), `account_key` (null when the group named no account), `group_key` (as sent), `contact_key` (the router's contact key when `distinct_id` is an email, else null), `feature` (null when the name is not in the taxonomy), `event_name`, `occurred_at`, `received_at`, `synthetic`, `source` (`api` or `fixture`) |
-| `features` | feature | `feature`, `label`, `launched_at`, `team`, `preview_of_add_on` (the add-on a preview feature previews). From `fixtures/usage/features.json`, replaced whole on load |
+| `features` | feature | `feature`, `label`, `status` (`launched` or `preview`), `launched_at` (null exactly when the status is `preview`), `team`, `preview_of_add_on` (the add-on a feature previews). From `fixtures/usage/features.json`, replaced whole on load; a feature with no `status` there is launched |
 | `add_ons` | add-on | `id`, `label`, `price_low`, `price_high` (whole dollars) |
 | `deals` | deal | `id`, `account_key`, `stage`, `amount` (whole dollars), `created_at`, `closed_at`, `outcome` (`won`, `lost`, null while open; set exactly when `closed_at` is), `add_on` (the add-on the deal sells, null for the base product and for seat or renewal deals), `synthetic`, `source` |
 | `usage_fixture` | the loaded fixture | `sha256` of the three fixture files, so an unchanged restart does nothing |
@@ -259,7 +259,7 @@ Ties what accounts do in the product to the deals sales works, so "I built this 
 
 ### API
 
-`GET /api/attribution` (read-only): `loaded`, `status`, `reason` (when not loaded), `asOf`, `model` (`kind`, `windowDays`, `definition`, `caveat`, `smallSample`, `note`), `synthetic` (`events`, `deals`, `allSynthetic`, `note`), `data` (`accounts`; `events` total, mapped, unmapped, unresolved; `deals` total, open, won, lost and influenced, each with count and amount; `unmappedByName`), `features` (per feature: `label`, `team`, `launchedAt`, `daysSinceLaunch`, `accountsUsing`, `events`, `adoption`, `opportunities`, `byOutcome`, `winRate` with `with`, `without` and `small`, `firstUseToOpportunity`, and `deals` with each influenced deal's account, stage, amount, dates and uses in the window) and `expansion` (`rule`, `minUses`, `windowDays`, `signals`).
+`GET /api/attribution` (read-only): `loaded`, `status`, `reason` (when not loaded), `asOf`, `model` (`kind`, `windowDays`, `definition`, `caveat`, `smallSample`, `note`), `synthetic` (`events`, `deals`, `allSynthetic`, `note` for usage and deals, and `interest` with `leads`, `synthetic`, `allSynthetic` and its own `note` for the lead stream), `data` (`accounts`; `events` total, mapped, unmapped, unresolved; `deals` total, open, won, lost and influenced, each with count and amount; `unmappedByName`), `features` (per feature: `label`, `team`, `status`, `launchedAt` and `daysSinceLaunch` (both null for a feature in preview), `interest` and `asked` (section 11), `accountsUsing`, `events`, `adoption`, `opportunities`, `byOutcome`, `winRate` with `with`, `without` and `small`, `firstUseToOpportunity`, and `deals` with each influenced deal's account, stage, amount, dates and uses in the window) and `expansion` (`rule`, `minUses`, `windowDays`, `signals`).
 
 ### Reverse ETL
 
@@ -292,3 +292,23 @@ A door in `LIST_DOORS` (default `event_scan`; `none` for no list doors) carries 
 **API** (read-only, `api/accounts.ts`, `src/accounts.ts`). `GET /api/accounts?limit=50` (1 to 500; anything else is 50): `{ total, accounts }`, ranked enterprise first, then `accountScore`, then `lastActivityAt` (newest first). Each account: `key`, `name`, `segment`, `enterprise`, `enterpriseFact`, `owner` and `ownerSource` (`crm` for a seeded CRM owner, `claim` for a rep who claimed it, else null), `accountScore`, `topTier`, `leads30d`, `contacts30d`, `lastActivityAt`, `referralsIn`, `referralsOut`, `webIntentSignals`, `hasRateFact`, `openReviews`. `GET /api/accounts/<key>` (the key URL-encoded) adds `domain`, `people` (`leadId`, `name`, `title`, `door`, `tier`, `score`, `routeAction`, `owner`, `receivedAt`, newest first, up to 50), `signals` (`kind`, `detail`, `leadId`, `at`, newest first, up to 50), `rateLine` (the line a lead here carried, or null) and `reviews` (open review items: `leadId`, `reason`, `createdAt`); 404 for a key the router does not hold, 405 for any method but GET.
 
 **Dashboard.** `GET /api/dashboard` adds `referrals`: `people` (leads that name a person), `named`, `share` (percent of `people`), `byKind`, `tiers` (`referred` and `others`, by tier), `salesReady` (percent A or B, `referred` and `others`), `webOrUtmReferral` (leads whose channel reads referral from a web referrer or UTM only, with nobody named), `thanksPlanned`, and `referrers` (`key`, `name`, `customer`, `owner`, `kind`, `leads`, `salesReady`, ranked by leads sent, then sales-ready, then name). `GET /api/leads` summaries carry the flags `enterprise` and `referral`, and a lead's detail carries `deal` and `referral`. A list digest marks enterprise rows and lists them first.
+
+## 11. Feature interest and the team brief (`src/interest/`, `src/todayBrief.ts`, migration 009)
+
+**Tags** (DECISIONS #30). `lead_interest`, one row per lead, feature and cue: `lead_id`, `feature` (a key of `src/usage/taxonomy.ts`), `cue` (`message`, `door`, `path` or `guide`) and `evidence` (the phrase in quotes, `<source> door` or `<source> door, product <product>`, `<paths>: <n> visits`, or `guide "<title>"`). Rewritten whenever the lead is committed. `leads.interest_tagged_at` is set when the lead has been looked at, with or without a tag; at start every finished lead without it is looked at. The cues are `FEATURE_CUES` in `src/usage/taxonomy.ts`: `aliases`, `paths`, `doors` (a source, optionally narrowed by an API key's product) and `guides` (HubSpot form ids). Read apart from the stored tags: a person is one contact (the contact key, else the lead), and leads routed `drop`, `careers`, `press` or `competitor_flag` are left out.
+
+**`GET /api/attribution`, per feature** (added to the fields in section 8):
+
+| field | meaning |
+|---|---|
+| `status`, `launchedAt`, `daysSinceLaunch` | `launched`, or `preview` with both dates null |
+| `interest.leads` | people who showed interest (one per contact) |
+| `interest.accounts` | distinct accounts those people belong to (a person the router could not place adds none) |
+| `interest.salesReady` | of them, tier A or B |
+| `interest.byTier` | `A`, `B`, `C`, `D`, `X` and `pending`, by the person's newest lead |
+| `interest.byCue` | people per cue kind; one person can be in several |
+| `interest.sinceLaunch` | people who came in at or after the launch; null for a feature with no launch date |
+| `asked[]` | up to 50 people, newest first: `leadId`, `accountKey`, `accountName`, `owner` (CRM owner, else the claiming rep), `customer`, `person` (`name`, `title`; null for account-level web visits), `door`, `cue` (strongest: message, door, path, guide), `cues`, `evidence`, `quote` (their message cut at 220 characters, only when the cue includes the message), `at` |
+
+**`GET /api/brief?hours=24`** (read-only). `generatedAt`, `window` (`hours`, `from`, `to`; 1 to 720, anything else is 24) and `sections`, an object with the eight keys `needs_person`, `enterprise`, `referrals`, `lists`, `expansion`, `outbound`, `interest`, `health`. Each section: `id`, `title`, `headline` (one sentence), `count`, `figures` (`label`, `value`, `unit` `count` or `ms`, `tab`), `items` (at most 10) and `more` (how many it left out). Each item: `kind`, `title`, `detail`, `tab` (`overview`, `stream`, `review`, `outbound` or `feature-pipeline`) and `ids`, any of `leadId`, `accountKey`, `ein`, `list`, `feature`. `npm run brief` prints it as text and writes `brief.txt` and `brief.json` under the output folder.
+

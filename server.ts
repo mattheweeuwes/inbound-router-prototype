@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import accounts from './api/accounts';
 import attribution from './api/attribution';
+import brief from './api/brief';
 import dashboard from './api/dashboard';
 import demo from './api/demo';
 import evalHandler from './api/eval';
@@ -35,6 +36,7 @@ const routes: [RegExp, Handler][] = [
   [/^\/api\/inbound\/?$/, inbound], [/^\/api\/leads(\/[^/]+)?\/?$/, leads], [/^\/api\/metrics\/?$/, metrics], [/^\/api\/eval\/?$/, evalHandler], [/^\/api\/quality\/?$/, quality],
   [/^\/api\/demo\/(submit|replay)\/?$/, demo], [/^\/api\/stream\/?$/, stream], [/^\/api\/dashboard\/?$/, dashboard], [/^\/api\/outbound(\/[^/]+(\/link)?)?\/?$/, outbound],
   [/^\/api\/usage\/?$/, usage], [/^\/api\/attribution\/?$/, attribution], [/^\/api\/accounts(\/[^/]+)?\/?$/, accounts],
+  [/^\/api\/brief\/?$/, brief],
 ];
 
 async function toWebRequest(req: IncomingMessage, port: number): Promise<Request> {
@@ -98,6 +100,7 @@ export function start(port = getCtx().cfg.port) {
     if (warning) console.warn(warning);
     console.log(`outbound: ${ctx.outbound.message} (${ctx.outbound.status}, ${ctx.outbound.ms} ms)`);
     console.log(`usage: ${ctx.usage.message} (${ctx.usage.status}, ${ctx.usage.ms} ms)`);
+    console.log(`interest: ${ctx.interest.checked} lead(s) checked for feature cues, ${ctx.interest.tagged} tagged (${ctx.interest.ms} ms)`);
     const resumed = resumePending(ctx);
     if (resumed) console.log(`resumed ${resumed} unfinished lead(s)`);
     void warmOllama(ctx).then(ok => console.log(ok ? 'ollama warm' : 'ollama not available (rules only)'));

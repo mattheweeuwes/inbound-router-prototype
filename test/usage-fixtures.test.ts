@@ -72,7 +72,7 @@ describe('usage fixtures: loading', () => {
   it('loads the files through the same adapter as the API, and does nothing on a restart with the same files', () => {
     const appDb = join(scratch, 'restart.sqlite');
     const first = testCtx({ appDb, usageFixtures: FIXTURES });
-    assert.deepEqual([first.usage.status, first.usage.features, first.usage.deals, first.usage.events], ['loaded', 6, 22, 427]);
+    assert.deepEqual([first.usage.status, first.usage.features, first.usage.deals, first.usage.events], ['loaded', 7, 22, 427]);
     const second = testCtx({ appDb, usageFixtures: FIXTURES });
     assert.equal(second.usage.status, 'unchanged');
     assert.equal(second.store.usage.eventTotals().total, 427);
@@ -133,7 +133,7 @@ describe('usage fixtures: the story', () => {
     assert.deepEqual([p.data.events.total, p.data.events.mapped, p.data.events.unmapped, p.data.events.unresolved], [427, 343, 84, 4]);
     assert.deepEqual(p.data.unmappedByName.map((u: { event: string }) => u.event), ['$pageview', 'export_downloaded']);
     assert.equal(p.synthetic.allSynthetic, true);
-    assert.equal(p.features.length, 6);
+    assert.equal(p.features.length, 7, 'six launched features and Signal Ask in preview');
     // nearly every comparison rests on few closed deals, which is the point of showing counts; only the API has five or more on both sides
     assert.deepEqual(p.features.filter((f: any) => !f.winRate.small).map((f: any) => f.feature), ['api']);
     // Signal search was used by nearly everyone, so it is around almost every deal and there is almost nothing to compare it to
