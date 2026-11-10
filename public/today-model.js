@@ -31,11 +31,15 @@ export function sectionsInOrder(/** @type {Brief} */ brief) {
   return SECTION_ORDER.map((id) => brief.sections[id]).filter((s) => !!s);
 }
 
-/** "12 ms", "1.4 s" or "no data": a duration figure as it reads in a tile. */
+/** "12 ms", "1.4 s", "17 min", "2 h 10 min" or "no data": a duration figure as it reads in a tile. */
 export function msWords(/** @type {number | null} */ ms) {
   if (ms === null) return 'no data';
   const whole = Math.round(ms);
-  return whole >= 1000 ? `${(whole / 1000).toFixed(1)} s` : `${whole} ms`;
+  if (whole < 1000) return `${whole} ms`;
+  if (whole < 60_000) return `${(whole / 1000).toFixed(1)} s`;
+  const minutes = Math.floor(whole / 60_000);
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ''}` : `${minutes} min`;
 }
 
 /** A figure's value as it reads in a tile. */

@@ -580,7 +580,7 @@ function renderEval() {
     <div>
       <div class="card"><h3>Accuracy · ${esc(setLabel(cur))}</h3>
         <table class="acc"><thead><tr><th>Field</th>${head}</tr></thead><tbody>${table}</tbody></table>
-        <div class="meta-line">Model ${esc(e.model)} · prompt ${esc(e.promptVersion)} · temperature 0 · latency p50 ${esc(fmtMs(e.latencyMs?.p50))}, p90 ${esc(fmtMs(e.latencyMs?.p90))} · run ${esc(fmtFull(e.generatedAt))}</div>
+        <div class="meta-line">Model ${esc(e.model)} · prompt ${esc(e.promptVersion)} · ${e.effort ? `effort ${esc(e.effort)}` : 'temperature 0'} · latency p50 ${esc(fmtMs(e.latencyMs?.p50))}, p90 ${esc(fmtMs(e.latencyMs?.p90))} · run ${esc(fmtFull(e.generatedAt))}</div>
       </div>
       ${story}
     </div>

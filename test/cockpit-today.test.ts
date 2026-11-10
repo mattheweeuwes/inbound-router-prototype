@@ -93,6 +93,8 @@ describe('cockpit Today: wording and targets', () => {
 
   it('words a duration and a count figure', () => {
     assert.deepEqual([msWords(null), msWords(12), msWords(1400), msWords(999.6)], ['no data', '12 ms', '1.4 s', '1.0 s']);
+    // a wait of minutes or hours reads in minutes and hours, as the section's own sentence does
+    assert.deepEqual([msWords(59_900), msWords(1_070_000), msWords(3_600_000), msWords(7_800_000)], ['59.9 s', '17 min', '1 h', '2 h 10 min']);
     assert.equal(figureValue({ label: 'x', value: 1234, unit: 'count', tab: 'overview' }), '1,234');
     assert.equal(figureValue({ label: 'x', value: 80, unit: 'ms', tab: 'overview' }), '80 ms');
     assert.equal(figureValue({ label: 'x', value: null, unit: 'ms', tab: 'overview' }), 'no data');
