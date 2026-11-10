@@ -120,6 +120,8 @@ describe('cockpit Today: wording and targets', () => {
   it('the exact time is a date and a UTC time, and the line under the title says what the window is', () => {
     assert.deepEqual([stamp('2026-11-10T21:30:00.000Z'), stamp(null)], ['2026-11-10 21:30 UTC', '—']);
     assert.equal(lookbackWords(brief), 'Lead sections look back 24 hours; the rest are shown as they stand.');
+    assert.equal(lookbackWords({ ...brief, window: { ...brief.window, hours: 336 } }), 'Lead sections look back 14 days; the rest are shown as they stand.');
+    assert.equal(lookbackWords({ ...brief, window: { ...brief.window, hours: 36 } }), 'Lead sections look back 36 hours; the rest are shown as they stand.');
   });
 
   it('a time in the brief\'s own words reads as a local time with the UTC time on hover, and nothing else in the text is touched', () => {

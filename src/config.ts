@@ -25,6 +25,7 @@ export function loadEnv(): Record<string, string | undefined> {
 export interface Config {
   root: string;
   host: string; // the interface the local server binds to
+  accessPassword: string | null; // set (ACCESS_PASSWORD) on a copy reachable from outside: every request then needs it (src/access.ts)
   port: number;
   demoRoutes: boolean; // /api/demo/* (send a lead, replay a day) is served only when this is on
   appDb: string;
@@ -56,6 +57,7 @@ export interface Config {
   // other free-text lead is alerted on the rules and gets the same model call afterwards as a second opinion. 'all': the model
   // runs before routing for every free-text lead, as it did before the gate (MODEL_BEFORE_ROUTE=all).
   modelBeforeRoute: 'gated' | 'all';
+  briefWindowHours: number; // how far back the Today tab's lead sections look when the request names no window (BRIEF_WINDOW_HOURS)
   prepareConcurrency: number; // leads whose lookups (adapt, normalize, resolve) run at once; a model call waits in its own slots, not here
   modelConcurrency: number; // model calls in flight at once, before-route calls first; second opinions take a slot only when none waits
   // How long the lead at the head of the commit order may hold leads in other lanes while its own prepared result is not ready
@@ -142,6 +144,7 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
   return {
     root: ROOT,
     host: env.HOST?.trim() || '127.0.0.1', // local only unless HOST says otherwise
+    accessPassword: env.ACCESS_PASSWORD?.trim() || null,
     port: Number(env.PORT ?? 3480),
     demoRoutes: env.DEMO_ROUTES === '1',
     appDb: envPath(env.APP_DB, join(dataDir, 'app.sqlite')),
@@ -170,6 +173,7 @@ export function makeConfig(over: Partial<Config> = {}, env: Record<string, strin
     leadRetryDelayMs: 5_000,
     leadMaxAttempts: 3, // runs at 0 s, 5 s and 15 s
     modelBeforeRoute: env.MODEL_BEFORE_ROUTE === 'all' ? 'all' : 'gated',
+    briefWindowHours: positiveInt(env.BRIEF_WINDOW_HOURS, 24),
     prepareConcurrency: positiveInt(env.PREPARE_CONCURRENCY, 4),
     // one local model on one machine: parallel calls only queue inside Ollama, and its queue counts against the timeout; a hosted model takes several at once
     modelConcurrency: positiveInt(env.MODEL_CONCURRENCY, provider === 'anthropic' ? 4 : 1),

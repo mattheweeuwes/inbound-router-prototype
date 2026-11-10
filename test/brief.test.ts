@@ -126,6 +126,10 @@ describe('the team brief', () => {
     const ctx = await day(['D01']);
     const get = async (q = '') => (await (await briefApi(new Request(`http://local/api/brief${q}`), ctx)).json()) as TodayBrief;
     assert.equal((await get('?hours=48')).window.hours, 48);
+    // with no window named, the server's setting decides (BRIEF_WINDOW_HOURS), and a named window still wins
+    const wide = testCtx({ briefWindowHours: 336 });
+    assert.equal(((await (await briefApi(new Request('http://local/api/brief'), wide)).json()) as TodayBrief).window.hours, 336);
+    assert.equal(((await (await briefApi(new Request('http://local/api/brief?hours=12'), wide)).json()) as TodayBrief).window.hours, 12);
     assert.equal((await get('?hours=abc')).window.hours, 24);
     assert.equal((await get('?hours=0')).window.hours, 24);
     assert.equal((await get('?hours=99999')).window.hours, 720);

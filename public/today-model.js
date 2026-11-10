@@ -145,4 +145,8 @@ export function accountRow(/** @type {Account} */ a) {
 }
 
 /** What the sections look back over: said after "As of <time>.", where the time is printed as a local time with the UTC time on hover. */
-export const lookbackWords = (/** @type {Brief} */ b) => `Lead sections look back ${count(b.window.hours, 'hour')}; the rest are shown as they stand.`;
+export const lookbackWords = (/** @type {Brief} */ b) => {
+  const h = b.window.hours;
+  // a window of whole days longer than one day reads in days: "14 days", not "336 hours"
+  return `Lead sections look back ${h > 24 && h % 24 === 0 ? count(h / 24, 'day') : count(h, 'hour')}; the rest are shown as they stand.`;
+};

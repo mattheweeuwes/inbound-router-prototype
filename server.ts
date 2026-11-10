@@ -19,6 +19,7 @@ import review from './api/review';
 import how from './api/how';
 import stream from './api/stream';
 import usage from './api/usage';
+import { refuseAccess } from './src/access';
 import { getCtx } from './src/context';
 import { warmOllama } from './src/qualify/llm';
 import { resumePending } from './src/pipeline';
@@ -83,6 +84,10 @@ export function start(port = getCtx().cfg.port) {
   const ctx = getCtx();
   const server = createServer(async (req, res) => {
     try {
+      // A copy with a password set answers nothing without it: pages, the API, the webhook doors and the event stream alike.
+      const refusal = refuseAccess(req.headers.authorization, ctx.cfg.accessPassword);
+      if (refusal) { res.writeHead(refusal.status, refusal.headers); return res.end(refusal.body); }
+      if (ctx.cfg.accessPassword) res.setHeader('x-robots-tag', 'noindex, nofollow');
       const pathname = new URL(req.url ?? '/', 'http://x').pathname;
       const route = routes.find(([re]) => re.test(pathname));
       if (route) return await sendWeb(res, await route[1](await toWebRequest(req, port)), req);
@@ -97,7 +102,7 @@ export function start(port = getCtx().cfg.port) {
     }
   });
   server.listen(port, ctx.cfg.host, () => {
-    console.log(`inbound router on http://${ctx.cfg.host}:${port}  demo-routes=${ctx.cfg.demoRoutes ? 'on' : 'off'}  registry=${ctx.registry.kind}  llm=${ctx.cfg.llmProvider}  hubspot=${ctx.cfg.hubspotLive ? 'LIVE' : 'dry-run'}`);
+    console.log(`inbound router on http://${ctx.cfg.host}:${port}  demo-routes=${ctx.cfg.demoRoutes ? 'on' : 'off'}  access=${ctx.cfg.accessPassword ? 'password' : 'open'}  registry=${ctx.registry.kind}  llm=${ctx.cfg.llmProvider}  hubspot=${ctx.cfg.hubspotLive ? 'LIVE' : 'dry-run'}`);
     const warning = signedDoorWarning(ctx.cfg);
     if (warning) console.warn(warning);
     console.log(`outbound: ${ctx.outbound.message} (${ctx.outbound.status}, ${ctx.outbound.ms} ms)`);
