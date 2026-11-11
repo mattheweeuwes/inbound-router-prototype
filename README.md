@@ -1,12 +1,12 @@
 # Inbound router
 
-A work sample for Serif Health's GTM Engineer role, by Matthew Eeuwes. It is a prototype, not a Serif product. The cockpit follows the look of Serif's public site (its colors and the Sora typeface), and it carries no Serif logo.
+This is a work sample for Serif Health's GTM Engineer role, by Matthew Eeuwes. It's a prototype, not associated or endorsed by Serif Health. I took aesthetic inspiration from Serif's website. 
 
 Every inbound lead is resolved to a real healthcare entity on a stable ID, scored, routed and alerted within seconds, and anything uncertain goes to a person. It covers eight inbound doors (demo booking, gated guides, early-access waitlist, sample signup, marketplace listings, API/MCP keys, conference scans, web intent), resolves organizations from free public data (CMS, AHRQ, NPPES), and builds the exact HubSpot and Slack requests. Nothing is sent by default; with a HubSpot service key and `HUBSPOT_LIVE=1` it writes to HubSpot, and it has run that way against a developer test portal.
 
 ## Run it
 
-Needs Node 22 (uses `node:sqlite`). The model slot takes the best model it can reach: Claude Sonnet 5.5 at low effort when `ANTHROPIC_API_KEY` is in `.env` (about half a cent a call), else Ollama with `llama3.2:3b` on `127.0.0.1:11434`, else the rules classifier carries every lead. `LLM_PROVIDER` pins one (`anthropic`, `ollama` or `rules`). CI, the unit tests and `npm run day` never call a model.
+Needs Node 22 (uses `node:sqlite`). The model slot takes the best model it can reach: Claude Sonnet 5.5 at low effort when `ANTHROPIC_API_KEY` is in `.env` (about half a cent a call), else Ollama with `llama3.2:3b` on `127.0.0.1:11434`, else the rules classifier carries every lead. `LLM_PROVIDER` pins one (`anthropic`, `ollama` or `rules`). CI, the unit tests and `npm run day` never call a model. The Ollama model is one that is locally hosted on my hardware that I've used in the past but obviously is not something I would actually use for a serious task such as this where data is the product. This is merely from a structural design set up standpoint, and I would only swap a backup model that is frontier and has been thoroughly tested as accurate before deploying. 
 
 How each finding here was reached, test by test, is in `docs/TESTING-LOG.md`.
 
