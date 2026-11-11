@@ -79,6 +79,13 @@ The eval with a model in the loop is not in CI. It needs the local model, or a k
 - **Changed.** A refused contact no longer costs the task (decision 42).
 - **Record.** This entry and the test in `test/crm.test.ts`. I took the check leads out of the demo database afterwards. Their records are still in the test portal.
 
+### 9. Can a reviewer use it without cloning it? (Nov 10)
+
+- **How.** One copy behind a tunnel at `gtm.mattheweeuwes.com`, with a password on every request. I checked the gate on the machine with and without the password, then from outside without it.
+- **Found.** Without the password every page, API route, webhook door and the event stream answers 401 and asks for it. With it the copy works as the local one does. From outside, the first request was sent elsewhere by a redirect rule on the domain that is older than this copy, and a request over plain http was answered over plain http.
+- **Changed.** The domain's rule now leaves this name alone, and the server sends a plain-http request to https before it asks for the password (decision 43).
+- **Record.** This entry and `test/access.test.ts`. The check from outside with the password is done by hand, because the password is not in this repository.
+
 ## What these tests do not show
 
 - Every person, lead, deal and usage event is invented. No result here is a result on Serif's traffic.

@@ -19,7 +19,7 @@ import review from './api/review';
 import how from './api/how';
 import stream from './api/stream';
 import usage from './api/usage';
-import { refuseAccess } from './src/access';
+import { httpsRedirect, refuseAccess } from './src/access';
 import { getCtx } from './src/context';
 import { warmOllama } from './src/qualify/llm';
 import { resumePending } from './src/pipeline';
@@ -85,6 +85,8 @@ export function start(port = getCtx().cfg.port) {
   const server = createServer(async (req, res) => {
     try {
       // A copy with a password set answers nothing without it: pages, the API, the webhook doors and the event stream alike.
+      const secure = httpsRedirect(String(req.headers['x-forwarded-proto'] ?? ''), req.headers.host, req.url, ctx.cfg.accessPassword);
+      if (secure) { res.writeHead(308, { location: secure, 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' }); return res.end(); }
       const refusal = refuseAccess(req.headers.authorization, ctx.cfg.accessPassword);
       if (refusal) { res.writeHead(refusal.status, refusal.headers); return res.end(refusal.body); }
       if (ctx.cfg.accessPassword) res.setHeader('x-robots-tag', 'noindex, nofollow');

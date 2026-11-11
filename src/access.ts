@@ -10,6 +10,16 @@ export interface AccessRefusal { status: 401; headers: Record<string, string>; b
 
 const digest = (s: string) => createHash('sha256').update(s, 'utf8').digest();
 
+/**
+ * Where to send a request that reached a password-protected copy over plain http, or null. Behind a tunnel or a proxy the first hop
+ * says how the visitor connected (X-Forwarded-Proto); such a request is sent to https before the password is asked for, so the
+ * password never travels in the clear. A direct local request carries no such header and is left alone.
+ */
+export function httpsRedirect(forwardedProto: string | undefined, host: string | undefined, url: string | undefined, password: string | null): string | null {
+  if (!password || !host) return null;
+  return (forwardedProto ?? '').split(',')[0].trim().toLowerCase() === 'http' ? `https://${host}${url ?? '/'}` : null;
+}
+
 /** The password in an Authorization header, or null when the header is not a readable Basic credential. Any user name is accepted. */
 export function passwordFrom(authorization: string | undefined): string | null {
   const m = /^Basic\s+([A-Za-z0-9+/=]+)\s*$/i.exec(authorization ?? '');
